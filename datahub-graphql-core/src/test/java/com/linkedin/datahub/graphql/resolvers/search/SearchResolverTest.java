@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.resolvers.search;
 import com.datahub.authentication.Authentication;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.EntityType;
+import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.SearchFlags;
 import com.linkedin.datahub.graphql.generated.SearchInput;
 import com.linkedin.entity.client.EntityClient;
@@ -15,6 +16,9 @@ import com.linkedin.metadata.search.SearchResultMetadata;
 import graphql.schema.DataFetchingEnvironment;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
+
+import java.util.LinkedList;
+import java.util.List;
 
 import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
 
@@ -30,6 +34,7 @@ public class SearchResolverTest {
                 "",
                 0,
                 10,
+                setDefaultFilter(),
                 null,
                 null,
                 null
@@ -75,6 +80,7 @@ public class SearchResolverTest {
                 "",
                 1,
                 11,
+                setDefaultFilter(),
                 null,
                 null,
                 inputSearchFlags
@@ -108,11 +114,12 @@ public class SearchResolverTest {
         EntityClient mockClient = initMockSearchEntityClient();
         final SearchResolver resolver = new SearchResolver(mockClient);
 
-        final SearchInput testInput = new SearchInput(
+         final SearchInput testInput = new SearchInput(
                 EntityType.DATASET,
                 "not a wildcard",
                 0,
                 10,
+                setDefaultFilter(),
                 null,
                 null,
                 null
@@ -128,7 +135,7 @@ public class SearchResolverTest {
                 mockClient,
                 Constants.DATASET_ENTITY_NAME, // Verify that merged entity types were used.
                 "not a wildcard",
-                null, // Verify that view filter was used.
+                (Filter) null, // Verify that view filter was used.
                 null,
                 0,
                 10,
@@ -146,7 +153,7 @@ public class SearchResolverTest {
         Mockito.when(client.search(
                 Mockito.anyString(),
                 Mockito.anyString(),
-                Mockito.any(),
+                Mockito.any(Filter.class),
                 Mockito.any(),
                 Mockito.anyInt(),
                 Mockito.anyInt(),
@@ -176,7 +183,7 @@ public class SearchResolverTest {
         Mockito.verify(mockClient, Mockito.times(1)).search(
                 Mockito.eq(entityName),
                 Mockito.eq(query),
-                Mockito.eq(filter),
+                Mockito.any(Filter.class),
                 Mockito.eq(sortCriterion),
                 Mockito.eq(start),
                 Mockito.eq(limit),
@@ -186,5 +193,13 @@ public class SearchResolverTest {
     }
 
     private SearchResolverTest() {
+    }
+
+    private List<FacetFilterInput> setDefaultFilter() {
+        List<FacetFilterInput> filters = new LinkedList<>();
+        FacetFilterInput facetFilterInput = new FacetFilterInput();
+        facetFilterInput.setField("");
+        filters.add(facetFilterInput);
+        return filters;
     }
 }
