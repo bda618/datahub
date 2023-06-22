@@ -6,9 +6,9 @@ import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Ent
 import { ChartPreview } from './preview/ChartPreview';
 import { GetChartQuery, useGetChartQuery, useUpdateChartMutation } from '../../../graphql/chart.generated';
 import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
-import { SidebarAboutSection } from '../shared/containers/profile/sidebar/SidebarAboutSection';
+import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
 import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
-import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/SidebarOwnerSection';
+import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
 import { GenericEntityProperties } from '../shared/types';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
@@ -21,6 +21,10 @@ import { ChartStatsSummarySubHeader } from './profile/stats/ChartStatsSummarySub
 import { InputFieldsTab } from '../shared/tabs/Entity/InputFieldsTab';
 import { ChartSnippet } from './ChartSnippet';
 import { EmbedTab } from '../shared/tabs/Embed/EmbedTab';
+import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
+import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
+import { getDataProduct } from '../shared/utils';
+import EmbeddedProfile from '../shared/embed/EmbeddedProfile';
 
 /**
  * Definition of the DataHub Chart entity.
@@ -28,13 +32,13 @@ import { EmbedTab } from '../shared/tabs/Embed/EmbedTab';
 export class ChartEntity implements Entity<Chart> {
     type: EntityType = EntityType.Chart;
 
-    icon = (fontSize: number, styleType: IconStyleType) => {
+    icon = (fontSize: number, styleType: IconStyleType, color?: string) => {
         if (styleType === IconStyleType.TAB_VIEW) {
-            return <LineChartOutlined style={{ fontSize }} />;
+            return <LineChartOutlined style={{ fontSize, color }} />;
         }
 
         if (styleType === IconStyleType.HIGHLIGHT) {
-            return <LineChartOutlined style={{ fontSize, color: 'rgb(144 163 236)' }} />;
+            return <LineChartOutlined style={{ fontSize, color: color || 'rgb(144 163 236)' }} />;
         }
 
         if (styleType === IconStyleType.SVG) {
@@ -47,7 +51,7 @@ export class ChartEntity implements Entity<Chart> {
             <LineChartOutlined
                 style={{
                     fontSize,
-                    color: '#BFBFBF',
+                    color: color || '#BFBFBF',
                 }}
             />
         );
@@ -136,6 +140,9 @@ export class ChartEntity implements Entity<Chart> {
                 {
                     component: SidebarDomainSection,
                 },
+                {
+                    component: DataProductSection,
+                },
             ]}
         />
     );
@@ -151,10 +158,11 @@ export class ChartEntity implements Entity<Chart> {
     };
 
     renderPreview = (_: PreviewType, data: Chart) => {
+        const genericProperties = this.getGenericEntityProperties(data);
         return (
             <ChartPreview
                 urn={data.urn}
-                platform={data.platform.properties?.displayName || data.platform.name}
+                platform={data?.platform?.properties?.displayName || capitalizeFirstLetterOnly(data?.platform?.name)}
                 name={data.properties?.name}
                 description={data.editableProperties?.description || data.properties?.description}
                 access={data.properties?.access}
@@ -163,6 +171,7 @@ export class ChartEntity implements Entity<Chart> {
                 glossaryTerms={data?.glossaryTerms}
                 logoUrl={data?.platform?.properties?.logoUrl}
                 domain={data.domain?.domain}
+                dataProduct={getDataProduct(genericProperties?.dataProduct)}
                 parentContainers={data.parentContainers}
             />
         );
@@ -170,10 +179,11 @@ export class ChartEntity implements Entity<Chart> {
 
     renderSearch = (result: SearchResult) => {
         const data = result.entity as Chart;
+        const genericProperties = this.getGenericEntityProperties(data);
         return (
             <ChartPreview
                 urn={data.urn}
-                platform={data.platform.properties?.displayName || data.platform.name}
+                platform={data?.platform?.properties?.displayName || capitalizeFirstLetterOnly(data?.platform?.name)}
                 platformInstanceId={data.dataPlatformInstance?.instanceId}
                 name={data.properties?.name}
                 description={data.editableProperties?.description || data.properties?.description}
@@ -184,6 +194,7 @@ export class ChartEntity implements Entity<Chart> {
                 insights={result.insights}
                 logoUrl={data?.platform?.properties?.logoUrl || ''}
                 domain={data.domain?.domain}
+                dataProduct={getDataProduct(genericProperties?.dataProduct)}
                 deprecation={data.deprecation}
                 statsSummary={data.statsSummary}
                 lastUpdatedMs={data.properties?.lastModified?.time}
@@ -197,9 +208,9 @@ export class ChartEntity implements Entity<Chart> {
     getLineageVizConfig = (entity: Chart) => {
         return {
             urn: entity.urn,
-            name: entity.properties?.name || '',
+            name: entity.properties?.name || entity.urn,
             type: EntityType.Chart,
-            icon: entity?.platform?.properties?.logoUrl || '',
+            icon: entity?.platform?.properties?.logoUrl || undefined,
             platform: entity?.platform,
         };
     };
@@ -224,6 +235,16 @@ export class ChartEntity implements Entity<Chart> {
             EntityCapabilityType.DOMAINS,
             EntityCapabilityType.DEPRECATION,
             EntityCapabilityType.SOFT_DELETE,
+            EntityCapabilityType.DATA_PRODUCTS,
         ]);
     };
+
+    renderEmbeddedProfile = (urn: string) => (
+        <EmbeddedProfile
+            urn={urn}
+            entityType={EntityType.Chart}
+            useEntityQuery={useGetChartQuery}
+            getOverrideProperties={this.getOverridePropertiesFromEntity}
+        />
+    );
 }

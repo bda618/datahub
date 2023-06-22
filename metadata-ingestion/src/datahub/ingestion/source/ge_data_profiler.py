@@ -34,6 +34,7 @@ from great_expectations.data_context.types.base import (
     datasourceConfigSchema,
 )
 from great_expectations.dataset.dataset import Dataset
+from great_expectations.dataset.sqlalchemy_dataset import SqlAlchemyDataset
 from great_expectations.datasource.sqlalchemy_datasource import SqlAlchemyDatasource
 from great_expectations.profile.base import ProfilerDataType
 from great_expectations.profile.basic_dataset_profiler import BasicDatasetProfilerBase
@@ -110,7 +111,7 @@ class GEProfilerRequest:
     batch_kwargs: dict
 
 
-def get_column_unique_count_patch(self, column):
+def get_column_unique_count_patch(self: SqlAlchemyDataset, column: str) -> int:
     if self.engine.dialect.name.lower() == "redshift":
         element_values = self.engine.execute(
             sa.select(
@@ -118,15 +119,22 @@ def get_column_unique_count_patch(self, column):
             ).select_from(self._table)
         )
         return convert_to_json_serializable(element_values.fetchone()[0])
-    elif self.engine.dialect.name.lower() in {"bigquery", "snowflake"}:
+    elif self.engine.dialect.name.lower() == "bigquery":
         element_values = self.engine.execute(
             sa.select(
                 [
                     sa.text(  # type:ignore
-                        f'APPROX_COUNT_DISTINCT("{sa.column(column)}")'
+                        f"APPROX_COUNT_DISTINCT(`{column}`)"
                     )
                 ]
             ).select_from(self._table)
+        )
+        return convert_to_json_serializable(element_values.fetchone()[0])
+    elif self.engine.dialect.name.lower() == "snowflake":
+        element_values = self.engine.execute(
+            sa.select(sa.func.APPROX_COUNT_DISTINCT(sa.column(column))).select_from(
+                self._table
+            )
         )
         return convert_to_json_serializable(element_values.fetchone()[0])
     return convert_to_json_serializable(
@@ -251,7 +259,7 @@ class _SingleColumnSpec:
 
 @dataclasses.dataclass
 class _SingleDatasetProfiler(BasicDatasetProfilerBase):
-    dataset: Dataset
+    dataset: SqlAlchemyDataset
     dataset_name: str
     partition: Optional[str]
     config: GEProfilingConfig
@@ -334,7 +342,24 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
 
     @_run_with_query_combiner
     def _get_dataset_rows(self, dataset_profile: DatasetProfileClass) -> None:
-        dataset_profile.rowCount = self.dataset.get_row_count()
+        if (
+            self.config.profile_table_row_count_estimate_only
+            and self.dataset.engine.dialect.name.lower() == "postgresql"
+        ):
+            schema_name = self.dataset_name.split(".")[1]
+            table_name = self.dataset_name.split(".")[2]
+            logger.debug(
+                f"Getting estimated rowcounts for table:{self.dataset_name}, schema:{schema_name}, table:{table_name}"
+            )
+            dataset_profile.rowCount = int(
+                self.dataset.engine.execute(
+                    sa.text(
+                        f"SELECT c.reltuples AS estimate FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE  c.relname = '{table_name}' AND n.nspname = '{schema_name}'"
+                    )
+                ).scalar()
+            )
+        else:
+            dataset_profile.rowCount = self.dataset.get_row_count()
 
     @_run_with_query_combiner
     def _get_dataset_column_min(
@@ -364,7 +389,16 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
         if not self.config.include_field_median_value:
             return
         try:
-            column_profile.median = str(self.dataset.get_column_median(column))
+            if self.dataset.engine.dialect.name.lower() == "snowflake":
+                column_profile.median = str(
+                    self.dataset.engine.execute(
+                        sa.select([sa.func.median(sa.column(column))]).select_from(
+                            self.dataset._table
+                        )
+                    ).scalar()
+                )
+            else:
+                column_profile.median = str(self.dataset.get_column_median(column))
         except Exception as e:
             logger.debug(
                 f"Caught exception while attempting to get column median for column {column}. {e}"
@@ -746,7 +780,18 @@ class DatahubGEProfiler:
         platform: Optional[str] = None,
         profiler_args: Optional[Dict] = None,
     ) -> Iterable[Tuple[GEProfilerRequest, Optional[DatasetProfileClass]]]:
-        with PerfTimer() as timer, concurrent.futures.ThreadPoolExecutor(
+        max_workers = min(max_workers, len(requests))
+        logger.info(
+            f"Will profile {len(requests)} table(s) with {max_workers} worker(s) - this may take a while"
+        )
+
+        with PerfTimer() as timer, unittest.mock.patch(
+            "great_expectations.dataset.sqlalchemy_dataset.SqlAlchemyDataset.get_column_unique_count",
+            get_column_unique_count_patch,
+        ), unittest.mock.patch(
+            "great_expectations.dataset.sqlalchemy_dataset.SqlAlchemyDataset._get_column_quantiles_bigquery",
+            _get_column_quantiles_bigquery_patch,
+        ), concurrent.futures.ThreadPoolExecutor(
             max_workers=max_workers
         ) as async_executor, SQLAlchemyQueryCombiner(
             enabled=self.config.query_combiner_enabled,
@@ -754,70 +799,58 @@ class DatahubGEProfiler:
             is_single_row_query_method=_is_single_row_query_method,
             serial_execution_fallback_enabled=True,
         ).activate() as query_combiner:
-            max_workers = min(max_workers, len(requests))
-            logger.info(
-                f"Will profile {len(requests)} table(s) with {max_workers} worker(s) - this may take a while"
+            # Submit the profiling requests to the thread pool executor.
+            async_profiles = collections.deque(
+                async_executor.submit(
+                    self._generate_profile_from_request,
+                    query_combiner,
+                    request,
+                    platform=platform,
+                    profiler_args=profiler_args,
+                )
+                for request in requests
             )
-            with unittest.mock.patch(
-                "great_expectations.dataset.sqlalchemy_dataset.SqlAlchemyDataset.get_column_unique_count",
-                get_column_unique_count_patch,
-            ):
-                with unittest.mock.patch(
-                    "great_expectations.dataset.sqlalchemy_dataset.SqlAlchemyDataset._get_column_quantiles_bigquery",
-                    _get_column_quantiles_bigquery_patch,
-                ):
-                    async_profiles = collections.deque(
-                        async_executor.submit(
-                            self._generate_profile_from_request,
-                            query_combiner,
-                            request,
-                            platform=platform,
-                            profiler_args=profiler_args,
-                        )
-                        for request in requests
-                    )
 
-                    # Avoid using as_completed so that the results are yielded in the
-                    # same order as the requests.
-                    # for async_profile in concurrent.futures.as_completed(async_profiles):
-                    while len(async_profiles) > 0:
-                        async_profile = async_profiles.popleft()
-                        yield async_profile.result()
+            # Avoid using as_completed so that the results are yielded in the
+            # same order as the requests.
+            # for async_profile in concurrent.futures.as_completed(async_profiles):
+            while len(async_profiles) > 0:
+                async_profile = async_profiles.popleft()
+                yield async_profile.result()
 
-                    total_time_taken = timer.elapsed_seconds()
+        total_time_taken = timer.elapsed_seconds()
+        logger.info(
+            f"Profiling {len(requests)} table(s) finished in {total_time_taken:.3f} seconds"
+        )
 
-                    logger.info(
-                        f"Profiling {len(requests)} table(s) finished in {total_time_taken:.3f} seconds"
-                    )
+        time_percentiles: Dict[str, float] = {}
 
-                    time_percentiles: Dict[str, float] = {}
+        if len(self.times_taken) > 0:
+            percentiles = [50, 75, 95, 99]
+            percentile_values = stats.calculate_percentiles(
+                self.times_taken, percentiles
+            )
 
-                    if len(self.times_taken) > 0:
-                        percentiles = [50, 75, 95, 99]
-                        percentile_values = stats.calculate_percentiles(
-                            self.times_taken, percentiles
-                        )
+            time_percentiles = {
+                f"table_time_taken_p{percentile}": stats.discretize(
+                    percentile_values[percentile]
+                )
+                for percentile in percentiles
+            }
 
-                        time_percentiles = {
-                            f"table_time_taken_p{percentile}": stats.discretize(
-                                percentile_values[percentile]
-                            )
-                            for percentile in percentiles
-                        }
+        telemetry.telemetry_instance.ping(
+            "sql_profiling_summary",
+            # bucket by taking floor of log of time taken
+            {
+                "total_time_taken": stats.discretize(total_time_taken),
+                "count": stats.discretize(len(self.times_taken)),
+                "total_row_count": stats.discretize(self.total_row_count),
+                "platform": self.platform,
+                **time_percentiles,
+            },
+        )
 
-                    telemetry.telemetry_instance.ping(
-                        "sql_profiling_summary",
-                        # bucket by taking floor of log of time taken
-                        {
-                            "total_time_taken": stats.discretize(total_time_taken),
-                            "count": stats.discretize(len(self.times_taken)),
-                            "total_row_count": stats.discretize(self.total_row_count),
-                            "platform": self.platform,
-                            **time_percentiles,
-                        },
-                    )
-
-                    self.report.report_from_query_combiner(query_combiner.report)
+        self.report.report_from_query_combiner(query_combiner.report)
 
     def _generate_profile_from_request(
         self,

@@ -1,19 +1,10 @@
 import React from 'react';
 import { Pagination, Typography } from 'antd';
-import styled from 'styled-components';
+import styled from 'styled-components/macro';
 import { Message } from '../shared/Message';
-import {
-    Entity,
-    EntityType,
-    FacetFilterInput,
-    FacetMetadata,
-    MatchedField,
-    SearchAcrossEntitiesInput,
-} from '../../types.generated';
+import { Entity, FacetFilterInput, FacetMetadata, MatchedField } from '../../types.generated';
 import { SearchCfg } from '../../conf';
 import { SearchResultsRecommendations } from './SearchResultsRecommendations';
-import { useGetAuthenticatedUser } from '../useGetAuthenticatedUser';
-import { SearchResultsInterface } from '../entity/shared/components/styled/search/types';
 import SearchExtendedMenu from '../entity/shared/components/styled/search/SearchExtendedMenu';
 import { combineSiblingsInSearchResults } from '../entity/shared/siblingUtils';
 import { SearchSelectBar } from '../entity/shared/components/styled/search/SearchSelectBar';
@@ -26,17 +17,47 @@ import { UnionType } from './utils/constants';
 import { SearchFiltersSection } from './SearchFiltersSection';
 import { generateOrFilters } from './utils/generateOrFilters';
 import { SEARCH_RESULTS_FILTERS_ID } from '../onboarding/config/SearchOnboardingConfig';
+import { useUserContext } from '../context/useUserContext';
+import { DownloadSearchResults, DownloadSearchResultsInput } from './utils/types';
+import BrowseSidebar from './sidebar';
+import ToggleSidebarButton from './ToggleSidebarButton';
+import { SidebarProvider } from './sidebar/SidebarContext';
+import { BrowseProvider } from './sidebar/BrowseContext';
+import analytics from '../analytics/analytics';
+import useToggle from '../shared/useToggle';
+import { EventType } from '../analytics';
+import { useIsBrowseV2, useIsSearchV2 } from './useSearchAndBrowseVersion';
+
+const SearchResultsWrapper = styled.div<{ showUpdatedStyles: boolean }>`
+    display: flex;
+    flex: 1;
+
+    ${(props) =>
+        props.showUpdatedStyles &&
+        `
+        overflow: hidden;
+    `}
+`;
 
 const SearchBody = styled.div`
     display: flex;
     flex-direction: row;
-    min-height: calc(100vh - 60px);
+    min-height: 100%;
+    flex: 1;
+    overflow: auto;
 `;
 
-const ResultContainer = styled.div`
+const ResultContainer = styled.div<{ displayUpdatedStyles: boolean }>`
     flex: 1;
-    margin-bottom: 20px;
-    max-width: calc(100% - 260px);
+    overflow: auto;
+    ${(props) =>
+        props.displayUpdatedStyles
+            ? `
+        background-color: #F8F9FA;
+    `
+            : `
+        max-width: calc(100% - 260px);
+    `}
 `;
 
 const PaginationControlContainer = styled.div`
@@ -46,7 +67,7 @@ const PaginationControlContainer = styled.div`
 `;
 
 const PaginationInfoContainer = styled.div`
-    padding-left: 32px;
+    padding-left: 24px;
     padding-right: 32px;
     height: 47px;
     border-bottom: 1px solid;
@@ -54,6 +75,12 @@ const PaginationInfoContainer = styled.div`
     display: flex;
     justify-content: space-between;
     align-items: center;
+`;
+
+const LeftControlsContainer = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 12px;
 `;
 
 const SearchResultsRecommendationsContainer = styled.div`
@@ -70,6 +97,7 @@ const SearchMenuContainer = styled.div``;
 interface Props {
     unionType?: UnionType;
     query: string;
+    viewUrn?: string;
     page: number;
     searchResponse?: {
         start: number;
@@ -80,18 +108,14 @@ interface Props {
             matchedFields: MatchedField[];
         }[];
     } | null;
-    filters?: Array<FacetMetadata> | null;
+    facets?: Array<FacetMetadata> | null;
     selectedFilters: Array<FacetFilterInput>;
     loading: boolean;
     error: any;
     onChangeFilters: (filters: Array<FacetFilterInput>) => void;
     onChangeUnionType: (unionType: UnionType) => void;
     onChangePage: (page: number) => void;
-    callSearchOnVariables: (variables: {
-        input: SearchAcrossEntitiesInput;
-    }) => Promise<SearchResultsInterface | null | undefined>;
-    entityFilters: EntityType[];
-    filtersWithoutEntities: FacetFilterInput[];
+    downloadSearchResults: (input: DownloadSearchResultsInput) => Promise<DownloadSearchResults | null | undefined>;
     numResultsPerPage: number;
     setNumResultsPerPage: (numResults: number) => void;
     isSelectMode: boolean;
@@ -105,18 +129,17 @@ interface Props {
 export const SearchResults = ({
     unionType = UnionType.AND,
     query,
+    viewUrn,
     page,
     searchResponse,
-    filters,
+    facets,
     selectedFilters,
     loading,
     error,
     onChangeUnionType,
     onChangeFilters,
     onChangePage,
-    callSearchOnVariables,
-    entityFilters,
-    filtersWithoutEntities,
+    downloadSearchResults,
     numResultsPerPage,
     setNumResultsPerPage,
     isSelectMode,
@@ -126,34 +149,55 @@ export const SearchResults = ({
     onChangeSelectAll,
     refetch,
 }: Props) => {
+    const showSearchFiltersV2 = useIsSearchV2();
+    const showBrowseV2 = useIsBrowseV2();
     const pageStart = searchResponse?.start || 0;
     const pageSize = searchResponse?.count || 0;
     const totalResults = searchResponse?.total || 0;
     const lastResultIndex = pageStart + pageSize > totalResults ? totalResults : pageStart + pageSize;
-    const authenticatedUserUrn = useGetAuthenticatedUser()?.corpUser?.urn;
+    const authenticatedUserUrn = useUserContext().user?.urn;
     const combinedSiblingSearchResults = combineSiblingsInSearchResults(searchResponse?.searchResults);
 
     const searchResultUrns = combinedSiblingSearchResults.map((result) => result.entity.urn) || [];
     const selectedEntityUrns = selectedEntities.map((entity) => entity.urn);
 
+    const { isOpen: isSidebarOpen, toggle: toggleSidebar } = useToggle({
+        initialValue: true,
+        onToggle: (isNowOpen: boolean) =>
+            analytics.event({
+                type: EventType.BrowseV2ToggleSidebarEvent,
+                action: isNowOpen ? 'open' : 'close',
+            }),
+    });
+
     return (
         <>
             {loading && <Message type="loading" content="Loading..." style={{ marginTop: '10%' }} />}
-            <div>
+            <SearchResultsWrapper showUpdatedStyles={showSearchFiltersV2}>
                 <SearchBody>
-                    <div id={SEARCH_RESULTS_FILTERS_ID}>
-                        <SearchFiltersSection
-                            filters={filters}
-                            selectedFilters={selectedFilters}
-                            unionType={unionType}
-                            loading={loading}
-                            onChangeFilters={onChangeFilters}
-                            onChangeUnionType={onChangeUnionType}
-                        />
-                    </div>
-                    <ResultContainer>
+                    {!showSearchFiltersV2 && (
+                        <div id={SEARCH_RESULTS_FILTERS_ID} data-testid="search-filters-v1">
+                            <SearchFiltersSection
+                                filters={facets}
+                                selectedFilters={selectedFilters}
+                                unionType={unionType}
+                                loading={loading}
+                                onChangeFilters={onChangeFilters}
+                                onChangeUnionType={onChangeUnionType}
+                            />
+                        </div>
+                    )}
+                    {showBrowseV2 && (
+                        <SidebarProvider selectedFilters={selectedFilters} onChangeFilters={onChangeFilters}>
+                            <BrowseProvider>
+                                <BrowseSidebar visible={isSidebarOpen} width={360} />
+                            </BrowseProvider>
+                        </SidebarProvider>
+                    )}
+                    <ResultContainer displayUpdatedStyles={showSearchFiltersV2}>
                         <PaginationInfoContainer>
-                            <>
+                            <LeftControlsContainer>
+                                {showBrowseV2 && <ToggleSidebarButton isOpen={isSidebarOpen} onClick={toggleSidebar} />}
                                 <Typography.Text>
                                     Showing{' '}
                                     <b>
@@ -161,16 +205,17 @@ export const SearchResults = ({
                                     </b>{' '}
                                     of <b>{totalResults}</b> results
                                 </Typography.Text>
-                                <SearchMenuContainer>
-                                    <SearchExtendedMenu
-                                        callSearchOnVariables={callSearchOnVariables}
-                                        entityFilters={entityFilters}
-                                        filters={generateOrFilters(unionType, filtersWithoutEntities)}
-                                        query={query}
-                                        setShowSelectMode={setIsSelectMode}
-                                    />
-                                </SearchMenuContainer>
-                            </>
+                            </LeftControlsContainer>
+                            <SearchMenuContainer>
+                                <SearchExtendedMenu
+                                    downloadSearchResults={downloadSearchResults}
+                                    filters={generateOrFilters(unionType, selectedFilters)}
+                                    query={query}
+                                    viewUrn={viewUrn}
+                                    setShowSelectMode={setIsSelectMode}
+                                    totalResults={totalResults}
+                                />
+                            </SearchMenuContainer>
                         </PaginationInfoContainer>
                         {isSelectMode && (
                             <StyledTabToolbar>
@@ -222,7 +267,7 @@ export const SearchResults = ({
                             ))}
                     </ResultContainer>
                 </SearchBody>
-            </div>
+            </SearchResultsWrapper>
         </>
     );
 };

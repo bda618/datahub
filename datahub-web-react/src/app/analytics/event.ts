@@ -1,5 +1,7 @@
 import { DataHubViewType, EntityType, RecommendationRenderType, ScenarioType } from '../../types.generated';
+import { EmbedLookupNotFoundReason } from '../embed/lookup/constants';
 import { Direction } from '../lineage/types';
+import { FilterMode } from '../search/utils/constants';
 
 /**
  * Valid event types.
@@ -14,8 +16,13 @@ export enum EventType {
     SearchResultsViewEvent,
     SearchResultClickEvent,
     EntitySearchResultClickEvent,
+    SearchFiltersClearAllEvent,
+    SearchFiltersShowMoreEvent,
     BrowseResultClickEvent,
     HomePageBrowseResultClickEvent,
+    BrowseV2ToggleSidebarEvent,
+    BrowseV2ToggleNodeEvent,
+    BrowseV2SelectNodeEvent,
     EntityViewEvent,
     EntitySectionViewEvent,
     EntityActionEvent,
@@ -24,6 +31,8 @@ export enum EventType {
     RecommendationClickEvent,
     HomePageRecommendationClickEvent,
     HomePageExploreAllClickEvent,
+    SearchBarExploreAllClickEvent,
+    SearchResultsExploreAllClickEvent,
     SearchAcrossLineageEvent,
     SearchAcrossLineageResultsViewEvent,
     DownloadAsCsvEvent,
@@ -56,6 +65,17 @@ export enum EventType {
     SetUserDefaultViewEvent,
     ManuallyCreateLineageEvent,
     ManuallyDeleteLineageEvent,
+    LineageGraphTimeRangeSelectionEvent,
+    LineageTabTimeRangeSelectionEvent,
+    CreateQueryEvent,
+    UpdateQueryEvent,
+    DeleteQueryEvent,
+    SelectAutoCompleteOption,
+    SelectQuickFilterEvent,
+    DeselectQuickFilterEvent,
+    EmbedProfileViewEvent,
+    EmbedProfileViewInDataHubEvent,
+    EmbedLookupNotFoundEvent,
 }
 
 /**
@@ -122,6 +142,8 @@ export interface SearchEvent extends BaseEvent {
     entityTypeFilter?: EntityType;
     pageNumber: number;
     originPath: string;
+    selectedQuickFilterValues?: string[];
+    selectedQuickFilterTypes?: string[];
 }
 
 /**
@@ -132,6 +154,8 @@ export interface HomePageSearchEvent extends BaseEvent {
     query: string;
     entityTypeFilter?: EntityType;
     pageNumber: number;
+    selectedQuickFilterValues?: string[];
+    selectedQuickFilterTypes?: string[];
 }
 
 /**
@@ -143,6 +167,11 @@ export interface SearchResultsViewEvent extends BaseEvent {
     entityTypeFilter?: EntityType;
     page?: number;
     total: number;
+    entityTypes: string[];
+    filterFields: string[];
+    filterCount: number;
+    filterMode: FilterMode;
+    searchVersion: string;
 }
 
 /**
@@ -156,6 +185,17 @@ export interface SearchResultClickEvent extends BaseEvent {
     entityTypeFilter?: EntityType;
     index: number;
     total: number;
+}
+
+export interface SearchFiltersClearAllEvent extends BaseEvent {
+    type: EventType.SearchFiltersClearAllEvent;
+    total: number;
+}
+
+export interface SearchFiltersShowMoreEvent extends BaseEvent {
+    type: EventType.SearchFiltersShowMoreEvent;
+    activeFilterCount: number;
+    hiddenFilterCount: number;
 }
 
 /**
@@ -176,6 +216,40 @@ export interface BrowseResultClickEvent extends BaseEvent {
 export interface HomePageBrowseResultClickEvent extends BaseEvent {
     type: EventType.HomePageBrowseResultClickEvent;
     entityType: EntityType;
+}
+
+/**
+ * Logged when a user opens or closes the browse v2 sidebar
+ */
+export interface BrowseV2ToggleSidebarEvent extends BaseEvent {
+    type: EventType.BrowseV2ToggleSidebarEvent;
+    action: 'open' | 'close';
+}
+
+/**
+ * Logged when a user opens or closes a sidebar node
+ */
+export interface BrowseV2ToggleNodeEvent extends BaseEvent {
+    type: EventType.BrowseV2ToggleNodeEvent;
+    targetNode: 'entity' | 'environment' | 'platform' | 'browse';
+    action: 'open' | 'close';
+    entity: string;
+    environment?: string;
+    platform?: string;
+    targetDepth: number;
+}
+
+/**
+ * Logged when a user selects a browse node in the sidebar
+ */
+export interface BrowseV2SelectNodeEvent extends BaseEvent {
+    type: EventType.BrowseV2SelectNodeEvent;
+    targetNode: 'browse';
+    action: 'select' | 'deselect';
+    entity: string;
+    environment?: string;
+    platform?: string;
+    targetDepth: number;
 }
 
 /**
@@ -228,7 +302,6 @@ export interface BatchEntityActionEvent extends BaseEvent {
 
 export interface RecommendationImpressionEvent extends BaseEvent {
     type: EventType.RecommendationImpressionEvent;
-    renderId: string; // TODO : Determine whether we need a render id to join with click event.
     moduleId: string;
     renderType: RecommendationRenderType;
     scenarioType: ScenarioType;
@@ -350,6 +423,14 @@ export interface HomePageExploreAllClickEvent extends BaseEvent {
     type: EventType.HomePageExploreAllClickEvent;
 }
 
+export interface SearchBarExploreAllClickEvent extends BaseEvent {
+    type: EventType.SearchBarExploreAllClickEvent;
+}
+
+export interface SearchResultsExploreAllClickEvent extends BaseEvent {
+    type: EventType.SearchResultsExploreAllClickEvent;
+}
+
 // Business glossary events
 
 export interface CreateGlossaryEntityEvent extends BaseEvent {
@@ -412,7 +493,10 @@ export interface ManuallyDeleteLineageEvent extends BaseEvent {
  */
 export interface CreateViewEvent extends BaseEvent {
     type: EventType.CreateViewEvent;
-    viewType: DataHubViewType;
+    viewType?: DataHubViewType;
+    filterFields: string[];
+    entityTypes: string[];
+    searchVersion: string;
 }
 
 /**
@@ -420,8 +504,11 @@ export interface CreateViewEvent extends BaseEvent {
  */
 export interface UpdateViewEvent extends BaseEvent {
     type: EventType.UpdateViewEvent;
-    viewType: DataHubViewType;
+    viewType?: DataHubViewType;
     urn: string;
+    filterFields: string[];
+    entityTypes: string[];
+    searchVersion: string;
 }
 
 /**
@@ -441,6 +528,67 @@ export interface SetGlobalDefaultViewEvent extends BaseEvent {
     urn: string | null;
 }
 
+export interface LineageGraphTimeRangeSelectionEvent extends BaseEvent {
+    type: EventType.LineageGraphTimeRangeSelectionEvent;
+    relativeStartDate: string;
+    relativeEndDate: string;
+}
+
+export interface LineageTabTimeRangeSelectionEvent extends BaseEvent {
+    type: EventType.LineageTabTimeRangeSelectionEvent;
+    relativeStartDate: string;
+    relativeEndDate: string;
+}
+
+export interface CreateQueryEvent extends BaseEvent {
+    type: EventType.CreateQueryEvent;
+}
+
+export interface UpdateQueryEvent extends BaseEvent {
+    type: EventType.UpdateQueryEvent;
+}
+
+export interface DeleteQueryEvent extends BaseEvent {
+    type: EventType.DeleteQueryEvent;
+}
+
+export interface SelectAutoCompleteOption extends BaseEvent {
+    type: EventType.SelectAutoCompleteOption;
+    optionType: string;
+    entityType?: EntityType;
+    entityUrn?: string;
+}
+
+export interface SelectQuickFilterEvent extends BaseEvent {
+    type: EventType.SelectQuickFilterEvent;
+    quickFilterType: string;
+    quickFilterValue: string;
+}
+
+export interface DeselectQuickFilterEvent extends BaseEvent {
+    type: EventType.DeselectQuickFilterEvent;
+    quickFilterType: string;
+    quickFilterValue: string;
+}
+
+export interface EmbedProfileViewEvent extends BaseEvent {
+    type: EventType.EmbedProfileViewEvent;
+    entityType: string;
+    entityUrn: string;
+}
+
+export interface EmbedProfileViewInDataHubEvent extends BaseEvent {
+    type: EventType.EmbedProfileViewInDataHubEvent;
+    entityType: string;
+    entityUrn: string;
+}
+
+export interface EmbedLookupNotFoundEvent extends BaseEvent {
+    type: EventType.EmbedLookupNotFoundEvent;
+    url: string;
+    reason: EmbedLookupNotFoundReason;
+}
+
 /**
  * Event consisting of a union of specific event types.
  */
@@ -454,10 +602,17 @@ export type Event =
     | SearchEvent
     | HomePageSearchEvent
     | HomePageExploreAllClickEvent
+    | SearchBarExploreAllClickEvent
+    | SearchResultsExploreAllClickEvent
     | SearchResultsViewEvent
     | SearchResultClickEvent
+    | SearchFiltersClearAllEvent
+    | SearchFiltersShowMoreEvent
     | BrowseResultClickEvent
     | HomePageBrowseResultClickEvent
+    | BrowseV2ToggleSidebarEvent
+    | BrowseV2ToggleNodeEvent
+    | BrowseV2SelectNodeEvent
     | EntityViewEvent
     | EntitySectionViewEvent
     | EntityActionEvent
@@ -495,4 +650,15 @@ export type Event =
     | SetUserDefaultViewEvent
     | SetGlobalDefaultViewEvent
     | ManuallyCreateLineageEvent
-    | ManuallyDeleteLineageEvent;
+    | ManuallyDeleteLineageEvent
+    | LineageGraphTimeRangeSelectionEvent
+    | LineageTabTimeRangeSelectionEvent
+    | CreateQueryEvent
+    | UpdateQueryEvent
+    | DeleteQueryEvent
+    | SelectAutoCompleteOption
+    | SelectQuickFilterEvent
+    | DeselectQuickFilterEvent
+    | EmbedProfileViewEvent
+    | EmbedProfileViewInDataHubEvent
+    | EmbedLookupNotFoundEvent;

@@ -4,8 +4,9 @@ import styled from 'styled-components';
 import { CorpUser, Maybe, UserUsageCounts } from '../../../../../../../types.generated';
 import { InfoItem } from '../../../../components/styled/InfoItem';
 import { ANTD_GRAY } from '../../../../constants';
-import { countFormatter, countSeparator } from '../../../../../../../utils/formatter/index';
+import { countFormatter } from '../../../../../../../utils/formatter/index';
 import { ExpandedActorGroup } from '../../../../components/styled/ExpandedActorGroup';
+import { formatNumberWithoutAbbreviation } from '../../../../../../shared/formatNumber';
 
 type Props = {
     rowCount?: number;
@@ -50,13 +51,14 @@ export default function TableStats({
     ) {
         return null;
     }
+    const sortedUsers = users?.slice().sort((a, b) => (b?.count || 0) - (a?.count || 0));
     return (
         <StatSection>
             <Typography.Title level={5}>Table Stats</Typography.Title>
             <StatContainer justifyContent={justifyContent}>
                 {rowCount && (
                     <InfoItem title="Rows">
-                        <Tooltip title={countSeparator(rowCount)} placement="right">
+                        <Tooltip title={formatNumberWithoutAbbreviation(rowCount)} placement="right">
                             <Typography.Text strong style={{ fontSize: 24 }} data-testid="table-stats-rowcount">
                                 {countFormatter(rowCount)}
                             </Typography.Text>
@@ -77,7 +79,7 @@ export default function TableStats({
                         </Typography.Text>
                     </InfoItem>
                 )}
-                {users && users.length > 0 && (
+                {sortedUsers && sortedUsers.length > 0 && (
                     <InfoItem title="Top Users">
                         <div style={{ paddingTop: 8 }}>
                             <ExpandedActorGroup
@@ -85,7 +87,7 @@ export default function TableStats({
                                     justifyContent: 'left',
                                 }}
                                 actors={
-                                    users
+                                    sortedUsers
                                         .filter((user) => user && user?.user !== undefined && user?.user !== null)
                                         .map((user) => user?.user as CorpUser) || []
                                 }

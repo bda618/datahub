@@ -4,6 +4,7 @@ import com.codahale.metrics.Timer;
 import com.datahub.util.RecordUtils;
 import com.datahub.util.exception.ESQueryException;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.urn.Urn;
@@ -15,9 +16,12 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.query.filter.SortCriterion;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.search.utils.QueryUtils;
+import com.linkedin.metadata.shared.ElasticSearchIndexed;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.timeseries.elastic.indexbuilder.MappingsBuilder;
 import com.linkedin.metadata.timeseries.elastic.indexbuilder.TimeseriesAspectIndexBuilders;
@@ -30,7 +34,12 @@ import com.linkedin.timeseries.AggregationSpec;
 import com.linkedin.timeseries.DeleteAspectValuesResult;
 import com.linkedin.timeseries.GenericTable;
 import com.linkedin.timeseries.GroupingBucket;
+
+import com.linkedin.timeseries.TimeseriesIndexSizeResult;
+import com.linkedin.util.Pair;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -42,7 +51,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.update.UpdateRequest;
+import org.elasticsearch.client.Request;
 import org.elasticsearch.client.RequestOptions;
+import org.elasticsearch.client.Response;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.xcontent.XContentType;
@@ -54,10 +65,16 @@ import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.elasticsearch.search.sort.SortBuilders;
 import org.elasticsearch.search.sort.SortOrder;
 
+import static com.linkedin.metadata.Constants.*;
+
 
 @Slf4j
-public class ElasticSearchTimeseriesAspectService implements TimeseriesAspectService {
+public class ElasticSearchTimeseriesAspectService implements TimeseriesAspectService, ElasticSearchIndexed {
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+  static {
+    int maxSize = Integer.parseInt(System.getenv().getOrDefault(INGESTION_MAX_SERIALIZED_STRING_LENGTH, MAX_JACKSON_STRING_SIZE));
+    OBJECT_MAPPER.getFactory().setStreamReadConstraints(StreamReadConstraints.builder().maxStringLength(maxSize).build());
+  }
   private static final String TIMESTAMP_FIELD = "timestampMillis";
   private static final String EVENT_FIELD = "event";
   private static final Integer DEFAULT_LIMIT = 10000;
@@ -111,7 +128,17 @@ public class ElasticSearchTimeseriesAspectService implements TimeseriesAspectSer
 
   @Override
   public void configure() {
-    _indexBuilders.buildAll();
+    _indexBuilders.reindexAll();
+  }
+
+  @Override
+  public List<ReindexConfig> getReindexConfigs() {
+    return _indexBuilders.getReindexConfigs();
+  }
+
+  @Override
+  public void reindexAll() {
+    configure();
   }
 
   @Override
@@ -128,10 +155,42 @@ public class ElasticSearchTimeseriesAspectService implements TimeseriesAspectSer
   }
 
   @Override
-  public List<EnvelopedAspect> getAspectValues(@Nonnull final Urn urn, @Nonnull String entityName,
-      @Nonnull String aspectName, @Nullable Long startTimeMillis, @Nullable Long endTimeMillis, @Nullable Integer limit,
-      @Nullable Boolean getLatestValue, @Nullable Filter filter) {
-    final BoolQueryBuilder filterQueryBuilder = QueryBuilders.boolQuery().must(ESUtils.buildFilterQuery(filter));
+  public List<TimeseriesIndexSizeResult> getIndexSizes() {
+    List<TimeseriesIndexSizeResult> res = new ArrayList<>();
+    try {
+      String indicesPattern = _indexConvention.getAllTimeseriesAspectIndicesPattern();
+      Response r = _searchClient.getLowLevelClient().performRequest(new Request("GET", indicesPattern + "/_stats"));
+      JsonNode body =  new ObjectMapper().readTree(r.getEntity().getContent());
+      body.get("indices").fields().forEachRemaining(entry -> {
+        TimeseriesIndexSizeResult elemResult = new TimeseriesIndexSizeResult();
+        elemResult.setIndexName(entry.getKey());
+        Optional<Pair<String, String>> indexEntityAndAspect = _indexConvention.getEntityAndAspectName(entry.getKey());
+        if (indexEntityAndAspect.isPresent()) {
+          elemResult.setEntityName(indexEntityAndAspect.get().getFirst());
+          elemResult.setAspectName(indexEntityAndAspect.get().getSecond());
+        }
+        int sizeBytes = entry.getValue().get("primaries").get("store").get("size_in_bytes").asInt();
+        float sizeMb = (float) sizeBytes / 1000;
+        elemResult.setSizeMb(sizeMb);
+        res.add(elemResult);
+      });
+      return res;
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  @Override
+  public List<EnvelopedAspect> getAspectValues(
+      @Nonnull final Urn urn,
+      @Nonnull final String entityName,
+      @Nonnull final String aspectName,
+      @Nullable final Long startTimeMillis,
+      @Nullable final Long endTimeMillis,
+      @Nullable final Integer limit,
+      @Nullable final Filter filter,
+      @Nullable final SortCriterion sort) {
+    final BoolQueryBuilder filterQueryBuilder = QueryBuilders.boolQuery().must(ESUtils.buildFilterQuery(filter, true));
     filterQueryBuilder.must(QueryBuilders.matchQuery("urn", urn.toString()));
     // NOTE: We are interested only in the un-exploded rows as only they carry the `event` payload.
     filterQueryBuilder.mustNot(QueryBuilders.termQuery(MappingsBuilder.IS_EXPLODED_FIELD, true));
@@ -139,24 +198,27 @@ public class ElasticSearchTimeseriesAspectService implements TimeseriesAspectSer
       Criterion startTimeCriterion = new Criterion().setField(TIMESTAMP_FIELD)
           .setCondition(Condition.GREATER_THAN_OR_EQUAL_TO)
           .setValue(startTimeMillis.toString());
-      filterQueryBuilder.must(ESUtils.getQueryBuilderFromCriterion(startTimeCriterion));
+      filterQueryBuilder.must(ESUtils.getQueryBuilderFromCriterion(startTimeCriterion, true));
     }
     if (endTimeMillis != null) {
       Criterion endTimeCriterion = new Criterion().setField(TIMESTAMP_FIELD)
           .setCondition(Condition.LESS_THAN_OR_EQUAL_TO)
           .setValue(endTimeMillis.toString());
-      filterQueryBuilder.must(ESUtils.getQueryBuilderFromCriterion(endTimeCriterion));
+      filterQueryBuilder.must(ESUtils.getQueryBuilderFromCriterion(endTimeCriterion, true));
     }
     final SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
     searchSourceBuilder.query(filterQueryBuilder);
-    if (getLatestValue != null && getLatestValue) {
-      if (limit != null && limit > 1) {
-        log.warn(String.format("Changing limit from %s to 1, since getLatestValue is true", limit));
-      }
-      limit = 1;
-    }
     searchSourceBuilder.size(limit != null ? limit : DEFAULT_LIMIT);
-    searchSourceBuilder.sort(SortBuilders.fieldSort("@timestamp").order(SortOrder.DESC));
+
+    if (sort != null) {
+      final SortOrder esSortOrder =
+          (sort.getOrder() == com.linkedin.metadata.query.filter.SortOrder.ASCENDING) ? SortOrder.ASC
+              : SortOrder.DESC;
+      searchSourceBuilder.sort(SortBuilders.fieldSort(sort.getField()).order(esSortOrder));
+    } else {
+      // By default, sort by the timestampMillis descending.
+      searchSourceBuilder.sort(SortBuilders.fieldSort("@timestamp").order(SortOrder.DESC));
+    }
 
     final SearchRequest searchRequest = new SearchRequest();
     searchRequest.source(searchSourceBuilder);
@@ -201,7 +263,7 @@ public class ElasticSearchTimeseriesAspectService implements TimeseriesAspectSer
   public DeleteAspectValuesResult deleteAspectValues(@Nonnull String entityName, @Nonnull String aspectName,
       @Nonnull Filter filter) {
     final String indexName = _indexConvention.getTimeseriesAspectIndexName(entityName, aspectName);
-    final BoolQueryBuilder filterQueryBuilder = ESUtils.buildFilterQuery(filter);
+    final BoolQueryBuilder filterQueryBuilder = ESUtils.buildFilterQuery(filter, true);
 
     final Optional<DeleteAspectValuesResult> result = _bulkProcessor
             .deleteByQuery(filterQueryBuilder, false, DEFAULT_LIMIT, TimeValue.timeValueMinutes(10), indexName)
