@@ -12,6 +12,8 @@ import {
     Deprecation,
     DashboardStatsSummary,
     DataProduct,
+    EntityPath,
+    Health,
 } from '../../../../types.generated';
 import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
@@ -43,6 +45,9 @@ export const DashboardPreview = ({
     parentContainers,
     deprecation,
     snippet,
+    degree,
+    paths,
+    health,
 }: {
     urn: string;
     platform?: string;
@@ -67,6 +72,9 @@ export const DashboardPreview = ({
     externalUrl?: string | null;
     parentContainers?: ParentContainersResult | null;
     snippet?: React.ReactNode | null;
+    degree?: number;
+    paths?: EntityPath[];
+    health?: Health[] | null;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
 
@@ -103,6 +111,9 @@ export const DashboardPreview = ({
                     createdMs={createdMs}
                 />
             }
+            degree={degree}
+            paths={paths}
+            health={health || undefined}
         />
     );
 };

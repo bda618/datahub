@@ -1,31 +1,43 @@
+import concurrent.futures
 import logging
 from dataclasses import dataclass, field
-from typing import Dict, List
+from functools import partial
+from math import ceil
+from typing import Callable, Dict, Iterable, List, Optional, Union
 
 from datahub_classify.helper_classes import ColumnInfo, Metadata
 from pydantic import Field
 
 from datahub.configuration.common import ConfigModel, ConfigurationError
 from datahub.emitter.mce_builder import get_sys_time, make_term_urn, make_user_urn
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.glossary.classifier import ClassificationConfig, Classifier
 from datahub.ingestion.glossary.classifier_registry import classifier_registry
+from datahub.ingestion.source.common.data_reader import DataReader
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
     AuditStamp,
     GlossaryTermAssociation,
     GlossaryTerms,
 )
+from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaMetadata
 from datahub.utilities.lossy_collections import LossyDict, LossyList
 from datahub.utilities.perf_timer import PerfTimer
+
+SAMPLE_SIZE_MULTIPLIER = 1.2
+
 
 logger: logging.Logger = logging.getLogger(__name__)
 
 
 @dataclass
 class ClassificationReportMixin:
+    num_tables_fetch_sample_values_failed: int = 0
+
     num_tables_classification_attempted: int = 0
     num_tables_classification_failed: int = 0
-    num_tables_classified: int = 0
+    num_tables_classification_found: int = 0
 
     info_types_detected: LossyDict[str, LossyList[str]] = field(
         default_factory=LossyDict
@@ -35,7 +47,7 @@ class ClassificationReportMixin:
 class ClassificationSourceConfigMixin(ConfigModel):
     classification: ClassificationConfig = Field(
         default=ClassificationConfig(),
-        description="For details, refer [Classification](../../../../metadata-ingestion/docs/dev_guides/classification.md).",
+        description="For details, refer to [Classification](../../../../metadata-ingestion/docs/dev_guides/classification.md).",
     )
 
 
@@ -97,8 +109,21 @@ class ClassificationHandler:
         self,
         dataset_name: str,
         schema_metadata: SchemaMetadata,
-        sample_data: Dict[str, list],
+        sample_data: Union[Dict[str, list], Callable[[], Dict[str, list]]],
     ) -> None:
+        if not isinstance(sample_data, Dict):
+            try:
+                # TODO: In future, sample_data fetcher can be lazily called if classification
+                # requires values as prediction factor
+                sample_data = sample_data()
+            except Exception as e:
+                self.report.num_tables_fetch_sample_values_failed += 1
+                logger.warning(
+                    f"Failed to get sample values for dataset. Make sure you have granted SELECT permissions on dataset. {dataset_name}",
+                )
+                sample_data = dict()
+                logger.debug("Error", exc_info=e)
+
         column_infos = self.get_columns_to_classify(
             dataset_name, schema_metadata, sample_data
         )
@@ -108,15 +133,23 @@ class ClassificationHandler:
             return None
 
         logger.debug(f"Classifying Table {dataset_name}")
+
         self.report.num_tables_classification_attempted += 1
         field_terms: Dict[str, str] = {}
         with PerfTimer() as timer:
             try:
                 for classifier in self.classifiers:
-                    column_info_with_proposals = classifier.classify(column_infos)
-                    self.extract_field_wise_terms(
-                        field_terms, column_info_with_proposals
-                    )
+                    column_infos_with_proposals: Iterable[ColumnInfo]
+                    if self.config.classification.max_workers > 1:
+                        column_infos_with_proposals = self.async_classify(
+                            classifier, column_infos
+                        )
+                    else:
+                        column_infos_with_proposals = classifier.classify(column_infos)
+
+                    for column_info_proposal in column_infos_with_proposals:
+                        self.update_field_terms(field_terms, column_info_proposal)
+
             except Exception:
                 self.report.num_tables_classification_failed += 1
                 raise
@@ -127,8 +160,46 @@ class ClassificationHandler:
                 )
 
         if field_terms:
-            self.report.num_tables_classified += 1
+            self.report.num_tables_classification_found += 1
             self.populate_terms_in_schema_metadata(schema_metadata, field_terms)
+
+    def update_field_terms(
+        self, field_terms: Dict[str, str], col_info: ColumnInfo
+    ) -> None:
+        term = self.get_terms_for_column(col_info)
+        if term:
+            field_terms[col_info.metadata.name] = term
+
+    def async_classify(
+        self, classifier: Classifier, columns: List[ColumnInfo]
+    ) -> Iterable[ColumnInfo]:
+        num_columns = len(columns)
+        BATCH_SIZE = 5  # Number of columns passed to classify api at a time
+
+        logger.debug(
+            f"Will Classify {num_columns} column(s) with {self.config.classification.max_workers} worker(s) with batch size {BATCH_SIZE}."
+        )
+
+        with concurrent.futures.ProcessPoolExecutor(
+            max_workers=self.config.classification.max_workers,
+        ) as executor:
+            column_info_proposal_futures = [
+                executor.submit(
+                    classifier.classify,
+                    columns[
+                        (i * BATCH_SIZE) : min(i * BATCH_SIZE + BATCH_SIZE, num_columns)
+                    ],
+                )
+                for i in range(ceil(num_columns / BATCH_SIZE))
+            ]
+
+            return [
+                column_with_proposal
+                for proposal_future in concurrent.futures.as_completed(
+                    column_info_proposal_futures
+                )
+                for column_with_proposal in proposal_future.result()
+            ]
 
     def populate_terms_in_schema_metadata(
         self,
@@ -154,25 +225,20 @@ class ClassificationHandler:
                     ),
                 )
 
-    def extract_field_wise_terms(
-        self,
-        field_terms: Dict[str, str],
-        column_info_with_proposals: List[ColumnInfo],
-    ) -> None:
-        for col_info in column_info_with_proposals:
-            if not col_info.infotype_proposals:
-                continue
-            infotype_proposal = max(
-                col_info.infotype_proposals, key=lambda p: p.confidence_level
-            )
-            self.report.info_types_detected.setdefault(
-                infotype_proposal.infotype, LossyList()
-            ).append(f"{col_info.metadata.dataset_name}.{col_info.metadata.name}")
-            field_terms[
-                col_info.metadata.name
-            ] = self.config.classification.info_type_to_term.get(
-                infotype_proposal.infotype, infotype_proposal.infotype
-            )
+    def get_terms_for_column(self, col_info: ColumnInfo) -> Optional[str]:
+        if not col_info.infotype_proposals:
+            return None
+        infotype_proposal = max(
+            col_info.infotype_proposals, key=lambda p: p.confidence_level
+        )
+        self.report.info_types_detected.setdefault(
+            infotype_proposal.infotype, LossyList()
+        ).append(f"{col_info.metadata.dataset_name}.{col_info.metadata.name}")
+        term = self.config.classification.info_type_to_term.get(
+            infotype_proposal.infotype, infotype_proposal.infotype
+        )
+
+        return term
 
     def get_columns_to_classify(
         self,
@@ -190,6 +256,13 @@ class ClassificationHandler:
                     f"Skipping column {dataset_name}.{schema_field.fieldPath} from classification"
                 )
                 continue
+
+            # As a result of custom field path specification e.g. [version=2.0].[type=struct].[type=struct].service'
+            # Sample values for a nested field (an array , union or struct) are not read / passed in classifier correctly.
+            # TODO: Fix this behavior for nested fields. This would probably involve:
+            # 1. Preprocessing field path spec v2 back to native field representation. (without [*] constructs)
+            # 2. Preprocessing retrieved structured sample data to pass in sample values correctly for nested fields.
+
             column_infos.append(
                 ColumnInfo(
                     metadata=Metadata(
@@ -200,10 +273,66 @@ class ClassificationHandler:
                             "Dataset_Name": dataset_name,
                         }
                     ),
-                    values=sample_data[schema_field.fieldPath]
-                    if schema_field.fieldPath in sample_data.keys()
-                    else [],
+                    values=(
+                        sample_data[schema_field.fieldPath]
+                        if schema_field.fieldPath in sample_data.keys()
+                        else []
+                    ),
                 )
             )
 
         return column_infos
+
+
+def classification_workunit_processor(
+    table_wu_generator: Iterable[MetadataWorkUnit],
+    classification_handler: ClassificationHandler,
+    data_reader: Optional[DataReader],
+    table_id: List[str],
+    data_reader_kwargs: Optional[dict] = None,
+) -> Iterable[MetadataWorkUnit]:
+    """
+    Classification handling for a particular table.
+    Currently works only for workunits having MCP or MCPW
+    """
+    table_name = ".".join(table_id)
+    if not classification_handler.is_classification_enabled_for_table(table_name):
+        yield from table_wu_generator
+        return
+
+    for wu in table_wu_generator:
+        maybe_schema_metadata = wu.get_aspect_of_type(SchemaMetadata)
+        if (
+            isinstance(wu.metadata, MetadataChangeEvent)
+            and len(wu.metadata.proposedSnapshot.aspects) > 1
+        ) or not maybe_schema_metadata:
+            yield wu
+            continue
+        else:  # This is MCP or MCPW workunit with SchemaMetadata aspect
+            try:
+                classification_handler.classify_schema_fields(
+                    table_name,
+                    maybe_schema_metadata,
+                    (
+                        partial(
+                            data_reader.get_sample_data_for_table,
+                            table_id,
+                            classification_handler.config.classification.sample_size
+                            * SAMPLE_SIZE_MULTIPLIER,
+                            **(data_reader_kwargs or {}),
+                        )
+                        if data_reader
+                        else dict()
+                    ),
+                )
+                yield MetadataChangeProposalWrapper(
+                    aspect=maybe_schema_metadata, entityUrn=wu.get_urn()
+                ).as_workunit(
+                    is_primary_source=wu.is_primary_source,
+                )
+            except Exception as e:
+                logger.warning(
+                    f"Failed to classify table columns for {table_name} due to error -> {e}",
+                    exc_info=e,
+                )
+                yield wu

@@ -8,7 +8,7 @@ import { formatNumber } from '../../shared/formatNumber';
 import ExpandableNode from './ExpandableNode';
 import EnvironmentNode from './EnvironmentNode';
 import useAggregationsQuery from './useAggregationsQuery';
-import { ORIGIN_FILTER_NAME, PLATFORM_FILTER_NAME } from '../utils/constants';
+import { MAX_COUNT_VAL, ORIGIN_FILTER_NAME, PLATFORM_FILTER_NAME } from '../utils/constants';
 import PlatformNode from './PlatformNode';
 import SidebarLoadingError from './SidebarLoadingError';
 import useToggle from '../../shared/useToggle';
@@ -22,12 +22,17 @@ const Count = styled(Typography.Text)`
     padding-left: 4px;
 `;
 
-const EntityNode = () => {
+interface EntityNodeProps {
+    sortBy: string;
+}
+
+const EntityNode: React.FC<EntityNodeProps> = ({ sortBy }) => {
     const isSelected = useIsEntitySelected();
     const entityType = useEntityType();
     const entityAggregation = useEntityAggregation();
     const hasEnvironmentFilter = useHasFilterField(ORIGIN_FILTER_NAME);
     const { count } = entityAggregation;
+    const countText = count === MAX_COUNT_VAL ? '10k+' : formatNumber(count);
     const registry = useEntityRegistry();
     const { trackToggleNodeEvent } = useSidebarAnalytics();
 
@@ -37,7 +42,8 @@ const EntityNode = () => {
         onToggle: (isNowOpen: boolean) => trackToggleNodeEvent(isNowOpen, 'entity'),
     });
 
-    const onClickHeader = () => {
+    const onClickHeader = (e) => {
+        e.preventDefault();
         if (count) toggle();
     };
 
@@ -67,7 +73,7 @@ const EntityNode = () => {
                         <ExpandableNode.Title color={color} size={16} padLeft>
                             {registry.getCollectionName(entityType)}
                         </ExpandableNode.Title>
-                        <Count color={color}>{formatNumber(entityAggregation.count)}</Count>
+                        <Count color={color}>{countText}</Count>
                     </ExpandableNode.HeaderLeft>
                     <ExpandableNode.CircleButton isOpen={isOpen && !isClosing} color={color} />
                 </ExpandableNode.Header>
@@ -81,7 +87,7 @@ const EntityNode = () => {
                                   entityAggregation={entityAggregation}
                                   environmentAggregation={environmentAggregation}
                               >
-                                  <EnvironmentNode />
+                                  <EnvironmentNode sortBy={sortBy} />
                               </BrowseProvider>
                           ))
                         : platformAggregations?.map((platformAggregation) => (
@@ -90,7 +96,7 @@ const EntityNode = () => {
                                   entityAggregation={entityAggregation}
                                   platformAggregation={platformAggregation}
                               >
-                                  <PlatformNode />
+                                  <PlatformNode sortBy={sortBy} />
                               </BrowseProvider>
                           ))}
                     {error && <SidebarLoadingError onClickRetry={retry} />}

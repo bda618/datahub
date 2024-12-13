@@ -27,9 +27,40 @@ class DatasetTransformer(BaseTransformer, SingleAspectTransformer, metaclass=ABC
         return ["dataset"]
 
 
-class DatasetOwnershipTransformer(DatasetTransformer, metaclass=ABCMeta):
+class OwnershipTransformer(
+    DatasetTransformer, SingleAspectTransformer, metaclass=ABCMeta
+):
     def aspect_name(self) -> str:
         return "ownership"
+
+    def entity_types(self) -> List[str]:
+        return [
+            "dataset",
+            "dataJob",
+            "dataFlow",
+            "chart",
+            "dashboard",
+        ]
+
+
+class TagTransformer(BaseTransformer, SingleAspectTransformer, metaclass=ABCMeta):
+    """Transformer that does transform sequentially on each tag."""
+
+    def __init__(self):
+        super().__init__()
+
+    def entity_types(self) -> List[str]:
+        return ["dataset", "container"]
+
+
+class ContainerTransformer(BaseTransformer, SingleAspectTransformer, metaclass=ABCMeta):
+    """Transformer that does transform sequentially on each dataset."""
+
+    def __init__(self):
+        super().__init__()
+
+    def entity_types(self) -> List[str]:
+        return ["container"]
 
 
 class DatasetDomainTransformer(DatasetTransformer, metaclass=ABCMeta):
@@ -75,7 +106,11 @@ class DatasetTagsTransformer(DatasetTransformer, metaclass=ABCMeta):
     ) -> None:
         """Check if user want to keep existing tags"""
         if in_global_tags_aspect is not None and config.replace_existing is False:
-            out_global_tags_aspect.tags.extend(in_global_tags_aspect.tags)
+            tags_seen = set()
+            for item in in_global_tags_aspect.tags:
+                if item.tag not in tags_seen:
+                    out_global_tags_aspect.tags.append(item)
+                    tags_seen.add(item.tag)
 
     @staticmethod
     def get_result_semantics(
@@ -114,3 +149,23 @@ class DatasetBrowsePathsTransformer(DatasetTransformer, metaclass=ABCMeta):
 class DatasetSchemaMetadataTransformer(DatasetTransformer, metaclass=ABCMeta):
     def aspect_name(self) -> str:
         return "schemaMetadata"
+
+
+class DatasetDataproductTransformer(DatasetTransformer, metaclass=ABCMeta):
+    def aspect_name(self) -> str:
+        return "dataProductProperties"
+
+
+class DatasetUsageStatisticsTransformer(DatasetTransformer, metaclass=ABCMeta):
+    def aspect_name(self) -> str:
+        return "datasetUsageStatistics"
+
+
+class TagsToTermTransformer(TagTransformer, metaclass=ABCMeta):
+    def aspect_name(self) -> str:
+        return "glossaryTerms"
+
+
+class ContainerPropertiesTransformer(ContainerTransformer, metaclass=ABCMeta):
+    def aspect_name(self) -> str:
+        return "containerProperties"

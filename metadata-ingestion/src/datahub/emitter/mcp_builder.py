@@ -1,15 +1,17 @@
-import hashlib
-import json
-from typing import Any, Dict, Iterable, List, Optional, TypeVar
+from typing import Dict, Iterable, List, Optional, Type, TypeVar
 
-from deprecated import deprecated
 from pydantic.fields import Field
 from pydantic.main import BaseModel
 
+from datahub.cli.env_utils import get_boolean_env_variable
+from datahub.emitter.enum_helpers import get_enum_options
 from datahub.emitter.mce_builder import (
+    Aspect,
+    datahub_guid,
     make_container_urn,
     make_data_platform_urn,
     make_dataplatform_instance_urn,
+    make_dataset_urn_with_platform_instance,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -19,9 +21,11 @@ from datahub.metadata.com.linkedin.pegasus2avro.common import (
 )
 from datahub.metadata.com.linkedin.pegasus2avro.container import ContainerProperties
 from datahub.metadata.schema_classes import (
+    KEY_ASPECTS,
     ContainerClass,
     DomainsClass,
     EmbedClass,
+    FabricTypeClass,
     GlobalTagsClass,
     MetadataChangeEventClass,
     OwnerClass,
@@ -30,19 +34,17 @@ from datahub.metadata.schema_classes import (
     StatusClass,
     SubTypesClass,
     TagAssociationClass,
-    _Aspect,
 )
 
-
-def _stable_guid_from_dict(d: dict) -> str:
-    json_key = json.dumps(
-        d,
-        separators=(",", ":"),
-        sort_keys=True,
-        cls=DatahubKeyJSONEncoder,
-    )
-    md5_hash = hashlib.md5(json_key.encode("utf-8"))
-    return str(md5_hash.hexdigest())
+# In https://github.com/datahub-project/datahub/pull/11214, we added a
+# new env field to container properties. However, populating this field
+# with servers older than 0.14.1 will cause errors. This environment
+# variable is an escape hatch to avoid this compatibility issue.
+# TODO: Once the model change has been deployed for a while, we can remove this.
+#       Probably can do it at the beginning of 2025.
+_INCLUDE_ENV_IN_CONTAINER_PROPERTIES = get_boolean_env_variable(
+    "DATAHUB_INCLUDE_ENV_IN_CONTAINER_PROPERTIES", default=True
+)
 
 
 class DatahubKey(BaseModel):
@@ -51,10 +53,12 @@ class DatahubKey(BaseModel):
 
     def guid(self) -> str:
         bag = self.guid_dict()
-        return _stable_guid_from_dict(bag)
+        return datahub_guid(bag)
 
 
-class PlatformKey(DatahubKey):
+class ContainerKey(DatahubKey):
+    """Base class for container guid keys. Most users should use one of the subclasses instead."""
+
     platform: str
     instance: Optional[str] = None
 
@@ -81,8 +85,15 @@ class PlatformKey(DatahubKey):
     def property_dict(self) -> Dict[str, str]:
         return self.dict(by_alias=True, exclude_none=True)
 
+    def as_urn(self) -> str:
+        return make_container_urn(guid=self.guid())
 
-class DatabaseKey(PlatformKey):
+
+# DEPRECATION: Keeping the `PlatformKey` name around for backwards compatibility.
+PlatformKey = ContainerKey
+
+
+class DatabaseKey(ContainerKey):
     database: str
 
 
@@ -90,15 +101,23 @@ class SchemaKey(DatabaseKey):
     db_schema: str = Field(alias="schema")
 
 
-class ProjectIdKey(PlatformKey):
+class ProjectIdKey(ContainerKey):
     project_id: str
 
 
-class MetastoreKey(PlatformKey):
+class MetastoreKey(ContainerKey):
     metastore: str
 
 
-class CatalogKey(MetastoreKey):
+class CatalogKeyWithMetastore(MetastoreKey):
+    catalog: str
+
+
+class UnitySchemaKeyWithMetastore(CatalogKeyWithMetastore):
+    unity_schema: str
+
+
+class CatalogKey(ContainerKey):
     catalog: str
 
 
@@ -110,24 +129,26 @@ class BigQueryDatasetKey(ProjectIdKey):
     dataset_id: str
 
 
-class FolderKey(PlatformKey):
+class FolderKey(ContainerKey):
     folder_abs_path: str
 
 
-class BucketKey(PlatformKey):
+class BucketKey(ContainerKey):
     bucket_name: str
 
 
-class DatahubKeyJSONEncoder(json.JSONEncoder):
-    # overload method default
-    def default(self, obj: Any) -> Any:
-        if hasattr(obj, "guid"):
-            return obj.guid()
-        # Call the default method for other types
-        return json.JSONEncoder.default(self, obj)
+class NotebookKey(DatahubKey):
+    notebook_id: int
+    platform: str
+    instance: Optional[str] = None
+
+    def as_urn(self) -> str:
+        return make_dataset_urn_with_platform_instance(
+            platform=self.platform, platform_instance=self.instance, name=self.guid()
+        )
 
 
-KeyType = TypeVar("KeyType", bound=PlatformKey)
+KeyType = TypeVar("KeyType", bound=ContainerKey)
 
 
 def add_domain_to_entity_wu(
@@ -167,28 +188,11 @@ def add_tags_to_entity_wu(
     ).as_workunit()
 
 
-@deprecated("use MetadataChangeProposalWrapper(...).as_workunit() instead")
-def wrap_aspect_as_workunit(
-    entityName: str,
-    entityUrn: str,
-    aspectName: str,
-    aspect: _Aspect,
-) -> MetadataWorkUnit:
-    wu = MetadataWorkUnit(
-        id=f"{aspectName}-for-{entityUrn}",
-        mcp=MetadataChangeProposalWrapper(
-            entityUrn=entityUrn,
-            aspect=aspect,
-        ),
-    )
-    return wu
-
-
 def gen_containers(
     container_key: KeyType,
     name: str,
     sub_types: List[str],
-    parent_container_key: Optional[PlatformKey] = None,
+    parent_container_key: Optional[ContainerKey] = None,
     extra_properties: Optional[Dict[str, str]] = None,
     domain_urn: Optional[str] = None,
     description: Optional[str] = None,
@@ -199,12 +203,29 @@ def gen_containers(
     created: Optional[int] = None,
     last_modified: Optional[int] = None,
 ) -> Iterable[MetadataWorkUnit]:
-    container_urn = make_container_urn(
-        guid=container_key.guid(),
+    # Extra validation on the env field.
+    # In certain cases (mainly for backwards compatibility), the env field will actually
+    # have a platform instance name.
+    env = (
+        container_key.env
+        if container_key.env in get_enum_options(FabricTypeClass)
+        else None
     )
+
+    container_urn = container_key.as_urn()
+
+    if parent_container_key:  # Yield Container aspect first for auto_browse_path_v2
+        parent_container_urn = make_container_urn(guid=parent_container_key.guid())
+
+        # Set database container
+        parent_container_mcp = MetadataChangeProposalWrapper(
+            entityUrn=f"{container_urn}",
+            aspect=ContainerClass(container=parent_container_urn),
+        )
+        yield parent_container_mcp.as_workunit()
+
     yield MetadataChangeProposalWrapper(
         entityUrn=f"{container_urn}",
-        # entityKeyAspect=ContainerKeyClass(guid=parent_container_key.guid()),
         aspect=ContainerProperties(
             name=name,
             description=description,
@@ -215,9 +236,10 @@ def gen_containers(
             externalUrl=external_url,
             qualifiedName=qualified_name,
             created=TimeStamp(time=created) if created is not None else None,
-            lastModified=TimeStamp(time=last_modified)
-            if last_modified is not None
-            else None,
+            lastModified=(
+                TimeStamp(time=last_modified) if last_modified is not None else None
+            ),
+            env=env if _INCLUDE_ENV_IN_CONTAINER_PROPERTIES else None,
         ),
     ).as_workunit()
 
@@ -231,9 +253,11 @@ def gen_containers(
         entityUrn=f"{container_urn}",
         aspect=DataPlatformInstance(
             platform=f"{make_data_platform_urn(container_key.platform)}",
-            instance=f"{make_dataplatform_instance_urn(container_key.platform, container_key.instance)}"
-            if container_key.instance
-            else None,
+            instance=(
+                f"{make_dataplatform_instance_urn(container_key.platform, container_key.instance)}"
+                if container_key.instance
+                else None
+            ),
         ),
     ).as_workunit()
 
@@ -262,18 +286,6 @@ def gen_containers(
             entity_urn=container_urn,
             tags=sorted(tags),
         )
-
-    if parent_container_key:
-        parent_container_urn = make_container_urn(
-            guid=parent_container_key.guid(),
-        )
-
-        # Set database container
-        parent_container_mcp = MetadataChangeProposalWrapper(
-            entityUrn=f"{container_urn}",
-            aspect=ContainerClass(container=parent_container_urn),
-        )
-        yield parent_container_mcp.as_workunit()
 
 
 def add_dataset_to_container(
@@ -319,3 +331,12 @@ def create_embed_mcp(urn: str, embed_url: str) -> MetadataChangeProposalWrapper:
         entityUrn=urn,
         aspect=EmbedClass(renderUrl=embed_url),
     )
+
+
+def entity_supports_aspect(entity_type: str, aspect_type: Type[Aspect]) -> bool:
+    entity_key_aspect = KEY_ASPECTS[entity_type]
+    aspect_name = aspect_type.get_aspect_name()
+
+    supported_aspects = entity_key_aspect.ASPECT_INFO["entityAspects"]
+
+    return aspect_name in supported_aspects

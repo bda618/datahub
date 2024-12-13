@@ -22,16 +22,13 @@ export type State = {
         loadedPersonalDefaultViewUrn: boolean;
         hasSetDefaultView: boolean;
     };
-    /**
-     * Whether the initial page path has been loaded.
-     */
-    loadedInitialPath: boolean;
 };
 
 /**
  * Context about the currently-authenticated user.
  */
 export type UserContextType = {
+    loaded: boolean;
     urn?: string | null;
     user?: CorpUser | null;
     platformPrivileges?: PlatformPrivileges | null;
@@ -54,10 +51,10 @@ export const DEFAULT_STATE: State = {
         loadedPersonalDefaultViewUrn: false,
         hasSetDefaultView: false,
     },
-    loadedInitialPath: false,
 };
 
 export const DEFAULT_CONTEXT = {
+    loaded: false,
     urn: undefined,
     user: undefined,
     state: DEFAULT_STATE,

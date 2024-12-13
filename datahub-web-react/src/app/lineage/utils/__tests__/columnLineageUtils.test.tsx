@@ -88,7 +88,7 @@ describe('encodeSchemaField', () => {
 });
 
 describe('getPopulatedColumnsByUrn', () => {
-    it('should update columns by urn with data job fine grained data so that the data job appears to have the upstream columns', () => {
+    it('should update columns by urn with data job fine grained data so that the data job appears to have the upstream and downstream columns', () => {
         const dataJobWithCLL = {
             ...dataJob1,
             name: '',
@@ -103,9 +103,7 @@ describe('getPopulatedColumnsByUrn', () => {
                 },
             ] as FineGrainedLineage[],
         };
-        const fetchedEntities = {
-            [dataJobWithCLL.urn]: dataJobWithCLL as FetchedEntity,
-        };
+        const fetchedEntities = new Map([[dataJobWithCLL.urn, dataJobWithCLL as FetchedEntity]]);
         const columnsByUrn = getPopulatedColumnsByUrn({}, fetchedEntities);
 
         expect(columnsByUrn).toMatchObject({
@@ -117,7 +115,19 @@ describe('getPopulatedColumnsByUrn', () => {
                     type: SchemaFieldDataType.String,
                 },
                 {
+                    fieldPath: 'test2',
+                    nullable: false,
+                    recursive: false,
+                    type: SchemaFieldDataType.String,
+                },
+                {
                     fieldPath: 'test3',
+                    nullable: false,
+                    recursive: false,
+                    type: SchemaFieldDataType.String,
+                },
+                {
+                    fieldPath: 'test4',
                     nullable: false,
                     recursive: false,
                     type: SchemaFieldDataType.String,

@@ -26,7 +26,6 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import Source, SourceReport
-from datahub.ingestion.api.source_helpers import auto_workunit_reporter
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.powerbi_report_server.constants import (
     API_ENDPOINTS,
@@ -35,7 +34,6 @@ from datahub.ingestion.source.powerbi_report_server.constants import (
 from datahub.ingestion.source.powerbi_report_server.report_server_domain import (
     CorpUser,
     LinkedReport,
-    MobileReport,
     Owner,
     OwnershipData,
     PowerBiReport,
@@ -116,13 +114,35 @@ class PowerBiReportServerDashboardSourceConfig(PowerBiReportServerAPIConfig):
     chart_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
 
 
+def log_http_error(e: BaseException, message: str) -> Any:
+    LOGGER.warning(message)
+
+    if isinstance(e, requests.exceptions.HTTPError):
+        LOGGER.warning(f"HTTP status-code = {e.response.status_code}")
+
+    LOGGER.debug(msg=message, exc_info=e)
+
+    return e
+
+
+def get_response_dict(response: requests.Response, error_message: str) -> dict:
+    result_dict: dict = {}
+    try:
+        response.raise_for_status()
+        result_dict = response.json()
+    except BaseException as e:
+        log_http_error(e=e, message=error_message)
+
+    return result_dict
+
+
 class PowerBiReportServerAPI:
     # API endpoints of PowerBI Report Server to fetch reports, datasets
 
     def __init__(self, config: PowerBiReportServerAPIConfig) -> None:
         self.__config: PowerBiReportServerAPIConfig = config
         self.__auth: HttpNtlmAuth = HttpNtlmAuth(
-            "{}\\{}".format(self.__config.workstation_name, self.__config.username),
+            f"{self.__config.workstation_name}\\{self.__config.username}",
             self.__config.password,
         )
 
@@ -132,26 +152,27 @@ class PowerBiReportServerAPI:
 
     def requests_get(self, url_http: str, url_https: str, content_type: str) -> Any:
         try:
-            LOGGER.info("Request to Report URL={}".format(url_https))
+            LOGGER.info(f"Request to Report URL={url_https}")
             response = requests.get(
                 url=url_https,
                 auth=self.get_auth_credentials,
-                verify=False,
+                verify=True,
             )
         except ConnectionError:
-            LOGGER.info("Request to Report URL={}".format(url_http))
+            LOGGER.info(f"Request to Report URL={url_http}")
             response = requests.get(
                 url=url_http,
                 auth=self.get_auth_credentials,
             )
-        # Check if we got response from PowerBi Report Server
-        if response.status_code != 200:
-            message: str = "Failed to fetch Report from powerbi-report-server for"
-            LOGGER.warning(message)
-            LOGGER.warning("{}={}".format(Constant.ReportId, content_type))
-            raise ValueError(message)
 
-        return response.json()
+        error_message: str = (
+            f"Failed to fetch {content_type} Report from powerbi-report-server"
+        )
+
+        return get_response_dict(
+            response=response,
+            error_message=error_message,
+        )
 
     def get_all_reports(self) -> List[Any]:
         """
@@ -159,7 +180,6 @@ class PowerBiReportServerAPI:
         """
         report_types_mapping: Dict[str, Any] = {
             Constant.REPORTS: Report,
-            Constant.MOBILE_REPORTS: MobileReport,
             Constant.LINKED_REPORTS: LinkedReport,
             Constant.POWERBI_REPORTS: PowerBiReport,
         }
@@ -174,15 +194,17 @@ class PowerBiReportServerAPI:
             report_get_endpoint_https = report_get_endpoint.format(
                 PBIRS_BASE_URL=self.__config.get_base_api_https_url,
             )
+
             response_dict = self.requests_get(
                 url_http=report_get_endpoint_http,
                 url_https=report_get_endpoint_https,
                 content_type=report_type,
-            )["value"]
-            if response_dict:
+            )
+
+            if response_dict.get("value"):
                 reports.extend(
                     report_types_mapping[report_type].parse_obj(report)
-                    for report in response_dict
+                    for report in response_dict.get("value")
                 )
 
         return reports
@@ -292,11 +314,11 @@ class Mapper:
                 "createdDate": str(report.created_date),
                 "modifiedBy": report.modified_by or "",
                 "modifiedDate": str(report.modified_date) or str(report.created_date),
-                "dataSource": str(
-                    [report.connection_string for report in _report.data_sources]
-                )
-                if _report.data_sources
-                else "",
+                "dataSource": (
+                    str([report.connection_string for report in _report.data_sources])
+                    if _report.data_sources
+                    else ""
+                ),
             }
 
         # DashboardInfo mcp
@@ -383,7 +405,7 @@ class Mapper:
         """
         user_mcps = []
         if user:
-            LOGGER.info("Converting user {} to datahub's user".format(user.username))
+            LOGGER.info(f"Converting user {user.username} to datahub's user")
 
             # Create an URN for User
             user_urn = builder.make_user_urn(user.get_urn_part())
@@ -426,7 +448,7 @@ class Mapper:
     def to_datahub_work_units(self, report: Report) -> List[EquableMetadataWorkUnit]:
         mcps = []
         user_mcps = []
-        LOGGER.info("Converting Dashboard={} to DataHub Dashboard".format(report.name))
+        LOGGER.info(f"Converting Dashboard={report.name} to DataHub Dashboard")
         # Convert user to CorpUser
         user_info = report.user_info.owner_to_add
         if user_info:
@@ -487,7 +509,6 @@ class PowerBiReportServerDashboardSource(Source):
     Next types of report can be ingested:
        - PowerBI report(.pbix)
        - Paginated report(.rdl)
-       - Mobile report
        - Linked report
     """
 
@@ -509,9 +530,6 @@ class PowerBiReportServerDashboardSource(Source):
     def create(cls, config_dict, ctx):
         config = PowerBiReportServerDashboardSourceConfig.parse_obj(config_dict)
         return cls(config, ctx)
-
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        return auto_workunit_reporter(self.report, self.get_workunits_internal())
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         """

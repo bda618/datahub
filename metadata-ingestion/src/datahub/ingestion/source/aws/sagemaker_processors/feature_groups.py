@@ -1,3 +1,5 @@
+import logging
+import textwrap
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Iterable, List
 
@@ -24,9 +26,11 @@ if TYPE_CHECKING:
     from mypy_boto3_sagemaker import SageMakerClient
     from mypy_boto3_sagemaker.type_defs import (
         DescribeFeatureGroupResponseTypeDef,
-        FeatureDefinitionOutputTypeDef,
+        FeatureDefinitionTypeDef,
         FeatureGroupSummaryTypeDef,
     )
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -147,7 +151,7 @@ class FeatureGroupProcessor:
     def get_feature_wu(
         self,
         feature_group_details: "DescribeFeatureGroupResponseTypeDef",
-        feature: "FeatureDefinitionOutputTypeDef",
+        feature: "FeatureDefinitionTypeDef",
     ) -> MetadataWorkUnit:
         """
         Generate an MLFeature workunit for a SageMaker feature.
@@ -197,11 +201,12 @@ class FeatureGroupProcessor:
 
                 full_table_name = f"{glue_database}.{glue_table}"
 
-                self.report.report_warning(
-                    full_table_name,
-                    f"""Note: table {full_table_name} is an AWS Glue object.
+                logging.info(
+                    textwrap.dedent(
+                        f"""Note: table {full_table_name} is an AWS Glue object. This source does not ingest all metadata for Glue tables.
                         To view full table metadata, run Glue ingestion
-                        (see https://datahubproject.io/docs/metadata-ingestion/#aws-glue-glue)""",
+                        (see https://datahubproject.io/docs/generated/ingestion/sources/glue)"""
+                    )
                 )
 
                 feature_sources.append(

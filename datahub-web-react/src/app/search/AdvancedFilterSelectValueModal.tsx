@@ -23,9 +23,7 @@ import {
     REMOVED_FILTER_NAME,
     TAGS_FILTER_NAME,
     TYPE_NAMES_FILTER_NAME,
-    DATA_PRODUCTS_FILTER_NAME,
 } from './utils/constants';
-import SetDataProductModal from '../entity/shared/containers/profile/sidebar/DataProduct/SetDataProductModal';
 
 type Props = {
     facet?: FacetMetadata | null;
@@ -49,7 +47,7 @@ export const AdvancedFilterSelectValueModal = ({
                 urns={[]}
                 defaultValues={initialValues?.map((urn) => ({
                     urn,
-                    entity: facet?.aggregations.find((aggregation) => aggregation.value === urn)?.entity,
+                    entity: facet?.aggregations?.find((aggregation) => aggregation.value === urn)?.entity,
                 }))}
                 onCloseModal={onCloseModal}
                 hideOwnerType
@@ -68,29 +66,12 @@ export const AdvancedFilterSelectValueModal = ({
                 defaultValue={
                     initialValues?.map((urn) => ({
                         urn,
-                        entity: facet?.aggregations.find((aggregation) => aggregation.value === urn)?.entity,
+                        entity: facet?.aggregations?.find((aggregation) => aggregation.value === urn)?.entity,
                     }))?.[0]
                 }
                 onCloseModal={onCloseModal}
                 onOkOverride={(domainUrn) => {
                     onSelect([domainUrn]);
-                    onCloseModal();
-                }}
-            />
-        );
-    }
-
-    if (filterField === DATA_PRODUCTS_FILTER_NAME) {
-        return (
-            <SetDataProductModal
-                titleOverride="Select Data Product"
-                urns={[]}
-                currentDataProduct={
-                    facet?.aggregations.find((agg) => initialValues?.includes(agg?.entity?.urn || ''))?.entity || null
-                }
-                onModalClose={onCloseModal}
-                onOkOverride={(dataProductUrn) => {
-                    onSelect([dataProductUrn]);
                     onCloseModal();
                 }}
             />
@@ -103,7 +84,7 @@ export const AdvancedFilterSelectValueModal = ({
                 titleOverride="Select Container"
                 defaultValues={initialValues?.map((urn) => ({
                     urn,
-                    entity: facet?.aggregations.find((aggregation) => aggregation.value === urn)?.entity,
+                    entity: facet?.aggregations?.find((aggregation) => aggregation.value === urn)?.entity,
                 }))}
                 onCloseModal={onCloseModal}
                 onOkOverride={(containerUrns) => {
@@ -119,7 +100,7 @@ export const AdvancedFilterSelectValueModal = ({
             <SelectPlatformModal
                 defaultValues={initialValues?.map((urn) => ({
                     urn,
-                    entity: facet?.aggregations.find((aggregation) => aggregation.value === urn)?.entity,
+                    entity: facet?.aggregations?.find((aggregation) => aggregation.value === urn)?.entity,
                 }))}
                 titleOverride="Select Platform"
                 onCloseModal={onCloseModal}
@@ -206,7 +187,7 @@ export const AdvancedFilterSelectValueModal = ({
             <EditTagTermsModal
                 resources={[]}
                 type={EntityType.Tag}
-                visible
+                open
                 onCloseModal={onCloseModal}
                 onOkOverride={(urns) => {
                     onSelect(urns);
@@ -214,7 +195,7 @@ export const AdvancedFilterSelectValueModal = ({
                 }}
                 defaultValues={initialValues?.map((urn) => ({
                     urn,
-                    entity: facet?.aggregations.find((aggregation) => aggregation.value === urn)?.entity,
+                    entity: facet?.aggregations?.find((aggregation) => aggregation.value === urn)?.entity,
                 }))}
             />
         );
@@ -230,7 +211,7 @@ export const AdvancedFilterSelectValueModal = ({
             <EditTagTermsModal
                 resources={[]}
                 type={EntityType.GlossaryTerm}
-                visible
+                open
                 onCloseModal={onCloseModal}
                 onOkOverride={(urns) => {
                     onSelect(urns);
@@ -238,7 +219,7 @@ export const AdvancedFilterSelectValueModal = ({
                 }}
                 defaultValues={initialValues?.map((urn) => ({
                     urn,
-                    entity: facet?.aggregations.find((aggregation) => aggregation.value === urn)?.entity,
+                    entity: facet?.aggregations?.find((aggregation) => aggregation.value === urn)?.entity,
                 }))}
             />
         );

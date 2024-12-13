@@ -20,7 +20,7 @@
                     "com.linkedin.pegasus2avro.common.InstitutionalMemory": {
                         "elements": [
                             {
-                                "url": "https://raw.githubusercontent.com/OAI/OpenAPI-Specification/main/examples/",
+                                "url": "https://raw.githubusercontent.com/OAI/OpenAPI-Specification/main/tests/",
                                 "description": "Link to call for the dataset.",
                                 "createStamp": {
                                     "time": 1586847600,
@@ -71,7 +71,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "openapi-2020_04_14-07_00_00"
+        "runId": "openapi-2020_04_14-07_00_00-m1k7d5",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -95,7 +96,7 @@
                     "com.linkedin.pegasus2avro.common.InstitutionalMemory": {
                         "elements": [
                             {
-                                "url": "https://raw.githubusercontent.com/OAI/OpenAPI-Specification/main/examples/v2",
+                                "url": "https://raw.githubusercontent.com/OAI/OpenAPI-Specification/main/tests/v2",
                                 "description": "Link to call for the dataset.",
                                 "createStamp": {
                                     "time": 1586847600,
@@ -146,7 +147,40 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "openapi-2020_04_14-07_00_00"
+        "runId": "openapi-2020_04_14-07_00_00-m1k7d5",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:OpenApi,test_openapi.root,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "openapi-2020_04_14-07_00_00-m1k7d5",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:OpenApi,test_openapi.v2,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "openapi-2020_04_14-07_00_00-m1k7d5",
+        "lastRunId": "no-run-id-provided"
     }
 }
 ]

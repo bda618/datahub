@@ -7,8 +7,10 @@ import {
     DataProduct,
     Deprecation,
     Domain,
+    EntityPath,
     EntityType,
     GlobalTags,
+    Health,
     Owner,
     SearchInsight,
 } from '../../../../types.generated';
@@ -25,6 +27,7 @@ const StatText = styled(Typography.Text)`
 export const Preview = ({
     urn,
     name,
+    subType,
     description,
     platformName,
     platformLogo,
@@ -38,9 +41,13 @@ export const Preview = ({
     insights,
     lastRunTimeMs,
     externalUrl,
+    degree,
+    paths,
+    health,
 }: {
     urn: string;
     name: string;
+    subType?: string | null;
     description?: string | null;
     platformName: string;
     platformLogo?: string | null;
@@ -54,6 +61,9 @@ export const Preview = ({
     insights?: Array<SearchInsight> | null;
     lastRunTimeMs?: number | null;
     externalUrl?: string | null;
+    degree?: number;
+    paths?: EntityPath[];
+    health?: Health[] | null;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     return (
@@ -62,7 +72,7 @@ export const Preview = ({
             name={name}
             urn={urn}
             description={description || ''}
-            type="Data Task"
+            type={subType || 'Data Task'}
             typeIcon={entityRegistry.getIcon(EntityType.DataJob, 14, IconStyleType.ACCENT)}
             platform={platformName}
             logoUrl={platformLogo || ''}
@@ -85,6 +95,9 @@ export const Preview = ({
                 ]) ||
                 undefined
             }
+            degree={degree}
+            paths={paths}
+            health={health || undefined}
         />
     );
 };

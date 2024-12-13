@@ -4,7 +4,6 @@ from datetime import datetime, timezone
 from typing import cast
 from unittest import mock
 
-import pandas as pd
 import pytest
 from freezegun import freeze_time
 
@@ -29,6 +28,8 @@ from datahub.ingestion.source.snowflake.snowflake_config import (
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
 from tests.integration.snowflake.common import FROZEN_TIME, default_query_results
 from tests.test_helpers import mce_helpers
+
+pytestmark = pytest.mark.integration_batch_2
 
 
 def random_email():
@@ -55,8 +56,6 @@ def random_cloud_region():
     )
 
 
-@freeze_time(FROZEN_TIME)
-@pytest.mark.integration
 def test_snowflake_basic(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/snowflake"
 
@@ -65,7 +64,7 @@ def test_snowflake_basic(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
     golden_file = test_resources_dir / "snowflake_golden.json"
 
     with mock.patch("snowflake.connector.connect") as mock_connect, mock.patch(
-        "datahub.ingestion.source.snowflake.snowflake_v2.SnowflakeV2Source.get_sample_values_for_table"
+        "datahub.ingestion.source.snowflake.snowflake_data_reader.SnowflakeDataReader.get_sample_data_for_table"
     ) as mock_sample_values:
         sf_connection = mock.MagicMock()
         sf_cursor = mock.MagicMock()
@@ -74,31 +73,29 @@ def test_snowflake_basic(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
 
         sf_cursor.execute.side_effect = default_query_results
 
-        mock_sample_values.return_value = pd.DataFrame(
-            data={
-                "col_1": [random.randint(1, 80) for i in range(20)],
-                "col_2": [random_email() for i in range(20)],
-                "col_3": [random_cloud_region() for i in range(20)],
-            }
-        )
+        mock_sample_values.return_value = {
+            "col_1": [random.randint(1, 80) for i in range(20)],
+            "col_2": [random_email() for i in range(20)],
+            "col_3": [random_cloud_region() for i in range(20)],
+        }
 
         datahub_classifier_config = DataHubClassifierConfig(
             minimum_values_threshold=10,
             confidence_level_threshold=0.58,
             info_types_config={
                 "Age": InfoTypeConfig(
-                    Prediction_Factors_and_Weights=PredictionFactorsAndWeights(
-                        Name=0, Values=1, Description=0, Datatype=0
+                    prediction_factors_and_weights=PredictionFactorsAndWeights(
+                        name=0, values=1, description=0, datatype=0
                     )
                 ),
                 "CloudRegion": InfoTypeConfig(
-                    Prediction_Factors_and_Weights=PredictionFactorsAndWeights(
-                        Name=0,
-                        Description=0,
-                        Datatype=0,
-                        Values=1,
+                    prediction_factors_and_weights=PredictionFactorsAndWeights(
+                        name=0,
+                        description=0,
+                        datatype=0,
+                        values=1,
                     ),
-                    Values=ValuesFactorConfig(
+                    values=ValuesFactorConfig(
                         prediction_type="regex",
                         regex=[
                             r"(af|ap|ca|eu|me|sa|us)-(central|north|(north(?:east|west))|south|south(?:east|west)|east|west)-\d+"
@@ -122,10 +119,12 @@ def test_snowflake_basic(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
                         include_table_lineage=True,
                         include_view_lineage=True,
                         include_usage_stats=True,
-                        use_legacy_lineage_method=False,
+                        format_sql_queries=True,
                         validate_upstreams_against_patterns=False,
                         include_operational_stats=True,
-                        start_time=datetime(2022, 6, 6, 7, 17, 0, 0).replace(
+                        email_as_user_identifier=True,
+                        incremental_lineage=False,
+                        start_time=datetime(2022, 6, 6, 0, 0, 0, 0).replace(
                             tzinfo=timezone.utc
                         ),
                         end_time=datetime(2022, 6, 7, 7, 17, 0, 0).replace(
@@ -141,6 +140,7 @@ def test_snowflake_basic(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
                                     type="datahub", config=datahub_classifier_config
                                 )
                             ],
+                            max_workers=1,
                         ),
                         profiling=GEProfilingConfig(
                             enabled=True,
@@ -160,6 +160,7 @@ def test_snowflake_basic(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
         pipeline.run()
         pipeline.pretty_print_summary()
         pipeline.raise_from_status()
+        assert not pipeline.source.get_report().warnings
 
         # Verify the output.
 
@@ -167,19 +168,28 @@ def test_snowflake_basic(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
             pytestconfig,
             output_path=output_file,
             golden_path=golden_file,
-            ignore_paths=[],
+            ignore_paths=[
+                r"root\[\d+\]\['aspect'\]\['json'\]\['timestampMillis'\]",
+                r"root\[\d+\]\['aspect'\]\['json'\]\['created'\]",
+                r"root\[\d+\]\['aspect'\]\['json'\]\['lastModified'\]",
+                r"root\[\d+\]\['aspect'\]\['json'\]\['fields'\]\[\d+\]\['glossaryTerms'\]\['auditStamp'\]\['time'\]",
+                r"root\[\d+\]\['systemMetadata'\]",
+            ],
         )
         report = cast(SnowflakeV2Report, pipeline.source.get_report())
-        assert report.lru_cache_info["get_tables_for_database"]["misses"] == 1
-        assert report.lru_cache_info["get_views_for_database"]["misses"] == 1
-        assert report.lru_cache_info["get_columns_for_schema"]["misses"] == 1
-        assert report.lru_cache_info["get_pk_constraints_for_schema"]["misses"] == 1
-        assert report.lru_cache_info["get_fk_constraints_for_schema"]["misses"] == 1
+        assert report.data_dictionary_cache is not None
+        cache_info = report.data_dictionary_cache.as_obj()
+        assert cache_info["get_tables_for_database"]["misses"] == 1
+        assert cache_info["get_views_for_database"]["misses"] == 1
+        assert cache_info["get_columns_for_schema"]["misses"] == 1
+        assert cache_info["get_pk_constraints_for_schema"]["misses"] == 1
+        assert cache_info["get_fk_constraints_for_schema"]["misses"] == 1
 
 
 @freeze_time(FROZEN_TIME)
-@pytest.mark.integration
-def test_snowflake_private_link(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
+def test_snowflake_private_link_and_incremental_mcps(
+    pytestconfig, tmp_path, mock_time, mock_datahub_graph
+):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/snowflake"
 
     # Run the metadata ingestion pipeline.
@@ -205,12 +215,15 @@ def test_snowflake_private_link(pytestconfig, tmp_path, mock_time, mock_datahub_
                         include_technical_schema=True,
                         include_table_lineage=True,
                         include_column_lineage=False,
-                        include_views=False,
-                        include_view_lineage=False,
-                        use_legacy_lineage_method=False,
+                        include_views=True,
+                        include_view_lineage=True,
                         include_usage_stats=False,
+                        format_sql_queries=True,
+                        incremental_lineage=False,
+                        incremental_properties=True,
                         include_operational_stats=False,
-                        start_time=datetime(2022, 6, 6, 7, 17, 0, 0).replace(
+                        platform_instance="instance1",
+                        start_time=datetime(2022, 6, 6, 0, 0, 0, 0).replace(
                             tzinfo=timezone.utc
                         ),
                         end_time=datetime(2022, 6, 7, 7, 17, 0, 0).replace(

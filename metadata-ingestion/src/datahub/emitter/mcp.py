@@ -1,14 +1,15 @@
 import dataclasses
 import json
-from typing import TYPE_CHECKING, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, List, Optional, Sequence, Tuple, Union
 
-from datahub.emitter.aspect import ASPECT_MAP, JSON_CONTENT_TYPE, TIMESERIES_ASPECT_MAP
+from datahub.emitter.aspect import ASPECT_MAP, JSON_CONTENT_TYPE
 from datahub.emitter.serialization_helper import post_json_transform, pre_json_transform
 from datahub.metadata.schema_classes import (
     ChangeTypeClass,
     DictWrapper,
     GenericAspectClass,
     KafkaAuditHeaderClass,
+    MetadataChangeLogClass,
     MetadataChangeProposalClass,
     SystemMetadataClass,
     _Aspect,
@@ -99,7 +100,7 @@ class MetadataChangeProposalWrapper:
 
     @classmethod
     def construct_many(
-        cls, entityUrn: str, aspects: List[Optional[_Aspect]]
+        cls, entityUrn: str, aspects: Sequence[Optional[_Aspect]]
     ) -> List["MetadataChangeProposalWrapper"]:
         return [cls(entityUrn=entityUrn, aspect=aspect) for aspect in aspects if aspect]
 
@@ -215,6 +216,22 @@ class MetadataChangeProposalWrapper:
             return None
 
     @classmethod
+    def try_from_mcl(
+        cls, mcl: MetadataChangeLogClass
+    ) -> Union["MetadataChangeProposalWrapper", MetadataChangeProposalClass]:
+        mcpc = MetadataChangeProposalClass(
+            entityUrn=mcl.entityUrn,
+            entityType=mcl.entityType,
+            entityKeyAspect=mcl.entityKeyAspect,
+            aspect=mcl.aspect,
+            aspectName=mcl.aspectName,
+            changeType=mcl.changeType,
+            auditHeader=mcl.auditHeader,
+            systemMetadata=mcl.systemMetadata,
+        )
+        return cls.try_from_mcpc(mcpc) or mcpc
+
+    @classmethod
     def from_obj_require_wrapper(
         cls, obj: dict, tuples: bool = False
     ) -> "MetadataChangeProposalWrapper":
@@ -223,24 +240,14 @@ class MetadataChangeProposalWrapper:
         return mcp
 
     def as_workunit(
-        self, *, treat_errors_as_warnings: bool = False
+        self, *, treat_errors_as_warnings: bool = False, is_primary_source: bool = True
     ) -> "MetadataWorkUnit":
         from datahub.ingestion.api.workunit import MetadataWorkUnit
 
-        if self.aspect and self.aspectName in TIMESERIES_ASPECT_MAP:
-            # TODO: Make this a cleaner interface.
-            ts = getattr(self.aspect, "timestampMillis", None)
-            assert ts is not None
-
-            # If the aspect is a timeseries aspect, include the timestampMillis in the ID.
-            return MetadataWorkUnit(
-                id=f"{self.entityUrn}-{self.aspectName}-{ts}",
-                mcp=self,
-                treat_errors_as_warnings=treat_errors_as_warnings,
-            )
-
+        id = MetadataWorkUnit.generate_workunit_id(self)
         return MetadataWorkUnit(
-            id=f"{self.entityUrn}-{self.aspectName}",
+            id=id,
             mcp=self,
             treat_errors_as_warnings=treat_errors_as_warnings,
+            is_primary_source=is_primary_source,
         )

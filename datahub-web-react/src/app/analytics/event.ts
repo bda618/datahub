@@ -1,4 +1,12 @@
-import { DataHubViewType, EntityType, RecommendationRenderType, ScenarioType } from '../../types.generated';
+import {
+    AllowedValue,
+    DataHubViewType,
+    EntityType,
+    PropertyCardinality,
+    PropertyValueInput,
+    RecommendationRenderType,
+    ScenarioType,
+} from '../../types.generated';
 import { EmbedLookupNotFoundReason } from '../embed/lookup/constants';
 import { Direction } from '../lineage/types';
 import { FilterMode } from '../search/utils/constants';
@@ -35,6 +43,8 @@ export enum EventType {
     SearchBarExploreAllClickEvent,
     SearchResultsExploreAllClickEvent,
     SearchAcrossLineageEvent,
+    VisualLineageViewEvent,
+    VisualLineageExpandGraphEvent,
     SearchAcrossLineageResultsViewEvent,
     DownloadAsCsvEvent,
     SignUpEvent,
@@ -46,6 +56,7 @@ export enum EventType {
     CreateResetCredentialsLinkEvent,
     DeleteEntityEvent,
     SelectUserRoleEvent,
+    SelectGroupRoleEvent,
     BatchSelectUserRoleEvent,
     CreatePolicyEvent,
     UpdatePolicyEvent,
@@ -55,6 +66,7 @@ export enum EventType {
     ShowStandardHomepageEvent,
     CreateGlossaryEntityEvent,
     CreateDomainEvent,
+    MoveDomainEvent,
     CreateIngestionSourceEvent,
     UpdateIngestionSourceEvent,
     DeleteIngestionSourceEvent,
@@ -77,6 +89,15 @@ export enum EventType {
     EmbedProfileViewEvent,
     EmbedProfileViewInDataHubEvent,
     EmbedLookupNotFoundEvent,
+    CreateBusinessAttributeEvent,
+    CreateStructuredPropertyClickEvent,
+    CreateStructuredPropertyEvent,
+    EditStructuredPropertyEvent,
+    DeleteStructuredPropertyEvent,
+    ViewStructuredPropertyEvent,
+    ApplyStructuredPropertyEvent,
+    UpdateStructuredPropertyOnAssetEvent,
+    RemoveStructuredPropertyEvent,
 }
 
 /**
@@ -186,6 +207,7 @@ export interface SearchResultClickEvent extends BaseEvent {
     entityTypeFilter?: EntityType;
     index: number;
     total: number;
+    pageNumber: number;
 }
 
 export interface SearchFiltersClearAllEvent extends BaseEvent {
@@ -299,6 +321,8 @@ export const EntityActionType = {
     UpdateSchemaTags: 'UpdateSchemaTags',
     UpdateSchemaTerms: 'UpdateSchemaTerms',
     ClickExternalUrl: 'ClickExternalUrl',
+    AddIncident: 'AddIncident',
+    ResolvedIncident: 'ResolvedIncident',
 };
 export interface EntityActionEvent extends BaseEvent {
     type: EventType.EntityActionEvent;
@@ -339,12 +363,23 @@ export interface HomePageRecommendationClickEvent extends BaseEvent {
     index?: number;
 }
 
+export interface VisualLineageViewEvent extends BaseEvent {
+    type: EventType.VisualLineageViewEvent;
+    entityType?: EntityType;
+}
+
+export interface VisualLineageExpandGraphEvent extends BaseEvent {
+    type: EventType.VisualLineageExpandGraphEvent;
+    targetEntityType?: EntityType;
+}
+
 export interface SearchAcrossLineageEvent extends BaseEvent {
     type: EventType.SearchAcrossLineageEvent;
     query: string;
     entityTypeFilter?: EntityType;
     pageNumber: number;
     originPath: string;
+    maxDegree?: string;
 }
 export interface SearchAcrossLineageResultsViewEvent extends BaseEvent {
     type: EventType.SearchAcrossLineageResultsViewEvent;
@@ -352,6 +387,7 @@ export interface SearchAcrossLineageResultsViewEvent extends BaseEvent {
     entityTypeFilter?: EntityType;
     page?: number;
     total: number;
+    maxDegree?: string;
 }
 
 export interface DownloadAsCsvEvent extends BaseEvent {
@@ -395,6 +431,12 @@ export interface SelectUserRoleEvent extends BaseEvent {
     type: EventType.SelectUserRoleEvent;
     roleUrn: string;
     userUrn: string;
+}
+
+export interface SelectGroupRoleEvent extends BaseEvent {
+    type: EventType.SelectGroupRoleEvent;
+    roleUrn: string;
+    groupUrn?: string;
 }
 
 export interface BatchSelectUserRoleEvent extends BaseEvent {
@@ -454,6 +496,13 @@ export interface CreateGlossaryEntityEvent extends BaseEvent {
 
 export interface CreateDomainEvent extends BaseEvent {
     type: EventType.CreateDomainEvent;
+    parentDomainUrn?: string;
+}
+
+export interface MoveDomainEvent extends BaseEvent {
+    type: EventType.MoveDomainEvent;
+    oldParentDomainUrn?: string;
+    parentDomainUrn?: string;
 }
 
 // Managed Ingestion Events
@@ -602,6 +651,69 @@ export interface EmbedLookupNotFoundEvent extends BaseEvent {
     reason: EmbedLookupNotFoundReason;
 }
 
+export interface CreateBusinessAttributeEvent extends BaseEvent {
+    type: EventType.CreateBusinessAttributeEvent;
+    name: string;
+}
+
+export interface CreateStructuredPropertyClickEvent extends BaseEvent {
+    type: EventType.CreateStructuredPropertyClickEvent;
+}
+
+interface StructuredPropertyEvent extends BaseEvent {
+    propertyType: string;
+    appliesTo: string[];
+    qualifiedName?: string;
+    allowedAssetTypes?: string[];
+    allowedValues?: AllowedValue[];
+    cardinality?: PropertyCardinality;
+    showInFilters?: boolean;
+    isHidden: boolean;
+    showInSearchFilters: boolean;
+    showAsAssetBadge: boolean;
+    showInAssetSummary: boolean;
+    showInColumnsTable: boolean;
+}
+
+export interface CreateStructuredPropertyEvent extends StructuredPropertyEvent {
+    type: EventType.CreateStructuredPropertyEvent;
+}
+
+export interface EditStructuredPropertyEvent extends StructuredPropertyEvent {
+    type: EventType.EditStructuredPropertyEvent;
+    propertyUrn: string;
+}
+
+export interface DeleteStructuredPropertyEvent extends StructuredPropertyEvent {
+    type: EventType.DeleteStructuredPropertyEvent;
+    propertyUrn: string;
+}
+
+export interface ViewStructuredPropertyEvent extends BaseEvent {
+    type: EventType.ViewStructuredPropertyEvent;
+    propertyUrn: string;
+}
+
+interface StructuredPropertyOnAssetEvent extends BaseEvent {
+    propertyUrn: string;
+    propertyType: string;
+    assetUrn: string;
+    assetType: EntityType;
+}
+export interface ApplyStructuredPropertyEvent extends StructuredPropertyOnAssetEvent {
+    type: EventType.ApplyStructuredPropertyEvent;
+    values: PropertyValueInput[];
+}
+
+export interface UpdateStructuredPropertyOnAssetEvent extends StructuredPropertyOnAssetEvent {
+    type: EventType.UpdateStructuredPropertyOnAssetEvent;
+    values: PropertyValueInput[];
+}
+
+export interface RemoveStructuredPropertyEvent extends StructuredPropertyOnAssetEvent {
+    type: EventType.RemoveStructuredPropertyEvent;
+}
+
 /**
  * Event consisting of a union of specific event types.
  */
@@ -633,6 +745,8 @@ export type Event =
     | RecommendationImpressionEvent
     | SearchAcrossLineageEvent
     | SearchAcrossLineageResultsViewEvent
+    | VisualLineageViewEvent
+    | VisualLineageExpandGraphEvent
     | DownloadAsCsvEvent
     | RecommendationClickEvent
     | HomePageRecommendationClickEvent
@@ -644,6 +758,7 @@ export type Event =
     | CreateResetCredentialsLinkEvent
     | DeleteEntityEvent
     | SelectUserRoleEvent
+    | SelectGroupRoleEvent
     | BatchSelectUserRoleEvent
     | CreatePolicyEvent
     | UpdatePolicyEvent
@@ -653,6 +768,7 @@ export type Event =
     | ShowStandardHomepageEvent
     | CreateGlossaryEntityEvent
     | CreateDomainEvent
+    | MoveDomainEvent
     | CreateIngestionSourceEvent
     | UpdateIngestionSourceEvent
     | DeleteIngestionSourceEvent
@@ -675,4 +791,13 @@ export type Event =
     | DeselectQuickFilterEvent
     | EmbedProfileViewEvent
     | EmbedProfileViewInDataHubEvent
-    | EmbedLookupNotFoundEvent;
+    | EmbedLookupNotFoundEvent
+    | CreateBusinessAttributeEvent
+    | CreateStructuredPropertyClickEvent
+    | CreateStructuredPropertyEvent
+    | EditStructuredPropertyEvent
+    | DeleteStructuredPropertyEvent
+    | ViewStructuredPropertyEvent
+    | ApplyStructuredPropertyEvent
+    | UpdateStructuredPropertyOnAssetEvent
+    | RemoveStructuredPropertyEvent;

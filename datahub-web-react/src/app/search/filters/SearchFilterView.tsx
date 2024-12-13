@@ -1,29 +1,11 @@
 import { CaretDownFilled } from '@ant-design/icons';
-import { Button, Dropdown } from 'antd';
+import { Dropdown } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
+import { FacetFilterInput, FacetMetadata } from '@src/types.generated';
 import OptionsDropdownMenu from './OptionsDropdownMenu';
-import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
 import { DisplayedFilterOption } from './mapFilterOption';
-import { ANTD_GRAY } from '../../entity/shared/constants';
-
-export const DropdownLabel = styled(Button)<{ isActive: boolean }>`
-    font-size: 14px;
-    font-weight: 700;
-    margin-right: 12px;
-    border: 1px solid ${ANTD_GRAY[5]};
-    border-radius: 8px;
-    display: flex;
-    align-items: center;
-    box-shadow: none;
-    ${(props) =>
-        props.isActive &&
-        `
-        background-color: ${props.theme.styles['primary-color']};
-        border: 1px solid ${props.theme.styles['primary-color']};
-        color: white;
-    `}
-`;
+import { SearchFilterLabel } from './styledComponents';
 
 export const IconWrapper = styled.div`
     margin-right: 8px;
@@ -45,6 +27,8 @@ interface Props {
     updateIsMenuOpen: (isOpen: boolean) => void;
     setSearchQuery: (query: string) => void;
     updateFilters: () => void;
+    filter?: FacetMetadata;
+    manuallyUpdateFilters?: (newValues: FacetFilterInput[]) => void;
 }
 
 export default function SearchFilterView({
@@ -58,6 +42,8 @@ export default function SearchFilterView({
     updateIsMenuOpen,
     setSearchQuery,
     updateFilters,
+    filter,
+    manuallyUpdateFilters,
 }: Props) {
     return (
         <Dropdown
@@ -73,18 +59,20 @@ export default function SearchFilterView({
                     updateSearchQuery={setSearchQuery}
                     isLoading={loading}
                     searchPlaceholder={displayName}
+                    filter={filter}
+                    manuallyUpdateFilters={manuallyUpdateFilters}
                 />
             )}
         >
-            <DropdownLabel
+            <SearchFilterLabel
                 onClick={() => updateIsMenuOpen(!isMenuOpen)}
                 isActive={!!numActiveFilters}
-                data-testid={`filter-dropdown-${capitalizeFirstLetterOnly(displayName)}`}
+                data-testid={`filter-dropdown-${displayName?.replace(/\s/g, '-')}`}
             >
                 {filterIcon && <IconWrapper>{filterIcon}</IconWrapper>}
-                {capitalizeFirstLetterOnly(displayName)} {numActiveFilters ? `(${numActiveFilters}) ` : ''}
+                {displayName} {numActiveFilters ? `(${numActiveFilters}) ` : ''}
                 <CaretDownFilled style={{ fontSize: '12px', height: '12px' }} />
-            </DropdownLabel>
+            </SearchFilterLabel>
         </Dropdown>
     );
 }

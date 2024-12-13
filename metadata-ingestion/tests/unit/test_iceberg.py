@@ -1,18 +1,58 @@
-from typing import Any, Optional
+import uuid
+from decimal import Decimal
+from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
+from unittest import TestCase
+from unittest.mock import patch
 
 import pytest
-from iceberg.api import types as IcebergTypes
-from iceberg.api.types.types import NestedField
+from pydantic import ValidationError
+from pyiceberg.exceptions import (
+    NoSuchIcebergTableError,
+    NoSuchNamespaceError,
+    NoSuchPropertyException,
+)
+from pyiceberg.io.pyarrow import PyArrowFileIO
+from pyiceberg.partitioning import PartitionSpec
+from pyiceberg.schema import Schema
+from pyiceberg.table import Table
+from pyiceberg.table.metadata import TableMetadataV2
+from pyiceberg.types import (
+    BinaryType,
+    BooleanType,
+    DateType,
+    DecimalType,
+    DoubleType,
+    FixedType,
+    FloatType,
+    IcebergType,
+    IntegerType,
+    ListType,
+    LongType,
+    MapType,
+    NestedField,
+    PrimitiveType,
+    StringType,
+    StructType,
+    TimestampType,
+    TimestamptzType,
+    TimeType,
+    UUIDType,
+)
 
-from datahub.configuration.common import ConfigurationError
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.source.azure.azure_common import AdlsSourceConfig
-from datahub.ingestion.source.iceberg.iceberg import IcebergSource, IcebergSourceConfig
+from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.iceberg.iceberg import (
+    IcebergProfiler,
+    IcebergSource,
+    IcebergSourceConfig,
+)
+from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.com.linkedin.pegasus2avro.schema import ArrayType, SchemaField
 from datahub.metadata.schema_classes import (
     ArrayTypeClass,
     BooleanTypeClass,
     BytesTypeClass,
+    DatasetSnapshotClass,
     DateTypeClass,
     FixedTypeClass,
     NumberTypeClass,
@@ -22,13 +62,20 @@ from datahub.metadata.schema_classes import (
 )
 
 
-def with_iceberg_source() -> IcebergSource:
-    adls: AdlsSourceConfig = AdlsSourceConfig(
-        account_name="test", account_key="test", container_name="test"
-    )
+def with_iceberg_source(processing_threads: int = 1) -> IcebergSource:
+    catalog = {"test": {"type": "rest"}}
     return IcebergSource(
         ctx=PipelineContext(run_id="iceberg-source-test"),
-        config=IcebergSourceConfig(adls=adls),
+        config=IcebergSourceConfig(
+            catalog=catalog, processing_threads=processing_threads
+        ),
+    )
+
+
+def with_iceberg_profiler() -> IcebergProfiler:
+    iceberg_source_instance = with_iceberg_source()
+    return IcebergProfiler(
+        iceberg_source_instance.report, iceberg_source_instance.config.profiling
     )
 
 
@@ -49,66 +96,41 @@ def assert_field(
     ), f"Field type {schema_field.type.type} is different from expected type {expected_type}"
 
 
-def test_adls_config_no_credential():
+def test_config_no_catalog():
     """
-    Test when no ADLS credential information is provided (SAS token, Account key).
+    Test when no Iceberg catalog is provided.
     """
-    with pytest.raises(ConfigurationError):
-        AdlsSourceConfig(account_name="test", container_name="test")
+    with pytest.raises(ValidationError, match="catalog"):
+        IcebergSourceConfig()  # type: ignore
 
 
-def test_adls_config_with_sas_credential():
+def test_config_catalog_not_configured():
     """
-    Test when a SAS token is used as an ADLS credential.
+    Test when an Iceberg catalog is provided, but not properly configured.
     """
-    AdlsSourceConfig(account_name="test", sas_token="test", container_name="test")
+    # When no catalog configurationis provided, the config should be invalid
+    with pytest.raises(ValidationError, match="type"):
+        IcebergSourceConfig(catalog={})  # type: ignore
+
+    # When a catalog name is provided without configuration, the config should be invalid
+    with pytest.raises(ValidationError):
+        IcebergSourceConfig(catalog={"test": {}})
 
 
-def test_adls_config_with_key_credential():
+def test_config_deprecated_catalog_configuration():
     """
-    Test when an account key is used as an ADLS credential.
+    Test when a deprecated Iceberg catalog configuration is provided, it should be converted to the current scheme.
     """
-    AdlsSourceConfig(account_name="test", account_key="test", container_name="test")
-
-
-def test_adls_config_with_client_secret_credential():
-    """
-    Test when a client secret is used as an ADLS credential.
-    """
-    AdlsSourceConfig(
-        account_name="test",
-        tenant_id="test",
-        client_id="test",
-        client_secret="test",
-        container_name="test",
-    )
-
-    # Test when tenant_id is missing
-    with pytest.raises(ConfigurationError):
-        AdlsSourceConfig(
-            account_name="test",
-            client_id="test",
-            client_secret="test",
-            container_name="test",
-        )
-
-    # Test when client_id is missing
-    with pytest.raises(ConfigurationError):
-        AdlsSourceConfig(
-            account_name="test",
-            tenant_id="test",
-            client_secret="test",
-            container_name="test",
-        )
-
-    # Test when client_secret is missing
-    with pytest.raises(ConfigurationError):
-        AdlsSourceConfig(
-            account_name="test",
-            tenant_id="test",
-            client_id="test",
-            container_name="test",
-        )
+    deprecated_config = {
+        "name": "test",
+        "type": "rest",
+        "config": {"uri": "http://a.uri.test", "another_prop": "another_value"},
+    }
+    migrated_config = IcebergSourceConfig(catalog=deprecated_config)
+    assert migrated_config.catalog["test"] is not None
+    assert migrated_config.catalog["test"]["type"] == "rest"
+    assert migrated_config.catalog["test"]["uri"] == "http://a.uri.test"
+    assert migrated_config.catalog["test"]["another_prop"] == "another_value"
 
 
 def test_config_for_tests():
@@ -118,258 +140,364 @@ def test_config_for_tests():
     with_iceberg_source()
 
 
-def test_config_no_filesystem():
+def test_config_support_nested_dicts():
     """
-    Test when a SAS token is used as an ADLS credential.
+    Test that Iceberg source supports nested dictionaries inside its configuration, as allowed by pyiceberg.
     """
-    with pytest.raises(ConfigurationError):
-        IcebergSource(
-            ctx=PipelineContext(run_id="iceberg-source-test"),
-            config=IcebergSourceConfig(),
-        )
-
-
-def test_config_multiple_filesystems():
-    """
-    Test when more than 1 filesystem is configured.
-    """
-    with pytest.raises(ConfigurationError):
-        adls: AdlsSourceConfig = AdlsSourceConfig(
-            account_name="test", container_name="test"
-        )
-        IcebergSource(
-            ctx=PipelineContext(run_id="iceberg-source-test"),
-            config=IcebergSourceConfig(adls=adls, localfs="/tmp"),
-        )
+    catalog = {
+        "test": {
+            "type": "rest",
+            "nested_dict": {
+                "nested_key": "nested_value",
+                "nested_array": ["a1", "a2"],
+                "subnested_dict": {"subnested_key": "subnested_value"},
+            },
+        }
+    }
+    test_config = IcebergSourceConfig(catalog=catalog)
+    assert isinstance(test_config.catalog["test"]["nested_dict"], Dict)
+    assert test_config.catalog["test"]["nested_dict"]["nested_key"] == "nested_value"
+    assert isinstance(test_config.catalog["test"]["nested_dict"]["nested_array"], List)
+    assert test_config.catalog["test"]["nested_dict"]["nested_array"][0] == "a1"
+    assert isinstance(
+        test_config.catalog["test"]["nested_dict"]["subnested_dict"], Dict
+    )
+    assert (
+        test_config.catalog["test"]["nested_dict"]["subnested_dict"]["subnested_key"]
+        == "subnested_value"
+    )
 
 
 @pytest.mark.parametrize(
     "iceberg_type, expected_schema_field_type",
     [
-        (IcebergTypes.BinaryType.get(), BytesTypeClass),
-        (IcebergTypes.BooleanType.get(), BooleanTypeClass),
-        (IcebergTypes.DateType.get(), DateTypeClass),
+        (BinaryType(), BytesTypeClass),
+        (BooleanType(), BooleanTypeClass),
+        (DateType(), DateTypeClass),
         (
-            IcebergTypes.DecimalType.of(3, 2),
+            DecimalType(3, 2),
             NumberTypeClass,
         ),
-        (IcebergTypes.DoubleType.get(), NumberTypeClass),
-        (IcebergTypes.FixedType.of_length(4), FixedTypeClass),
-        (IcebergTypes.FloatType.get(), NumberTypeClass),
-        (IcebergTypes.IntegerType.get(), NumberTypeClass),
-        (IcebergTypes.LongType.get(), NumberTypeClass),
-        (IcebergTypes.StringType.get(), StringTypeClass),
+        (DoubleType(), NumberTypeClass),
+        (FixedType(4), FixedTypeClass),
+        (FloatType(), NumberTypeClass),
+        (IntegerType(), NumberTypeClass),
+        (LongType(), NumberTypeClass),
+        (StringType(), StringTypeClass),
         (
-            IcebergTypes.TimestampType.with_timezone(),
+            TimestampType(),
             TimeTypeClass,
         ),
         (
-            IcebergTypes.TimestampType.without_timezone(),
+            TimestamptzType(),
             TimeTypeClass,
         ),
-        (IcebergTypes.TimeType.get(), TimeTypeClass),
+        (TimeType(), TimeTypeClass),
         (
-            IcebergTypes.UUIDType.get(),
+            UUIDType(),
             StringTypeClass,
         ),
     ],
 )
 def test_iceberg_primitive_type_to_schema_field(
-    iceberg_type: IcebergTypes.PrimitiveType, expected_schema_field_type: Any
+    iceberg_type: PrimitiveType, expected_schema_field_type: Any
 ) -> None:
     """
     Test converting a primitive typed Iceberg field to a SchemaField
     """
     iceberg_source_instance = with_iceberg_source()
     for column in [
-        NestedField.required(
-            1, "required_field", iceberg_type, "required field documentation"
+        NestedField(
+            1, "required_field", iceberg_type, True, "required field documentation"
         ),
-        NestedField.optional(
-            1, "optional_field", iceberg_type, "optional field documentation"
+        NestedField(
+            1, "optional_field", iceberg_type, False, "optional field documentation"
         ),
     ]:
-        schema_fields = iceberg_source_instance._get_schema_fields_for_column(column)
+        schema = Schema(column)
+        schema_fields = iceberg_source_instance._get_schema_fields_for_schema(schema)
         assert (
             len(schema_fields) == 1
         ), f"Expected 1 field, but got {len(schema_fields)}"
         assert_field(
-            schema_fields[0], column.doc, column.is_optional, expected_schema_field_type
+            schema_fields[0],
+            column.doc,
+            column.optional,
+            expected_schema_field_type,
         )
 
 
 @pytest.mark.parametrize(
     "iceberg_type, expected_array_nested_type",
     [
-        (IcebergTypes.BinaryType.get(), "bytes"),
-        (IcebergTypes.BooleanType.get(), "boolean"),
-        (IcebergTypes.DateType.get(), "date"),
+        (BinaryType(), "bytes"),
+        (BooleanType(), "boolean"),
+        (DateType(), "date"),
         (
-            IcebergTypes.DecimalType.of(3, 2),
+            DecimalType(3, 2),
             "decimal",
         ),
-        (IcebergTypes.DoubleType.get(), "double"),
-        (IcebergTypes.FixedType.of_length(4), "fixed"),
-        (IcebergTypes.FloatType.get(), "float"),
-        (IcebergTypes.IntegerType.get(), "int"),
-        (IcebergTypes.LongType.get(), "long"),
-        (IcebergTypes.StringType.get(), "string"),
+        (DoubleType(), "double"),
+        (FixedType(4), "fixed"),
+        (FloatType(), "float"),
+        (IntegerType(), "int"),
+        (LongType(), "long"),
+        (StringType(), "string"),
         (
-            IcebergTypes.TimestampType.with_timezone(),
+            TimestampType(),
             "timestamp-micros",
         ),
         (
-            IcebergTypes.TimestampType.without_timezone(),
+            TimestamptzType(),
             "timestamp-micros",
         ),
-        (IcebergTypes.TimeType.get(), "time-micros"),
+        (TimeType(), "time-micros"),
         (
-            IcebergTypes.UUIDType.get(),
+            UUIDType(),
             "uuid",
         ),
     ],
 )
 def test_iceberg_list_to_schema_field(
-    iceberg_type: IcebergTypes.PrimitiveType, expected_array_nested_type: Any
+    iceberg_type: PrimitiveType, expected_array_nested_type: Any
 ) -> None:
     """
     Test converting a list typed Iceberg field to an ArrayType SchemaField, including the list nested type.
     """
-    list_column: NestedField = NestedField.required(
-        1,
-        "listField",
-        IcebergTypes.ListType.of_required(2, iceberg_type),
-        "documentation",
-    )
-    iceberg_source_instance = with_iceberg_source()
-    schema_fields = iceberg_source_instance._get_schema_fields_for_column(list_column)
-    assert len(schema_fields) == 1, f"Expected 1 field, but got {len(schema_fields)}"
-    assert_field(
-        schema_fields[0], list_column.doc, list_column.is_optional, ArrayTypeClass
-    )
-    assert isinstance(
-        schema_fields[0].type.type, ArrayType
-    ), f"Field type {schema_fields[0].type.type} was expected to be {ArrayType}"
-    arrayType: ArrayType = schema_fields[0].type.type
-    assert arrayType.nestedType == [
-        expected_array_nested_type
-    ], f"List Field nested type {arrayType.nestedType} was expected to be {expected_array_nested_type}"
+    for list_column in [
+        NestedField(
+            1,
+            "listField",
+            ListType(2, iceberg_type, True),
+            True,
+            "required field, required element documentation",
+        ),
+        NestedField(
+            1,
+            "listField",
+            ListType(2, iceberg_type, False),
+            True,
+            "required field, optional element documentation",
+        ),
+        NestedField(
+            1,
+            "listField",
+            ListType(2, iceberg_type, True),
+            False,
+            "optional field, required element documentation",
+        ),
+        NestedField(
+            1,
+            "listField",
+            ListType(2, iceberg_type, False),
+            False,
+            "optional field, optional element documentation",
+        ),
+    ]:
+        iceberg_source_instance = with_iceberg_source()
+        schema = Schema(list_column)
+        schema_fields = iceberg_source_instance._get_schema_fields_for_schema(schema)
+        assert (
+            len(schema_fields) == 1
+        ), f"Expected 1 field, but got {len(schema_fields)}"
+        assert_field(
+            schema_fields[0], list_column.doc, list_column.optional, ArrayTypeClass
+        )
+        assert isinstance(
+            schema_fields[0].type.type, ArrayType
+        ), f"Field type {schema_fields[0].type.type} was expected to be {ArrayType}"
+        arrayType: ArrayType = schema_fields[0].type.type
+        assert arrayType.nestedType == [
+            expected_array_nested_type
+        ], f"List Field nested type {arrayType.nestedType} was expected to be {expected_array_nested_type}"
 
 
 @pytest.mark.parametrize(
     "iceberg_type, expected_map_type",
     [
-        (IcebergTypes.BinaryType.get(), BytesTypeClass),
-        (IcebergTypes.BooleanType.get(), BooleanTypeClass),
-        (IcebergTypes.DateType.get(), DateTypeClass),
+        (BinaryType(), BytesTypeClass),
+        (BooleanType(), BooleanTypeClass),
+        (DateType(), DateTypeClass),
         (
-            IcebergTypes.DecimalType.of(3, 2),
+            DecimalType(3, 2),
             NumberTypeClass,
         ),
-        (IcebergTypes.DoubleType.get(), NumberTypeClass),
-        (IcebergTypes.FixedType.of_length(4), FixedTypeClass),
-        (IcebergTypes.FloatType.get(), NumberTypeClass),
-        (IcebergTypes.IntegerType.get(), NumberTypeClass),
-        (IcebergTypes.LongType.get(), NumberTypeClass),
-        (IcebergTypes.StringType.get(), StringTypeClass),
+        (DoubleType(), NumberTypeClass),
+        (FixedType(4), FixedTypeClass),
+        (FloatType(), NumberTypeClass),
+        (IntegerType(), NumberTypeClass),
+        (LongType(), NumberTypeClass),
+        (StringType(), StringTypeClass),
         (
-            IcebergTypes.TimestampType.with_timezone(),
+            TimestampType(),
             TimeTypeClass,
         ),
         (
-            IcebergTypes.TimestampType.without_timezone(),
+            TimestamptzType(),
             TimeTypeClass,
         ),
-        (IcebergTypes.TimeType.get(), TimeTypeClass),
+        (TimeType(), TimeTypeClass),
         (
-            IcebergTypes.UUIDType.get(),
+            UUIDType(),
             StringTypeClass,
         ),
     ],
 )
 def test_iceberg_map_to_schema_field(
-    iceberg_type: IcebergTypes.PrimitiveType, expected_map_type: Any
+    iceberg_type: PrimitiveType, expected_map_type: Any
 ) -> None:
     """
     Test converting a map typed Iceberg field to a MapType SchemaField, where the key is the same type as the value.
     """
-    map_column: NestedField = NestedField.required(
-        1,
-        "mapField",
-        IcebergTypes.MapType.of_required(11, 12, iceberg_type, iceberg_type),
-        "documentation",
-    )
-    iceberg_source_instance = with_iceberg_source()
-    schema_fields = iceberg_source_instance._get_schema_fields_for_column(map_column)
-    # Converting an Iceberg Map type will be done by creating an array of struct(key, value) records.
-    # The first field will be the array.
-    assert len(schema_fields) == 3, f"Expected 3 fields, but got {len(schema_fields)}"
-    assert_field(
-        schema_fields[0], map_column.doc, map_column.is_optional, ArrayTypeClass
-    )
+    for map_column in [
+        NestedField(
+            1,
+            "mapField",
+            MapType(11, iceberg_type, 12, iceberg_type, True),
+            True,
+            "required field, required value documentation",
+        ),
+        NestedField(
+            1,
+            "mapField",
+            MapType(11, iceberg_type, 12, iceberg_type, False),
+            True,
+            "required field, optional value documentation",
+        ),
+        NestedField(
+            1,
+            "mapField",
+            MapType(11, iceberg_type, 12, iceberg_type, True),
+            False,
+            "optional field, required value documentation",
+        ),
+        NestedField(
+            1,
+            "mapField",
+            MapType(11, iceberg_type, 12, iceberg_type, False),
+            False,
+            "optional field, optional value documentation",
+        ),
+    ]:
+        iceberg_source_instance = with_iceberg_source()
+        schema = Schema(map_column)
+        schema_fields = iceberg_source_instance._get_schema_fields_for_schema(schema)
+        # Converting an Iceberg Map type will be done by creating an array of struct(key, value) records.
+        # The first field will be the array.
+        assert (
+            len(schema_fields) == 3
+        ), f"Expected 3 fields, but got {len(schema_fields)}"
+        assert_field(
+            schema_fields[0], map_column.doc, map_column.optional, ArrayTypeClass
+        )
 
-    # The second field will be the key type
-    assert_field(schema_fields[1], None, False, expected_map_type)
+        # The second field will be the key type
+        assert_field(schema_fields[1], None, False, expected_map_type)
 
-    # The third field will be the value type
-    assert_field(schema_fields[2], None, True, expected_map_type)
+        # The third field will be the value type
+        assert_field(
+            schema_fields[2],
+            None,
+            not map_column.field_type.value_required,
+            expected_map_type,
+        )
 
 
 @pytest.mark.parametrize(
     "iceberg_type, expected_schema_field_type",
     [
-        (IcebergTypes.BinaryType.get(), BytesTypeClass),
-        (IcebergTypes.BooleanType.get(), BooleanTypeClass),
-        (IcebergTypes.DateType.get(), DateTypeClass),
+        (BinaryType(), BytesTypeClass),
+        (BooleanType(), BooleanTypeClass),
+        (DateType(), DateTypeClass),
         (
-            IcebergTypes.DecimalType.of(3, 2),
+            DecimalType(3, 2),
             NumberTypeClass,
         ),
-        (IcebergTypes.DoubleType.get(), NumberTypeClass),
-        (IcebergTypes.FixedType.of_length(4), FixedTypeClass),
-        (IcebergTypes.FloatType.get(), NumberTypeClass),
-        (IcebergTypes.IntegerType.get(), NumberTypeClass),
-        (IcebergTypes.LongType.get(), NumberTypeClass),
-        (IcebergTypes.StringType.get(), StringTypeClass),
+        (DoubleType(), NumberTypeClass),
+        (FixedType(4), FixedTypeClass),
+        (FloatType(), NumberTypeClass),
+        (IntegerType(), NumberTypeClass),
+        (LongType(), NumberTypeClass),
+        (StringType(), StringTypeClass),
         (
-            IcebergTypes.TimestampType.with_timezone(),
+            TimestampType(),
             TimeTypeClass,
         ),
         (
-            IcebergTypes.TimestampType.without_timezone(),
+            TimestamptzType(),
             TimeTypeClass,
         ),
-        (IcebergTypes.TimeType.get(), TimeTypeClass),
+        (TimeType(), TimeTypeClass),
         (
-            IcebergTypes.UUIDType.get(),
+            UUIDType(),
             StringTypeClass,
         ),
     ],
 )
 def test_iceberg_struct_to_schema_field(
-    iceberg_type: IcebergTypes.PrimitiveType, expected_schema_field_type: Any
+    iceberg_type: PrimitiveType, expected_schema_field_type: Any
 ) -> None:
     """
     Test converting a struct typed Iceberg field to a RecordType SchemaField.
     """
-    field1: NestedField = NestedField.required(
-        11, "field1", iceberg_type, "field documentation"
-    )
-    struct_column: NestedField = NestedField.required(
-        1, "structField", IcebergTypes.StructType.of([field1]), "struct documentation"
+    field1 = NestedField(11, "field1", iceberg_type, True, "field documentation")
+    struct_column = NestedField(
+        1, "structField", StructType(field1), True, "struct documentation"
     )
     iceberg_source_instance = with_iceberg_source()
-    schema_fields = iceberg_source_instance._get_schema_fields_for_column(struct_column)
+    schema = Schema(struct_column)
+    schema_fields = iceberg_source_instance._get_schema_fields_for_schema(schema)
     assert len(schema_fields) == 2, f"Expected 2 fields, but got {len(schema_fields)}"
     assert_field(
-        schema_fields[0], struct_column.doc, struct_column.is_optional, RecordTypeClass
+        schema_fields[0], struct_column.doc, struct_column.optional, RecordTypeClass
     )
     assert_field(
-        schema_fields[1], field1.doc, field1.is_optional, expected_schema_field_type
+        schema_fields[1], field1.doc, field1.optional, expected_schema_field_type
     )
 
 
-def test_avro_decimal_bytes_nullable():
+@pytest.mark.parametrize(
+    "value_type, value, expected_value",
+    [
+        (BinaryType(), bytes([1, 2, 3, 4, 5]), "b'\\x01\\x02\\x03\\x04\\x05'"),
+        (BooleanType(), True, "True"),
+        (DateType(), 19543, "2023-07-05"),
+        (DecimalType(3, 2), Decimal((0, (3, 1, 4), -2)), "3.14"),
+        (DoubleType(), 3.4, "3.4"),
+        (FixedType(4), bytes([1, 2, 3, 4]), "b'\\x01\\x02\\x03\\x04'"),
+        (FloatType(), 3.4, "3.4"),
+        (IntegerType(), 3, "3"),
+        (LongType(), 4294967295000, "4294967295000"),
+        (StringType(), "a string", "a string"),
+        (
+            TimestampType(),
+            1688559488157000,
+            "2023-07-05T12:18:08.157000",
+        ),
+        (
+            TimestamptzType(),
+            1688559488157000,
+            "2023-07-05T12:18:08.157000+00:00",
+        ),
+        (TimeType(), 40400000000, "11:13:20"),
+        (
+            UUIDType(),
+            uuid.UUID("00010203-0405-0607-0809-0a0b0c0d0e0f"),
+            "00010203-0405-0607-0809-0a0b0c0d0e0f",
+        ),
+    ],
+)
+def test_iceberg_profiler_value_render(
+    value_type: IcebergType, value: Any, expected_value: Optional[str]
+) -> None:
+    iceberg_profiler_instance = with_iceberg_profiler()
+    assert (
+        iceberg_profiler_instance._render_value("a.dataset", value_type, value)
+        == expected_value
+    )
+
+
+def test_avro_decimal_bytes_nullable() -> None:
     """
     The following test exposes a problem with decimal (bytes) not preserving extra attributes like _nullable.  Decimal (fixed) and Boolean for example do.
     NOTE: This bug was by-passed by mapping the Decimal type to fixed instead of bytes.
@@ -403,3 +531,460 @@ def test_avro_decimal_bytes_nullable():
     print(
         f"After avro parsing, _nullable attribute is preserved:  {boolean_avro_schema}"
     )
+
+
+class MockCatalog:
+    def __init__(self, tables: Dict[str, Dict[str, Callable[[], Table]]]):
+        """
+
+        :param tables: Dictionary containing namespaces as keys and dictionaries containing names of tables (keys) and
+                       their metadata as values
+        """
+        self.tables = tables
+
+    def list_namespaces(self) -> Iterable[str]:
+        return [*self.tables.keys()]
+
+    def list_tables(self, namespace: str) -> Iterable[Tuple[str, str]]:
+        return [(namespace, table) for table in self.tables[namespace].keys()]
+
+    def load_table(self, dataset_path: Tuple[str, str]) -> Table:
+        return self.tables[dataset_path[0]][dataset_path[1]]()
+
+
+class MockCatalogExceptionListingTables(MockCatalog):
+    def list_tables(self, namespace: str) -> Iterable[Tuple[str, str]]:
+        if namespace == "no_such_namespace":
+            raise NoSuchNamespaceError()
+        if namespace == "generic_exception":
+            raise Exception()
+        return super().list_tables(namespace)
+
+
+class MockCatalogExceptionListingNamespaces(MockCatalog):
+    def list_namespaces(self) -> Iterable[str]:
+        raise Exception()
+
+
+def test_exception_while_listing_namespaces() -> None:
+    source = with_iceberg_source(processing_threads=2)
+    mock_catalog = MockCatalogExceptionListingNamespaces({})
+    with patch(
+        "datahub.ingestion.source.iceberg.iceberg.IcebergSourceConfig.get_catalog"
+    ) as get_catalog, pytest.raises(Exception):
+        get_catalog.return_value = mock_catalog
+        [*source.get_workunits_internal()]
+
+
+def test_known_exception_while_listing_tables() -> None:
+    source = with_iceberg_source(processing_threads=2)
+    mock_catalog = MockCatalogExceptionListingTables(
+        {
+            "namespaceA": {
+                "table1": lambda: Table(
+                    identifier=("namespaceA", "table1"),
+                    metadata=TableMetadataV2(
+                        partition_specs=[PartitionSpec(spec_id=0)],
+                        location="s3://abcdefg/namespaceA/table1",
+                        last_column_id=0,
+                        schemas=[Schema(schema_id=0)],
+                    ),
+                    metadata_location="s3://abcdefg/namespaceA/table1",
+                    io=PyArrowFileIO(),
+                    catalog=None,
+                )
+            },
+            "no_such_namespace": {},
+            "namespaceB": {
+                "table2": lambda: Table(
+                    identifier=("namespaceB", "table2"),
+                    metadata=TableMetadataV2(
+                        partition_specs=[PartitionSpec(spec_id=0)],
+                        location="s3://abcdefg/namespaceB/table2",
+                        last_column_id=0,
+                        schemas=[Schema(schema_id=0)],
+                    ),
+                    metadata_location="s3://abcdefg/namespaceB/table2",
+                    io=PyArrowFileIO(),
+                    catalog=None,
+                ),
+                "table3": lambda: Table(
+                    identifier=("namespaceB", "table3"),
+                    metadata=TableMetadataV2(
+                        partition_specs=[PartitionSpec(spec_id=0)],
+                        location="s3://abcdefg/namespaceB/table3",
+                        last_column_id=0,
+                        schemas=[Schema(schema_id=0)],
+                    ),
+                    metadata_location="s3://abcdefg/namespaceB/table3",
+                    io=PyArrowFileIO(),
+                    catalog=None,
+                ),
+            },
+            "namespaceC": {
+                "table4": lambda: Table(
+                    identifier=("namespaceC", "table4"),
+                    metadata=TableMetadataV2(
+                        partition_specs=[PartitionSpec(spec_id=0)],
+                        location="s3://abcdefg/namespaceC/table4",
+                        last_column_id=0,
+                        schemas=[Schema(schema_id=0)],
+                    ),
+                    metadata_location="s3://abcdefg/namespaceC/table4",
+                    io=PyArrowFileIO(),
+                    catalog=None,
+                )
+            },
+            "namespaceD": {
+                "table5": lambda: Table(
+                    identifier=("namespaceD", "table5"),
+                    metadata=TableMetadataV2(
+                        partition_specs=[PartitionSpec(spec_id=0)],
+                        location="s3://abcdefg/namespaceA/table5",
+                        last_column_id=0,
+                        schemas=[Schema(schema_id=0)],
+                    ),
+                    metadata_location="s3://abcdefg/namespaceA/table5",
+                    io=PyArrowFileIO(),
+                    catalog=None,
+                )
+            },
+        }
+    )
+    with patch(
+        "datahub.ingestion.source.iceberg.iceberg.IcebergSourceConfig.get_catalog"
+    ) as get_catalog:
+        get_catalog.return_value = mock_catalog
+        wu: List[MetadataWorkUnit] = [*source.get_workunits_internal()]
+        assert len(wu) == 5  # ingested 5 tables, despite exception
+        urns = []
+        for unit in wu:
+            assert isinstance(unit.metadata, MetadataChangeEvent)
+            assert isinstance(unit.metadata.proposedSnapshot, DatasetSnapshotClass)
+            urns.append(unit.metadata.proposedSnapshot.urn)
+        TestCase().assertCountEqual(
+            urns,
+            [
+                "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceA.table1,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceB.table2,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceB.table3,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceC.table4,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceD.table5,PROD)",
+            ],
+        )
+        assert source.report.warnings.total_elements == 1
+        assert source.report.failures.total_elements == 0
+        assert source.report.tables_scanned == 5
+
+
+def test_unknown_exception_while_listing_tables() -> None:
+    source = with_iceberg_source(processing_threads=2)
+    mock_catalog = MockCatalogExceptionListingTables(
+        {
+            "namespaceA": {
+                "table1": lambda: Table(
+                    identifier=("namespaceA", "table1"),
+                    metadata=TableMetadataV2(
+                        partition_specs=[PartitionSpec(spec_id=0)],
+                        location="s3://abcdefg/namespaceA/table1",
+                        last_column_id=0,
+                        schemas=[Schema(schema_id=0)],
+                    ),
+                    metadata_location="s3://abcdefg/namespaceA/table1",
+                    io=PyArrowFileIO(),
+                    catalog=None,
+                )
+            },
+            "generic_exception": {},
+            "namespaceB": {
+                "table2": lambda: Table(
+                    identifier=("namespaceB", "table2"),
+                    metadata=TableMetadataV2(
+                        partition_specs=[PartitionSpec(spec_id=0)],
+                        location="s3://abcdefg/namespaceB/table2",
+                        last_column_id=0,
+                        schemas=[Schema(schema_id=0)],
+                    ),
+                    metadata_location="s3://abcdefg/namespaceB/table2",
+                    io=PyArrowFileIO(),
+                    catalog=None,
+                ),
+                "table3": lambda: Table(
+                    identifier=("namespaceB", "table3"),
+                    metadata=TableMetadataV2(
+                        partition_specs=[PartitionSpec(spec_id=0)],
+                        location="s3://abcdefg/namespaceB/table3",
+                        last_column_id=0,
+                        schemas=[Schema(schema_id=0)],
+                    ),
+                    metadata_location="s3://abcdefg/namespaceB/table3",
+                    io=PyArrowFileIO(),
+                    catalog=None,
+                ),
+            },
+            "namespaceC": {
+                "table4": lambda: Table(
+                    identifier=("namespaceC", "table4"),
+                    metadata=TableMetadataV2(
+                        partition_specs=[PartitionSpec(spec_id=0)],
+                        location="s3://abcdefg/namespaceC/table4",
+                        last_column_id=0,
+                        schemas=[Schema(schema_id=0)],
+                    ),
+                    metadata_location="s3://abcdefg/namespaceC/table4",
+                    io=PyArrowFileIO(),
+                    catalog=None,
+                )
+            },
+            "namespaceD": {
+                "table5": lambda: Table(
+                    identifier=("namespaceD", "table5"),
+                    metadata=TableMetadataV2(
+                        partition_specs=[PartitionSpec(spec_id=0)],
+                        location="s3://abcdefg/namespaceA/table5",
+                        last_column_id=0,
+                        schemas=[Schema(schema_id=0)],
+                    ),
+                    metadata_location="s3://abcdefg/namespaceA/table5",
+                    io=PyArrowFileIO(),
+                    catalog=None,
+                )
+            },
+        }
+    )
+    with patch(
+        "datahub.ingestion.source.iceberg.iceberg.IcebergSourceConfig.get_catalog"
+    ) as get_catalog:
+        get_catalog.return_value = mock_catalog
+        wu: List[MetadataWorkUnit] = [*source.get_workunits_internal()]
+        assert len(wu) == 5  # ingested 5 tables, despite exception
+        urns = []
+        for unit in wu:
+            assert isinstance(unit.metadata, MetadataChangeEvent)
+            assert isinstance(unit.metadata.proposedSnapshot, DatasetSnapshotClass)
+            urns.append(unit.metadata.proposedSnapshot.urn)
+        TestCase().assertCountEqual(
+            urns,
+            [
+                "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceA.table1,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceB.table2,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceB.table3,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceC.table4,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceD.table5,PROD)",
+            ],
+        )
+        assert source.report.warnings.total_elements == 0
+        assert source.report.failures.total_elements == 1
+        assert source.report.tables_scanned == 5
+
+
+def test_proper_run_with_multiple_namespaces() -> None:
+    source = with_iceberg_source(processing_threads=3)
+    mock_catalog = MockCatalog(
+        {
+            "namespaceA": {
+                "table1": lambda: Table(
+                    identifier=("namespaceA", "table1"),
+                    metadata=TableMetadataV2(
+                        partition_specs=[PartitionSpec(spec_id=0)],
+                        location="s3://abcdefg/namespaceA/table1",
+                        last_column_id=0,
+                        schemas=[Schema(schema_id=0)],
+                    ),
+                    metadata_location="s3://abcdefg/namespaceA/table1",
+                    io=PyArrowFileIO(),
+                    catalog=None,
+                )
+            },
+            "namespaceB": {},
+        }
+    )
+    with patch(
+        "datahub.ingestion.source.iceberg.iceberg.IcebergSourceConfig.get_catalog"
+    ) as get_catalog:
+        get_catalog.return_value = mock_catalog
+        wu: List[MetadataWorkUnit] = [*source.get_workunits_internal()]
+        assert len(wu) == 1  # only one table processed as an MCE
+        assert isinstance(wu[0].metadata, MetadataChangeEvent)
+        assert isinstance(wu[0].metadata.proposedSnapshot, DatasetSnapshotClass)
+        snapshot: DatasetSnapshotClass = wu[0].metadata.proposedSnapshot
+        assert (
+            snapshot.urn
+            == "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceA.table1,PROD)"
+        )
+
+
+def test_handle_expected_exceptions() -> None:
+    source = with_iceberg_source(processing_threads=3)
+
+    def _raise_no_such_property_exception():
+        raise NoSuchPropertyException()
+
+    def _raise_no_such_table_exception():
+        raise NoSuchIcebergTableError()
+
+    mock_catalog = MockCatalog(
+        {
+            "namespaceA": {
+                "table1": lambda: Table(
+                    identifier=("namespaceA", "table1"),
+                    metadata=TableMetadataV2(
+                        partition_specs=[PartitionSpec(spec_id=0)],
+                        location="s3://abcdefg/namespaceA/table1",
+                        last_column_id=0,
+                        schemas=[Schema(schema_id=0)],
+                    ),
+                    metadata_location="s3://abcdefg/namespaceA/table1",
+                    io=PyArrowFileIO(),
+                    catalog=None,
+                ),
+                "table2": lambda: Table(
+                    identifier=("namespaceA", "table2"),
+                    metadata=TableMetadataV2(
+                        partition_specs=[PartitionSpec(spec_id=0)],
+                        location="s3://abcdefg/namespaceA/table2",
+                        last_column_id=0,
+                        schemas=[Schema(schema_id=0)],
+                    ),
+                    metadata_location="s3://abcdefg/namespaceA/table2",
+                    io=PyArrowFileIO(),
+                    catalog=None,
+                ),
+                "table3": lambda: Table(
+                    identifier=("namespaceA", "table3"),
+                    metadata=TableMetadataV2(
+                        partition_specs=[PartitionSpec(spec_id=0)],
+                        location="s3://abcdefg/namespaceA/table3",
+                        last_column_id=0,
+                        schemas=[Schema(schema_id=0)],
+                    ),
+                    metadata_location="s3://abcdefg/namespaceA/table3",
+                    io=PyArrowFileIO(),
+                    catalog=None,
+                ),
+                "table4": lambda: Table(
+                    identifier=("namespaceA", "table4"),
+                    metadata=TableMetadataV2(
+                        partition_specs=[PartitionSpec(spec_id=0)],
+                        location="s3://abcdefg/namespaceA/table4",
+                        last_column_id=0,
+                        schemas=[Schema(schema_id=0)],
+                    ),
+                    metadata_location="s3://abcdefg/namespaceA/table4",
+                    io=PyArrowFileIO(),
+                    catalog=None,
+                ),
+                "table5": _raise_no_such_property_exception,
+                "table6": _raise_no_such_table_exception,
+            }
+        }
+    )
+    with patch(
+        "datahub.ingestion.source.iceberg.iceberg.IcebergSourceConfig.get_catalog"
+    ) as get_catalog:
+        get_catalog.return_value = mock_catalog
+        wu: List[MetadataWorkUnit] = [*source.get_workunits_internal()]
+        assert len(wu) == 4
+        urns = []
+        for unit in wu:
+            assert isinstance(unit.metadata, MetadataChangeEvent)
+            assert isinstance(unit.metadata.proposedSnapshot, DatasetSnapshotClass)
+            urns.append(unit.metadata.proposedSnapshot.urn)
+        TestCase().assertCountEqual(
+            urns,
+            [
+                "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceA.table1,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceA.table2,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceA.table3,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceA.table4,PROD)",
+            ],
+        )
+        assert source.report.warnings.total_elements == 2
+        assert source.report.failures.total_elements == 0
+        assert source.report.tables_scanned == 4
+
+
+def test_handle_unexpected_exceptions() -> None:
+    source = with_iceberg_source(processing_threads=3)
+
+    def _raise_exception():
+        raise Exception()
+
+    mock_catalog = MockCatalog(
+        {
+            "namespaceA": {
+                "table1": lambda: Table(
+                    identifier=("namespaceA", "table1"),
+                    metadata=TableMetadataV2(
+                        partition_specs=[PartitionSpec(spec_id=0)],
+                        location="s3://abcdefg/namespaceA/table1",
+                        last_column_id=0,
+                        schemas=[Schema(schema_id=0)],
+                    ),
+                    metadata_location="s3://abcdefg/namespaceA/table1",
+                    io=PyArrowFileIO(),
+                    catalog=None,
+                ),
+                "table2": lambda: Table(
+                    identifier=("namespaceA", "table2"),
+                    metadata=TableMetadataV2(
+                        partition_specs=[PartitionSpec(spec_id=0)],
+                        location="s3://abcdefg/namespaceA/table2",
+                        last_column_id=0,
+                        schemas=[Schema(schema_id=0)],
+                    ),
+                    metadata_location="s3://abcdefg/namespaceA/table2",
+                    io=PyArrowFileIO(),
+                    catalog=None,
+                ),
+                "table3": lambda: Table(
+                    identifier=("namespaceA", "table3"),
+                    metadata=TableMetadataV2(
+                        partition_specs=[PartitionSpec(spec_id=0)],
+                        location="s3://abcdefg/namespaceA/table3",
+                        last_column_id=0,
+                        schemas=[Schema(schema_id=0)],
+                    ),
+                    metadata_location="s3://abcdefg/namespaceA/table3",
+                    io=PyArrowFileIO(),
+                    catalog=None,
+                ),
+                "table4": lambda: Table(
+                    identifier=("namespaceA", "table4"),
+                    metadata=TableMetadataV2(
+                        partition_specs=[PartitionSpec(spec_id=0)],
+                        location="s3://abcdefg/namespaceA/table4",
+                        last_column_id=0,
+                        schemas=[Schema(schema_id=0)],
+                    ),
+                    metadata_location="s3://abcdefg/namespaceA/table4",
+                    io=PyArrowFileIO(),
+                    catalog=None,
+                ),
+                "table5": _raise_exception,
+            }
+        }
+    )
+    with patch(
+        "datahub.ingestion.source.iceberg.iceberg.IcebergSourceConfig.get_catalog"
+    ) as get_catalog:
+        get_catalog.return_value = mock_catalog
+        wu: List[MetadataWorkUnit] = [*source.get_workunits_internal()]
+        assert len(wu) == 4
+        urns = []
+        for unit in wu:
+            assert isinstance(unit.metadata, MetadataChangeEvent)
+            assert isinstance(unit.metadata.proposedSnapshot, DatasetSnapshotClass)
+            urns.append(unit.metadata.proposedSnapshot.urn)
+        TestCase().assertCountEqual(
+            urns,
+            [
+                "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceA.table1,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceA.table2,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceA.table3,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceA.table4,PROD)",
+            ],
+        )
+        assert source.report.warnings.total_elements == 0
+        assert source.report.failures.total_elements == 1
+        assert source.report.tables_scanned == 4

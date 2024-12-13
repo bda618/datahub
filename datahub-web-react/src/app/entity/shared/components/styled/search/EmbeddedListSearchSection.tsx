@@ -51,6 +51,9 @@ type Props = {
     };
     shouldRefetch?: boolean;
     resetShouldRefetch?: () => void;
+    applyView?: boolean;
+    onLineageClick?: () => void;
+    isLineageTab?: boolean;
 };
 
 export const EmbeddedListSearchSection = ({
@@ -67,6 +70,9 @@ export const EmbeddedListSearchSection = ({
     useGetDownloadSearchResults,
     shouldRefetch,
     resetShouldRefetch,
+    applyView,
+    onLineageClick,
+    isLineageTab,
 }: Props) => {
     const history = useHistory();
     const location = useLocation();
@@ -152,6 +158,9 @@ export const EmbeddedListSearchSection = ({
             useGetDownloadSearchResults={useGetDownloadSearchResults}
             shouldRefetch={shouldRefetch}
             resetShouldRefetch={resetShouldRefetch}
+            applyView={applyView}
+            onLineageClick={onLineageClick}
+            isLineageTab={isLineageTab}
         />
     );
 };

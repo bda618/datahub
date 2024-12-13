@@ -1,14 +1,39 @@
 import json
 import logging
+import threading
 import uuid
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional
 
-from iceberg.api import types as IcebergTypes
-from iceberg.api.table import Table
-from iceberg.api.types.types import NestedField
-from iceberg.core.base_table import BaseTable
-from iceberg.core.filesystem.filesystem_tables import FilesystemTables
-from iceberg.exceptions import NoSuchTableException
+from pyiceberg.catalog import Catalog
+from pyiceberg.exceptions import (
+    NoSuchIcebergTableError,
+    NoSuchNamespaceError,
+    NoSuchPropertyException,
+    NoSuchTableError,
+)
+from pyiceberg.schema import Schema, SchemaVisitorPerPrimitiveType, visit
+from pyiceberg.table import Table
+from pyiceberg.typedef import Identifier
+from pyiceberg.types import (
+    BinaryType,
+    BooleanType,
+    DateType,
+    DecimalType,
+    DoubleType,
+    FixedType,
+    FloatType,
+    IntegerType,
+    ListType,
+    LongType,
+    MapType,
+    NestedField,
+    StringType,
+    StructType,
+    TimestampType,
+    TimestamptzType,
+    TimeType,
+    UUIDType,
+)
 
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
@@ -56,18 +81,13 @@ from datahub.metadata.schema_classes import (
     OwnershipClass,
     OwnershipTypeClass,
 )
+from datahub.utilities.perf_timer import PerfTimer
+from datahub.utilities.threaded_iterator_executor import ThreadedIteratorExecutor
 
 LOGGER = logging.getLogger(__name__)
-
-_all_atomic_types = {
-    IcebergTypes.BooleanType: "boolean",
-    IcebergTypes.IntegerType: "int",
-    IcebergTypes.LongType: "long",
-    IcebergTypes.FloatType: "float",
-    IcebergTypes.DoubleType: "double",
-    IcebergTypes.BinaryType: "bytes",
-    IcebergTypes.StringType: "string",
-}
+logging.getLogger("azure.core.pipeline.policies.http_logging_policy").setLevel(
+    logging.WARNING
+)
 
 
 @platform_name("Iceberg")
@@ -75,7 +95,7 @@ _all_atomic_types = {
 @config_class(IcebergSourceConfig)
 @capability(
     SourceCapability.PLATFORM_INSTANCE,
-    "Optionally enabled via configuration, an Iceberg instance represents the datalake name where the table is stored.",
+    "Optionally enabled via configuration, an Iceberg instance represents the catalog name where the table is stored.",
 )
 @capability(SourceCapability.DOMAINS, "Currently not supported.", supported=False)
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration.")
@@ -85,7 +105,7 @@ _all_atomic_types = {
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default.")
 @capability(
     SourceCapability.OWNERSHIP,
-    "Optionally enabled via configuration by specifying which Iceberg table property holds user or group ownership.",
+    "Automatically ingests ownership information from table properties based on `user_ownership_property` and `group_ownership_property`",
 )
 @capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
 class IcebergSource(StatefulIngestionSourceBase):
@@ -95,16 +115,7 @@ class IcebergSource(StatefulIngestionSourceBase):
     The DataHub Iceberg source plugin extracts metadata from [Iceberg tables](https://iceberg.apache.org/spec/) stored in a distributed or local file system.
     Typically, Iceberg tables are stored in a distributed file system like S3 or Azure Data Lake Storage (ADLS) and registered in a catalog.  There are various catalog
     implementations like Filesystem-based, RDBMS-based or even REST-based catalogs.  This Iceberg source plugin relies on the
-    [Iceberg python_legacy library](https://github.com/apache/iceberg/tree/master/python_legacy) and its support for catalogs is limited at the moment.
-    A new version of the [Iceberg Python library](https://github.com/apache/iceberg/tree/master/python) is currently in development and should fix this.
-    Because of this limitation, this source plugin **will only ingest HadoopCatalog-based tables that have a `version-hint.text` metadata file**.
-
-    Ingestion of tables happens in 2 steps:
-    1. Discover Iceberg tables stored in file system.
-    2. Load discovered tables using Iceberg python_legacy library
-
-    The current implementation of the Iceberg source plugin will only discover tables stored in a local file system or in ADLS.  Support for S3 could
-    be added fairly easily.
+    [pyiceberg library](https://py.iceberg.apache.org/).
     """
 
     def __init__(self, config: IcebergSourceConfig, ctx: PipelineContext) -> None:
@@ -112,7 +123,6 @@ class IcebergSource(StatefulIngestionSourceBase):
         self.platform: str = "iceberg"
         self.report: IcebergSourceReport = IcebergSourceReport()
         self.config: IcebergSourceConfig = config
-        self.iceberg_client: FilesystemTables = config.filesystem_tables
 
     @classmethod
     def create(cls, config_dict: Dict, ctx: PipelineContext) -> "IcebergSource":
@@ -127,87 +137,216 @@ class IcebergSource(StatefulIngestionSourceBase):
             ).workunit_processor,
         ]
 
-    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
-        for dataset_path, dataset_name in self.config.get_paths():  # Tuple[str, str]
+    def _get_datasets(self, catalog: Catalog) -> Iterable[Identifier]:
+        namespaces = catalog.list_namespaces()
+        LOGGER.debug(
+            f"Retrieved {len(namespaces)} namespaces, first 10: {namespaces[:10]}"
+        )
+        self.report.report_no_listed_namespaces(len(namespaces))
+        tables_count = 0
+        for namespace in namespaces:
             try:
-                if not self.config.table_pattern.allowed(dataset_name):
-                    # Path contained a valid Iceberg table, but is rejected by pattern.
-                    self.report.report_dropped(dataset_name)
-                    continue
-
-                # Try to load an Iceberg table.  Might not contain one, this will be caught by NoSuchTableException.
-                table: Table = self.iceberg_client.load(dataset_path)
-                yield from self._create_iceberg_workunit(dataset_name, table)
-            except NoSuchTableException:
-                # Path did not contain a valid Iceberg table. Silently ignore this.
+                tables = catalog.list_tables(namespace)
+                tables_count += len(tables)
                 LOGGER.debug(
-                    f"Path {dataset_path} does not contain table {dataset_name}"
+                    f"Retrieved {len(tables)} tables for namespace: {namespace}, in total retrieved {tables_count}, first 10: {tables[:10]}"
                 )
-                pass
+                self.report.report_listed_tables_for_namespace(
+                    ".".join(namespace), len(tables)
+                )
+                yield from tables
+            except NoSuchNamespaceError:
+                self.report.report_warning(
+                    "no-such-namespace",
+                    f"Couldn't list tables for namespace {namespace} due to NoSuchNamespaceError exception",
+                )
+                LOGGER.warning(
+                    f"NoSuchNamespaceError exception while trying to get list of tables from namespace {namespace}, skipping it",
+                )
+            except Exception as e:
+                self.report.report_failure(
+                    "listing-tables-exception",
+                    f"Couldn't list tables for namespace {namespace} due to {e}",
+                )
+                LOGGER.exception(
+                    f"Unexpected exception while trying to get list of tables for namespace {namespace}, skipping it"
+                )
+
+    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
+        thread_local = threading.local()
+
+        def _process_dataset(dataset_path: Identifier) -> Iterable[MetadataWorkUnit]:
+            LOGGER.debug(f"Processing dataset for path {dataset_path}")
+            dataset_name = ".".join(dataset_path)
+            if not self.config.table_pattern.allowed(dataset_name):
+                # Dataset name is rejected by pattern, report as dropped.
+                self.report.report_dropped(dataset_name)
+                return
+            try:
+                if not hasattr(thread_local, "local_catalog"):
+                    LOGGER.debug(
+                        f"Didn't find local_catalog in thread_local ({thread_local}), initializing new catalog"
+                    )
+                    thread_local.local_catalog = self.config.get_catalog()
+
+                with PerfTimer() as timer:
+                    table = thread_local.local_catalog.load_table(dataset_path)
+                    time_taken = timer.elapsed_seconds()
+                    self.report.report_table_load_time(time_taken)
+                LOGGER.debug(f"Loaded table: {table.name()}, time taken: {time_taken}")
+                yield from self._create_iceberg_workunit(dataset_name, table)
+            except NoSuchPropertyException as e:
+                self.report.report_warning(
+                    "table-property-missing",
+                    f"Failed to create workunit for {dataset_name}. {e}",
+                )
+                LOGGER.warning(
+                    f"NoSuchPropertyException while processing table {dataset_path}, skipping it.",
+                )
+            except NoSuchIcebergTableError as e:
+                self.report.report_warning(
+                    "not-an-iceberg-table",
+                    f"Failed to create workunit for {dataset_name}. {e}",
+                )
+                LOGGER.warning(
+                    f"NoSuchIcebergTableError while processing table {dataset_path}, skipping it.",
+                )
+            except NoSuchTableError as e:
+                self.report.report_warning(
+                    "no-such-table",
+                    f"Failed to create workunit for {dataset_name}. {e}",
+                )
+                LOGGER.warning(
+                    f"NoSuchTableError while processing table {dataset_path}, skipping it.",
+                )
             except Exception as e:
                 self.report.report_failure("general", f"Failed to create workunit: {e}")
                 LOGGER.exception(
                     f"Exception while processing table {dataset_path}, skipping it.",
                 )
 
+        try:
+            catalog = self.config.get_catalog()
+        except Exception as e:
+            self.report.report_failure("get-catalog", f"Failed to get catalog: {e}")
+            return
+
+        for wu in ThreadedIteratorExecutor.process(
+            worker_func=_process_dataset,
+            args_list=[(dataset_path,) for dataset_path in self._get_datasets(catalog)],
+            max_workers=self.config.processing_threads,
+        ):
+            yield wu
+
     def _create_iceberg_workunit(
         self, dataset_name: str, table: Table
     ) -> Iterable[MetadataWorkUnit]:
-        self.report.report_table_scanned(dataset_name)
-        dataset_urn: str = make_dataset_urn_with_platform_instance(
-            self.platform,
-            dataset_name,
-            self.config.platform_instance,
-            self.config.env,
-        )
-        dataset_snapshot = DatasetSnapshot(
-            urn=dataset_urn,
-            aspects=[Status(removed=False)],
-        )
+        with PerfTimer() as timer:
+            self.report.report_table_scanned(dataset_name)
+            LOGGER.debug(f"Processing table {dataset_name}")
+            dataset_urn: str = make_dataset_urn_with_platform_instance(
+                self.platform,
+                dataset_name,
+                self.config.platform_instance,
+                self.config.env,
+            )
+            dataset_snapshot = DatasetSnapshot(
+                urn=dataset_urn,
+                aspects=[Status(removed=False)],
+            )
 
-        custom_properties: Dict = dict(table.properties())
-        custom_properties["location"] = table.location()
-        try:
-            if isinstance(table, BaseTable) and table.current_snapshot():
+            # Dataset properties aspect.
+            custom_properties = table.metadata.properties.copy()
+            custom_properties["location"] = table.metadata.location
+            custom_properties["format-version"] = str(table.metadata.format_version)
+            custom_properties["partition-spec"] = str(self._get_partition_aspect(table))
+            if table.current_snapshot():
                 custom_properties["snapshot-id"] = str(
                     table.current_snapshot().snapshot_id
                 )
                 custom_properties[
                     "manifest-list"
-                ] = table.current_snapshot().manifest_location
-        except KeyError:
-            # The above API is not well implemented, and can throw KeyError when there is no data.
-            pass
-        dataset_properties = DatasetPropertiesClass(
-            tags=[],
-            description=table.properties().get("comment", None),
-            customProperties=custom_properties,
-        )
-        dataset_snapshot.aspects.append(dataset_properties)
+                ] = table.current_snapshot().manifest_list
+            dataset_properties = DatasetPropertiesClass(
+                name=table.name()[-1],
+                tags=[],
+                description=table.metadata.properties.get("comment", None),
+                customProperties=custom_properties,
+            )
+            dataset_snapshot.aspects.append(dataset_properties)
+            # Dataset ownership aspect.
+            dataset_ownership = self._get_ownership_aspect(table)
+            if dataset_ownership:
+                LOGGER.debug(
+                    f"Adding ownership: {dataset_ownership} to the dataset {dataset_name}"
+                )
+                dataset_snapshot.aspects.append(dataset_ownership)
 
-        dataset_ownership = self._get_ownership_aspect(table)
-        if dataset_ownership:
-            dataset_snapshot.aspects.append(dataset_ownership)
+            schema_metadata = self._create_schema_metadata(dataset_name, table)
+            dataset_snapshot.aspects.append(schema_metadata)
 
-        schema_metadata = self._create_schema_metadata(dataset_name, table)
-        dataset_snapshot.aspects.append(schema_metadata)
-
-        mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
+            mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
+        self.report.report_table_processing_time(timer.elapsed_seconds())
         yield MetadataWorkUnit(id=dataset_name, mce=mce)
 
         dpi_aspect = self._get_dataplatform_instance_aspect(dataset_urn=dataset_urn)
         if dpi_aspect:
             yield dpi_aspect
 
-        if self.config.profiling.enabled:
+        if self.config.is_profiling_enabled():
             profiler = IcebergProfiler(self.report, self.config.profiling)
             yield from profiler.profile_table(dataset_name, dataset_urn, table)
+
+    def _get_partition_aspect(self, table: Table) -> Optional[str]:
+        """Extracts partition information from the provided table and returns a JSON array representing the [partition spec](https://iceberg.apache.org/spec/?#partition-specs) of the table.
+        Each element of the returned array represents a field in the [partition spec](https://iceberg.apache.org/spec/?#partition-specs) that follows [Appendix-C](https://iceberg.apache.org/spec/?#appendix-c-json-serialization) of the Iceberg specification.
+        Extra information has been added to this spec to make the information more user-friendly.
+
+        Since Datahub does not have a place in its model to store this information, it is saved as a JSON string and displayed as a table property.
+
+        Here is an example:
+        ```json
+        "partition-spec": "[{\"name\": \"timeperiod_loaded\", \"transform\": \"identity\", \"source\": \"timeperiod_loaded\", \"source-id\": 19, \"source-type\": \"date\", \"field-id\": 1000}]",
+        ```
+
+        Args:
+            table (Table): The Iceberg table to extract partition spec from.
+
+        Returns:
+            str: JSON representation of the partition spec of the provided table (empty array if table is not partitioned) or `None` if an error occured.
+        """
+        try:
+            return json.dumps(
+                [
+                    {
+                        "name": partition.name,
+                        "transform": str(partition.transform),
+                        "source": str(
+                            table.schema().find_column_name(partition.source_id)
+                        ),
+                        "source-id": partition.source_id,
+                        "source-type": str(
+                            table.schema().find_type(partition.source_id)
+                        ),
+                        "field-id": partition.field_id,
+                    }
+                    for partition in table.spec().fields
+                ]
+            )
+        except Exception as e:
+            self.report.report_warning(
+                "extract-partition",
+                f"Failed to extract partition spec from Iceberg table {table.name()} due to error: {str(e)}",
+            )
+            return None
 
     def _get_ownership_aspect(self, table: Table) -> Optional[OwnershipClass]:
         owners = []
         if self.config.user_ownership_property:
-            if self.config.user_ownership_property in table.properties():
-                user_owner = table.properties()[self.config.user_ownership_property]
+            if self.config.user_ownership_property in table.metadata.properties:
+                user_owner = table.metadata.properties[
+                    self.config.user_ownership_property
+                ]
                 owners.append(
                     OwnerClass(
                         owner=make_user_urn(user_owner),
@@ -216,8 +355,10 @@ class IcebergSource(StatefulIngestionSourceBase):
                     )
                 )
         if self.config.group_ownership_property:
-            if self.config.group_ownership_property in table.properties():
-                group_owner = table.properties()[self.config.group_ownership_property]
+            if self.config.group_ownership_property in table.metadata.properties:
+                group_owner = table.metadata.properties[
+                    self.config.group_ownership_property
+                ]
                 owners.append(
                     OwnerClass(
                         owner=make_group_urn(group_owner),
@@ -225,9 +366,7 @@ class IcebergSource(StatefulIngestionSourceBase):
                         source=None,
                     )
                 )
-        if owners:
-            return OwnershipClass(owners=owners)
-        return None
+        return OwnershipClass(owners=owners) if owners else None
 
     def _get_dataplatform_instance_aspect(
         self, dataset_urn: str
@@ -249,191 +388,171 @@ class IcebergSource(StatefulIngestionSourceBase):
     def _create_schema_metadata(
         self, dataset_name: str, table: Table
     ) -> SchemaMetadata:
-        schema_fields: List[SchemaField] = self._get_schema_fields(
-            table.schema().columns()
-        )
+        schema_fields = self._get_schema_fields_for_schema(table.schema())
         schema_metadata = SchemaMetadata(
             schemaName=dataset_name,
             platform=make_data_platform_urn(self.platform),
             version=0,
             hash="",
-            platformSchema=OtherSchema(rawSchema=repr(table.schema())),
+            platformSchema=OtherSchema(rawSchema=str(table.schema())),
             fields=schema_fields,
         )
         return schema_metadata
 
-    def _get_schema_fields(self, columns: Tuple) -> List[SchemaField]:
-        canonical_schema: List[SchemaField] = []
-        for column in columns:
-            fields = self._get_schema_fields_for_column(column)
-            canonical_schema.extend(fields)
-        return canonical_schema
-
-    def _get_schema_fields_for_column(
+    def _get_schema_fields_for_schema(
         self,
-        column: NestedField,
+        schema: Schema,
     ) -> List[SchemaField]:
-        field_type: IcebergTypes.Type = column.type
-        if field_type.is_primitive_type() or field_type.is_nested_type():
-            avro_schema: Dict = self._get_avro_schema_from_data_type(column)
-            schema_fields: List[SchemaField] = schema_util.avro_schema_to_mce_fields(
-                json.dumps(avro_schema), default_nullable=column.is_optional
-            )
-            return schema_fields
-
-        raise ValueError(f"Invalid Iceberg field type: {field_type}")
-
-    def _get_avro_schema_from_data_type(self, column: NestedField) -> Dict[str, Any]:
-        """
-        See Iceberg documentation for Avro mapping:
-        https://iceberg.apache.org/#spec/#appendix-a-format-specific-requirements
-        """
-        # The record structure represents the dataset level.
-        # The inner fields represent the complex field (struct/array/map/union).
-        return {
-            "type": "record",
-            "name": "__struct_",
-            "fields": [
-                {
-                    "name": column.name,
-                    "type": _parse_datatype(column.type, column.is_optional),
-                    "doc": column.doc,
-                }
-            ],
-        }
+        avro_schema = visit(schema, ToAvroSchemaIcebergVisitor())
+        schema_fields = schema_util.avro_schema_to_mce_fields(
+            json.dumps(avro_schema), default_nullable=False
+        )
+        return schema_fields
 
     def get_report(self) -> SourceReport:
         return self.report
 
 
-def _parse_datatype(type: IcebergTypes.Type, nullable: bool = False) -> Dict[str, Any]:
-    # Check for complex types: struct, list, map
-    if type.is_list_type():
-        list_type: IcebergTypes.ListType = type
+class ToAvroSchemaIcebergVisitor(SchemaVisitorPerPrimitiveType[Dict[str, Any]]):
+    """Implementation of a visitor to build an Avro schema as a dictionary from an Iceberg schema."""
+
+    @staticmethod
+    def _gen_name(prefix: str) -> str:
+        return f"{prefix}{str(uuid.uuid4()).replace('-', '')}"
+
+    def schema(self, schema: Schema, struct_result: Dict[str, Any]) -> Dict[str, Any]:
+        return struct_result
+
+    def struct(
+        self, struct: StructType, field_results: List[Dict[str, Any]]
+    ) -> Dict[str, Any]:
+        nullable = True
         return {
-            "type": "array",
-            "items": _parse_datatype(list_type.element_type),
-            "native_data_type": str(type),
+            "type": "record",
+            "name": self._gen_name("__struct_"),
+            "fields": field_results,
+            "native_data_type": str(struct),
             "_nullable": nullable,
         }
-    elif type.is_map_type():
+
+    def field(self, field: NestedField, field_result: Dict[str, Any]) -> Dict[str, Any]:
+        field_result["_nullable"] = not field.required
+        return {
+            "name": field.name,
+            "type": field_result,
+            "doc": field.doc,
+        }
+
+    def list(
+        self, list_type: ListType, element_result: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        return {
+            "type": "array",
+            "items": element_result,
+            "native_data_type": str(list_type),
+            "_nullable": not list_type.element_required,
+        }
+
+    def map(
+        self,
+        map_type: MapType,
+        key_result: Dict[str, Any],
+        value_result: Dict[str, Any],
+    ) -> Dict[str, Any]:
         # The Iceberg Map type will be handled differently.  The idea is to translate the map
         # similar to the Map.Entry struct of Java i.e. as an array of map_entry struct, where
         # the map_entry struct has a key field and a value field. The key and value type can
         # be complex or primitive types.
-        map_type: IcebergTypes.MapType = type
-        map_entry: Dict[str, Any] = {
+        key_result["_nullable"] = False
+        value_result["_nullable"] = not map_type.value_required
+        map_entry = {
             "type": "record",
-            "name": _gen_name("__map_entry_"),
+            "name": self._gen_name("__map_entry_"),
             "fields": [
                 {
                     "name": "key",
-                    "type": _parse_datatype(map_type.key_type(), False),
+                    "type": key_result,
                 },
                 {
                     "name": "value",
-                    "type": _parse_datatype(map_type.value_type(), True),
+                    "type": value_result,
                 },
             ],
         }
         return {
             "type": "array",
             "items": map_entry,
-            "native_data_type": str(type),
-            "_nullable": nullable,
+            "native_data_type": str(map_type),
         }
-    elif type.is_struct_type():
-        structType: IcebergTypes.StructType = type
-        return _parse_struct_fields(structType.fields, nullable)
-    else:
-        # Primitive types
-        return _parse_basic_datatype(type, nullable)
 
-
-def _parse_struct_fields(parts: Tuple[NestedField], nullable: bool) -> Dict[str, Any]:
-    fields = []
-    for nested_field in parts:  # type: NestedField
-        field_name = nested_field.name
-        field_type = _parse_datatype(nested_field.type, nested_field.is_optional)
-        fields.append({"name": field_name, "type": field_type, "doc": nested_field.doc})
-    return {
-        "type": "record",
-        "name": _gen_name("__struct_"),
-        "fields": fields,
-        "native_data_type": "struct<{}>".format(parts),
-        "_nullable": nullable,
-    }
-
-
-def _parse_basic_datatype(
-    type: IcebergTypes.PrimitiveType, nullable: bool
-) -> Dict[str, Any]:
-    """
-    See https://iceberg.apache.org/#spec/#avro
-    """
-    # Check for an atomic types.
-    for iceberg_type in _all_atomic_types.keys():
-        if isinstance(type, iceberg_type):
-            return {
-                "type": _all_atomic_types[iceberg_type],
-                "native_data_type": repr(type),
-                "_nullable": nullable,
-            }
-
-    # Fixed is a special case where it is not an atomic type and not a logical type.
-    if isinstance(type, IcebergTypes.FixedType):
-        fixed_type: IcebergTypes.FixedType = type
+    def visit_fixed(self, fixed_type: FixedType) -> Dict[str, Any]:
         return {
             "type": "fixed",
-            "name": _gen_name("__fixed_"),
-            "size": fixed_type.length,
-            "native_data_type": repr(fixed_type),
-            "_nullable": nullable,
+            "name": self._gen_name("__fixed_"),
+            "size": len(fixed_type),
+            "native_data_type": str(fixed_type),
         }
 
-    # Not an atomic type, so check for a logical type.
-    if isinstance(type, IcebergTypes.DecimalType):
+    def visit_decimal(self, decimal_type: DecimalType) -> Dict[str, Any]:
         # Also of interest: https://avro.apache.org/docs/current/spec.html#Decimal
-        decimal_type: IcebergTypes.DecimalType = type
         return {
             # "type": "bytes", # when using bytes, avro drops _nullable attribute and others.  See unit test.
             "type": "fixed",  # to fix avro bug ^ resolved by using a fixed type
-            "name": _gen_name(
+            "name": self._gen_name(
                 "__fixed_"
             ),  # to fix avro bug ^ resolved by using a fixed type
             "size": 1,  # to fix avro bug ^ resolved by using a fixed type
             "logicalType": "decimal",
             "precision": decimal_type.precision,
             "scale": decimal_type.scale,
-            "native_data_type": repr(decimal_type),
-            "_nullable": nullable,
+            "native_data_type": str(decimal_type),
         }
-    elif isinstance(type, IcebergTypes.UUIDType):
-        uuid_type: IcebergTypes.UUIDType = type
+
+    def visit_boolean(self, boolean_type: BooleanType) -> Dict[str, Any]:
         return {
-            "type": "string",
-            "logicalType": "uuid",
-            "native_data_type": repr(uuid_type),
-            "_nullable": nullable,
+            "type": "boolean",
+            "native_data_type": str(boolean_type),
         }
-    elif isinstance(type, IcebergTypes.DateType):
-        date_type: IcebergTypes.DateType = type
+
+    def visit_integer(self, integer_type: IntegerType) -> Dict[str, Any]:
+        return {
+            "type": "int",
+            "native_data_type": str(integer_type),
+        }
+
+    def visit_long(self, long_type: LongType) -> Dict[str, Any]:
+        return {
+            "type": "long",
+            "native_data_type": str(long_type),
+        }
+
+    def visit_float(self, float_type: FloatType) -> Dict[str, Any]:
+        return {
+            "type": "float",
+            "native_data_type": str(float_type),
+        }
+
+    def visit_double(self, double_type: DoubleType) -> Dict[str, Any]:
+        return {
+            "type": "double",
+            "native_data_type": str(double_type),
+        }
+
+    def visit_date(self, date_type: DateType) -> Dict[str, Any]:
         return {
             "type": "int",
             "logicalType": "date",
-            "native_data_type": repr(date_type),
-            "_nullable": nullable,
+            "native_data_type": str(date_type),
         }
-    elif isinstance(type, IcebergTypes.TimeType):
-        time_type: IcebergTypes.TimeType = type
+
+    def visit_time(self, time_type: TimeType) -> Dict[str, Any]:
         return {
             "type": "long",
             "logicalType": "time-micros",
-            "native_data_type": repr(time_type),
-            "_nullable": nullable,
+            "native_data_type": str(time_type),
         }
-    elif isinstance(type, IcebergTypes.TimestampType):
-        timestamp_type: IcebergTypes.TimestampType = type
+
+    def visit_timestamp(self, timestamp_type: TimestampType) -> Dict[str, Any]:
         # Avro supports 2 types of timestamp:
         #  - Timestamp: independent of a particular timezone or calendar (TZ information is lost)
         #  - Local Timestamp: represents a timestamp in a local timezone, regardless of what specific time zone is considered local
@@ -446,12 +565,59 @@ def _parse_basic_datatype(
             # "logicalType": "timestamp-micros"
             # if timestamp_type.adjust_to_utc
             # else "local-timestamp-micros",
-            "native_data_type": repr(timestamp_type),
-            "_nullable": nullable,
+            "native_data_type": str(timestamp_type),
         }
 
-    return {"type": "null", "native_data_type": repr(type)}
+    # visit_timestamptz() is required when using pyiceberg >= 0.5.0, which is essentially a duplicate
+    # of visit_timestampz().  The function has been renamed from visit_timestampz().
+    # Once Datahub can upgrade its pyiceberg dependency to >=0.5.0, the visit_timestampz() function can be safely removed.
+    def visit_timestamptz(self, timestamptz_type: TimestamptzType) -> Dict[str, Any]:
+        # Avro supports 2 types of timestamp:
+        #  - Timestamp: independent of a particular timezone or calendar (TZ information is lost)
+        #  - Local Timestamp: represents a timestamp in a local timezone, regardless of what specific time zone is considered local
+        # utcAdjustment: bool = True
+        return {
+            "type": "long",
+            "logicalType": "timestamp-micros",
+            # Commented out since Avro's Python implementation (1.11.0) does not support local-timestamp-micros, even though it exists in the spec.
+            # See bug report: https://issues.apache.org/jira/browse/AVRO-3476 and PR https://github.com/apache/avro/pull/1634
+            # "logicalType": "timestamp-micros"
+            # if timestamp_type.adjust_to_utc
+            # else "local-timestamp-micros",
+            "native_data_type": str(timestamptz_type),
+        }
 
+    def visit_timestampz(self, timestamptz_type: TimestamptzType) -> Dict[str, Any]:
+        # Avro supports 2 types of timestamp:
+        #  - Timestamp: independent of a particular timezone or calendar (TZ information is lost)
+        #  - Local Timestamp: represents a timestamp in a local timezone, regardless of what specific time zone is considered local
+        # utcAdjustment: bool = True
+        return {
+            "type": "long",
+            "logicalType": "timestamp-micros",
+            # Commented out since Avro's Python implementation (1.11.0) does not support local-timestamp-micros, even though it exists in the spec.
+            # See bug report: https://issues.apache.org/jira/browse/AVRO-3476 and PR https://github.com/apache/avro/pull/1634
+            # "logicalType": "timestamp-micros"
+            # if timestamp_type.adjust_to_utc
+            # else "local-timestamp-micros",
+            "native_data_type": str(timestamptz_type),
+        }
 
-def _gen_name(prefix: str) -> str:
-    return f"{prefix}{str(uuid.uuid4()).replace('-', '')}"
+    def visit_string(self, string_type: StringType) -> Dict[str, Any]:
+        return {
+            "type": "string",
+            "native_data_type": str(string_type),
+        }
+
+    def visit_uuid(self, uuid_type: UUIDType) -> Dict[str, Any]:
+        return {
+            "type": "string",
+            "logicalType": "uuid",
+            "native_data_type": str(uuid_type),
+        }
+
+    def visit_binary(self, binary_type: BinaryType) -> Dict[str, Any]:
+        return {
+            "type": "bytes",
+            "native_data_type": str(binary_type),
+        }

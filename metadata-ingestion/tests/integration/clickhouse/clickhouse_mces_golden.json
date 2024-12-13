@@ -1,7 +1,7 @@
 [
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:ab016b94aa0d75c5b9205c33260e989c",
+    "entityUrn": "urn:li:container:ccb08ea309d6caaba2b45ebb4c9327a2",
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
@@ -10,19 +10,21 @@
                 "platform": "clickhouse",
                 "instance": "clickhousetestserver",
                 "env": "PROD",
-                "database": "clickhousedb"
+                "database": "db1"
             },
-            "name": "clickhousedb"
+            "name": "db1",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "clickhouse-test"
+        "runId": "clickhouse-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:ab016b94aa0d75c5b9205c33260e989c",
+    "entityUrn": "urn:li:container:ccb08ea309d6caaba2b45ebb4c9327a2",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -32,12 +34,13 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "clickhouse-test"
+        "runId": "clickhouse-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:ab016b94aa0d75c5b9205c33260e989c",
+    "entityUrn": "urn:li:container:ccb08ea309d6caaba2b45ebb4c9327a2",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -48,12 +51,13 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "clickhouse-test"
+        "runId": "clickhouse-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:ab016b94aa0d75c5b9205c33260e989c",
+    "entityUrn": "urn:li:container:ccb08ea309d6caaba2b45ebb4c9327a2",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -65,127 +69,29 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "clickhouse-test"
+        "runId": "clickhouse-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:ab016b94aa0d75c5b9205c33260e989c",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": []
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "clickhouse-test"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:1154d1da73a95376c9f33f47694cf1de",
-    "changeType": "UPSERT",
-    "aspectName": "containerProperties",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "platform": "clickhouse",
-                "instance": "clickhousetestserver",
-                "env": "PROD",
-                "database": "clickhousedb",
-                "schema": "db1"
-            },
-            "name": "db1"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "clickhouse-test"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:1154d1da73a95376c9f33f47694cf1de",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "clickhouse-test"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:1154d1da73a95376c9f33f47694cf1de",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:clickhouse",
-            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:clickhouse,clickhousetestserver)"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "clickhouse-test"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:1154d1da73a95376c9f33f47694cf1de",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Schema"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "clickhouse-test"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:1154d1da73a95376c9f33f47694cf1de",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:ab016b94aa0d75c5b9205c33260e989c"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "clickhouse-test"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:1154d1da73a95376c9f33f47694cf1de",
+    "entityUrn": "urn:li:container:ccb08ea309d6caaba2b45ebb4c9327a2",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:ab016b94aa0d75c5b9205c33260e989c",
-                    "urn": "urn:li:container:ab016b94aa0d75c5b9205c33260e989c"
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:clickhouse,clickhousetestserver)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:clickhouse,clickhousetestserver)"
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "clickhouse-test"
+        "runId": "clickhouse-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -195,12 +101,13 @@
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:1154d1da73a95376c9f33f47694cf1de"
+            "container": "urn:li:container:ccb08ea309d6caaba2b45ebb4c9327a2"
         }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "clickhouse-test"
+        "runId": "clickhouse-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -224,7 +131,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "clickhouse-test"
+        "runId": "clickhouse-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -246,11 +154,11 @@
                             "primary_key": "col_Int64",
                             "sampling_key": "",
                             "storage_policy": "default",
-                            "metadata_modification_time": "2023-07-03 18:52:30",
+                            "metadata_modification_time": "2024-08-20 14:33:09",
                             "total_rows": "10",
                             "total_bytes": "671",
-                            "data_paths": "['/var/lib/clickhouse/store/2d4/2d43771f-2a9f-4a28-962e-992a7c08102f/']",
-                            "metadata_path": "/var/lib/clickhouse/store/e2e/e2e3221c-2ffa-4009-b71e-ad306b778310/mv_target_table.sql"
+                            "data_paths": "['/var/lib/clickhouse/store/8c1/8c16d9dc-9307-47c4-ba53-6f39f6823f25/']",
+                            "metadata_path": "/var/lib/clickhouse/store/377/37707827-6df2-4c53-b8f6-26b7346f8416/mv_target_table.sql"
                         },
                         "name": "mv_target_table",
                         "description": "This is target table for materialized view",
@@ -350,7 +258,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "clickhouse-test"
+        "runId": "clickhouse-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -366,7 +275,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "clickhouse-test"
+        "runId": "clickhouse-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -383,7 +293,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "clickhouse-test"
+        "runId": "clickhouse-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -395,19 +306,20 @@
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:ab016b94aa0d75c5b9205c33260e989c",
-                    "urn": "urn:li:container:ab016b94aa0d75c5b9205c33260e989c"
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:clickhouse,clickhousetestserver)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:clickhouse,clickhousetestserver)"
                 },
                 {
-                    "id": "urn:li:container:1154d1da73a95376c9f33f47694cf1de",
-                    "urn": "urn:li:container:1154d1da73a95376c9f33f47694cf1de"
+                    "id": "urn:li:container:ccb08ea309d6caaba2b45ebb4c9327a2",
+                    "urn": "urn:li:container:ccb08ea309d6caaba2b45ebb4c9327a2"
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "clickhouse-test"
+        "runId": "clickhouse-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -417,12 +329,13 @@
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:1154d1da73a95376c9f33f47694cf1de"
+            "container": "urn:li:container:ccb08ea309d6caaba2b45ebb4c9327a2"
         }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "clickhouse-test"
+        "runId": "clickhouse-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -444,11 +357,11 @@
                             "primary_key": "",
                             "sampling_key": "",
                             "storage_policy": "default",
-                            "metadata_modification_time": "2023-07-03 18:52:30",
+                            "metadata_modification_time": "2024-08-20 14:33:09",
                             "total_rows": "0",
                             "total_bytes": "0",
-                            "data_paths": "['/var/lib/clickhouse/store/700/70013972-f4ad-4c8b-a4bd-b397c9cc727f/']",
-                            "metadata_path": "/var/lib/clickhouse/store/e2e/e2e3221c-2ffa-4009-b71e-ad306b778310/test_data_types.sql"
+                            "data_paths": "['/var/lib/clickhouse/store/23a/23a3e7b9-bfb5-4f65-bba2-adc249615387/']",
+                            "metadata_path": "/var/lib/clickhouse/store/377/37707827-6df2-4c53-b8f6-26b7346f8416/test_data_types.sql"
                         },
                         "name": "test_data_types",
                         "description": "This table has basic types",
@@ -977,7 +890,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "clickhouse-test"
+        "runId": "clickhouse-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -993,7 +907,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "clickhouse-test"
+        "runId": "clickhouse-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1010,7 +925,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "clickhouse-test"
+        "runId": "clickhouse-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1022,19 +938,20 @@
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:ab016b94aa0d75c5b9205c33260e989c",
-                    "urn": "urn:li:container:ab016b94aa0d75c5b9205c33260e989c"
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:clickhouse,clickhousetestserver)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:clickhouse,clickhousetestserver)"
                 },
                 {
-                    "id": "urn:li:container:1154d1da73a95376c9f33f47694cf1de",
-                    "urn": "urn:li:container:1154d1da73a95376c9f33f47694cf1de"
+                    "id": "urn:li:container:ccb08ea309d6caaba2b45ebb4c9327a2",
+                    "urn": "urn:li:container:ccb08ea309d6caaba2b45ebb4c9327a2"
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "clickhouse-test"
+        "runId": "clickhouse-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1044,12 +961,13 @@
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:1154d1da73a95376c9f33f47694cf1de"
+            "container": "urn:li:container:ccb08ea309d6caaba2b45ebb4c9327a2"
         }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "clickhouse-test"
+        "runId": "clickhouse-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1073,7 +991,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "clickhouse-test"
+        "runId": "clickhouse-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1095,11 +1014,11 @@
                             "primary_key": "",
                             "sampling_key": "",
                             "storage_policy": "",
-                            "metadata_modification_time": "2023-07-03 18:52:30",
+                            "metadata_modification_time": "2024-08-20 14:33:09",
                             "total_rows": "None",
                             "total_bytes": "None",
                             "data_paths": "[]",
-                            "metadata_path": "/var/lib/clickhouse/store/e2e/e2e3221c-2ffa-4009-b71e-ad306b778310/test_dict.sql"
+                            "metadata_path": "/var/lib/clickhouse/store/377/37707827-6df2-4c53-b8f6-26b7346f8416/test_dict.sql"
                         },
                         "name": "test_dict",
                         "description": "",
@@ -1160,7 +1079,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "clickhouse-test"
+        "runId": "clickhouse-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1176,7 +1096,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "clickhouse-test"
+        "runId": "clickhouse-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1193,7 +1114,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "clickhouse-test"
+        "runId": "clickhouse-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1205,19 +1127,20 @@
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:ab016b94aa0d75c5b9205c33260e989c",
-                    "urn": "urn:li:container:ab016b94aa0d75c5b9205c33260e989c"
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:clickhouse,clickhousetestserver)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:clickhouse,clickhousetestserver)"
                 },
                 {
-                    "id": "urn:li:container:1154d1da73a95376c9f33f47694cf1de",
-                    "urn": "urn:li:container:1154d1da73a95376c9f33f47694cf1de"
+                    "id": "urn:li:container:ccb08ea309d6caaba2b45ebb4c9327a2",
+                    "urn": "urn:li:container:ccb08ea309d6caaba2b45ebb4c9327a2"
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "clickhouse-test"
+        "runId": "clickhouse-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1227,12 +1150,13 @@
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:1154d1da73a95376c9f33f47694cf1de"
+            "container": "urn:li:container:ccb08ea309d6caaba2b45ebb4c9327a2"
         }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "clickhouse-test"
+        "runId": "clickhouse-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1254,11 +1178,11 @@
                             "primary_key": "",
                             "sampling_key": "",
                             "storage_policy": "default",
-                            "metadata_modification_time": "2023-07-03 18:52:30",
+                            "metadata_modification_time": "2024-08-20 14:33:09",
                             "total_rows": "0",
                             "total_bytes": "0",
-                            "data_paths": "['/var/lib/clickhouse/store/04c/04c9735e-af23-4850-a034-8da8f03d75af/']",
-                            "metadata_path": "/var/lib/clickhouse/store/e2e/e2e3221c-2ffa-4009-b71e-ad306b778310/test_nested_data_types.sql"
+                            "data_paths": "['/var/lib/clickhouse/store/c7b/c7ba2e57-f123-4e22-ac9d-803ddb00de77/']",
+                            "metadata_path": "/var/lib/clickhouse/store/377/37707827-6df2-4c53-b8f6-26b7346f8416/test_nested_data_types.sql"
                         },
                         "name": "test_nested_data_types",
                         "description": "This table has nested types",
@@ -1423,7 +1347,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "clickhouse-test"
+        "runId": "clickhouse-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1439,7 +1364,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "clickhouse-test"
+        "runId": "clickhouse-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1456,7 +1382,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "clickhouse-test"
+        "runId": "clickhouse-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1468,19 +1395,20 @@
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:ab016b94aa0d75c5b9205c33260e989c",
-                    "urn": "urn:li:container:ab016b94aa0d75c5b9205c33260e989c"
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:clickhouse,clickhousetestserver)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:clickhouse,clickhousetestserver)"
                 },
                 {
-                    "id": "urn:li:container:1154d1da73a95376c9f33f47694cf1de",
-                    "urn": "urn:li:container:1154d1da73a95376c9f33f47694cf1de"
+                    "id": "urn:li:container:ccb08ea309d6caaba2b45ebb4c9327a2",
+                    "urn": "urn:li:container:ccb08ea309d6caaba2b45ebb4c9327a2"
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "clickhouse-test"
+        "runId": "clickhouse-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1490,12 +1418,13 @@
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:1154d1da73a95376c9f33f47694cf1de"
+            "container": "urn:li:container:ccb08ea309d6caaba2b45ebb4c9327a2"
         }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "clickhouse-test"
+        "runId": "clickhouse-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1519,7 +1448,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "clickhouse-test"
+        "runId": "clickhouse-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1541,11 +1471,11 @@
                             "primary_key": "",
                             "sampling_key": "",
                             "storage_policy": "",
-                            "metadata_modification_time": "2023-07-03 18:52:30",
+                            "metadata_modification_time": "2024-08-20 14:33:09",
                             "total_rows": "None",
                             "total_bytes": "None",
-                            "data_paths": "['/var/lib/clickhouse/store/2d4/2d43771f-2a9f-4a28-962e-992a7c08102f/']",
-                            "metadata_path": "/var/lib/clickhouse/store/e2e/e2e3221c-2ffa-4009-b71e-ad306b778310/mv_with_target_table.sql",
+                            "data_paths": "['/var/lib/clickhouse/store/8c1/8c16d9dc-9307-47c4-ba53-6f39f6823f25/']",
+                            "metadata_path": "/var/lib/clickhouse/store/377/37707827-6df2-4c53-b8f6-26b7346f8416/mv_with_target_table.sql",
                             "view_definition": "",
                             "is_view": "True"
                         },
@@ -1647,7 +1577,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "clickhouse-test"
+        "runId": "clickhouse-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1663,7 +1594,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "clickhouse-test"
+        "runId": "clickhouse-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1680,7 +1612,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "clickhouse-test"
+        "runId": "clickhouse-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1697,7 +1630,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "clickhouse-test"
+        "runId": "clickhouse-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1709,19 +1643,20 @@
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:ab016b94aa0d75c5b9205c33260e989c",
-                    "urn": "urn:li:container:ab016b94aa0d75c5b9205c33260e989c"
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:clickhouse,clickhousetestserver)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:clickhouse,clickhousetestserver)"
                 },
                 {
-                    "id": "urn:li:container:1154d1da73a95376c9f33f47694cf1de",
-                    "urn": "urn:li:container:1154d1da73a95376c9f33f47694cf1de"
+                    "id": "urn:li:container:ccb08ea309d6caaba2b45ebb4c9327a2",
+                    "urn": "urn:li:container:ccb08ea309d6caaba2b45ebb4c9327a2"
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "clickhouse-test"
+        "runId": "clickhouse-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1731,12 +1666,13 @@
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:1154d1da73a95376c9f33f47694cf1de"
+            "container": "urn:li:container:ccb08ea309d6caaba2b45ebb4c9327a2"
         }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "clickhouse-test"
+        "runId": "clickhouse-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1760,7 +1696,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "clickhouse-test"
+        "runId": "clickhouse-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1782,11 +1719,11 @@
                             "primary_key": "",
                             "sampling_key": "",
                             "storage_policy": "",
-                            "metadata_modification_time": "2023-07-03 18:52:30",
+                            "metadata_modification_time": "2024-08-20 14:33:09",
                             "total_rows": "0",
                             "total_bytes": "0",
-                            "data_paths": "['/var/lib/clickhouse/store/649/64934dd8-0347-4e30-a604-8b27022dc799/']",
-                            "metadata_path": "/var/lib/clickhouse/store/e2e/e2e3221c-2ffa-4009-b71e-ad306b778310/mv_without_target_table.sql",
+                            "data_paths": "['/var/lib/clickhouse/store/c17/c17e750d-fa54-4e86-aeec-bfd392b07d71/']",
+                            "metadata_path": "/var/lib/clickhouse/store/377/37707827-6df2-4c53-b8f6-26b7346f8416/mv_without_target_table.sql",
                             "view_definition": "",
                             "is_view": "True"
                         },
@@ -1888,7 +1825,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "clickhouse-test"
+        "runId": "clickhouse-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1904,7 +1842,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "clickhouse-test"
+        "runId": "clickhouse-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1921,7 +1860,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "clickhouse-test"
+        "runId": "clickhouse-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1938,7 +1878,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "clickhouse-test"
+        "runId": "clickhouse-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1950,19 +1891,20 @@
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:ab016b94aa0d75c5b9205c33260e989c",
-                    "urn": "urn:li:container:ab016b94aa0d75c5b9205c33260e989c"
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:clickhouse,clickhousetestserver)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:clickhouse,clickhousetestserver)"
                 },
                 {
-                    "id": "urn:li:container:1154d1da73a95376c9f33f47694cf1de",
-                    "urn": "urn:li:container:1154d1da73a95376c9f33f47694cf1de"
+                    "id": "urn:li:container:ccb08ea309d6caaba2b45ebb4c9327a2",
+                    "urn": "urn:li:container:ccb08ea309d6caaba2b45ebb4c9327a2"
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "clickhouse-test"
+        "runId": "clickhouse-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1972,12 +1914,13 @@
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:1154d1da73a95376c9f33f47694cf1de"
+            "container": "urn:li:container:ccb08ea309d6caaba2b45ebb4c9327a2"
         }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "clickhouse-test"
+        "runId": "clickhouse-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2001,7 +1944,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "clickhouse-test"
+        "runId": "clickhouse-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2023,11 +1967,11 @@
                             "primary_key": "",
                             "sampling_key": "",
                             "storage_policy": "",
-                            "metadata_modification_time": "2023-07-03 18:52:30",
+                            "metadata_modification_time": "2024-08-20 14:33:09",
                             "total_rows": "None",
                             "total_bytes": "None",
                             "data_paths": "[]",
-                            "metadata_path": "/var/lib/clickhouse/store/e2e/e2e3221c-2ffa-4009-b71e-ad306b778310/test_view.sql",
+                            "metadata_path": "/var/lib/clickhouse/store/377/37707827-6df2-4c53-b8f6-26b7346f8416/test_view.sql",
                             "view_definition": "",
                             "is_view": "True"
                         },
@@ -2077,7 +2021,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "clickhouse-test"
+        "runId": "clickhouse-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2093,7 +2038,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "clickhouse-test"
+        "runId": "clickhouse-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2110,7 +2056,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "clickhouse-test"
+        "runId": "clickhouse-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2127,7 +2074,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "clickhouse-test"
+        "runId": "clickhouse-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2139,19 +2087,20 @@
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:ab016b94aa0d75c5b9205c33260e989c",
-                    "urn": "urn:li:container:ab016b94aa0d75c5b9205c33260e989c"
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:clickhouse,clickhousetestserver)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:clickhouse,clickhousetestserver)"
                 },
                 {
-                    "id": "urn:li:container:1154d1da73a95376c9f33f47694cf1de",
-                    "urn": "urn:li:container:1154d1da73a95376c9f33f47694cf1de"
+                    "id": "urn:li:container:ccb08ea309d6caaba2b45ebb4c9327a2",
+                    "urn": "urn:li:container:ccb08ea309d6caaba2b45ebb4c9327a2"
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "clickhouse-test"
+        "runId": "clickhouse-test",
+        "lastRunId": "no-run-id-provided"
     }
 }
 ]

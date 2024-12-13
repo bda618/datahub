@@ -10,7 +10,6 @@ export const TAGS_FILTER_NAME = 'tags';
 export const GLOSSARY_TERMS_FILTER_NAME = 'glossaryTerms';
 export const CONTAINER_FILTER_NAME = 'container';
 export const DOMAINS_FILTER_NAME = 'domains';
-export const DATA_PRODUCTS_FILTER_NAME = 'dataProducts';
 export const OWNERS_FILTER_NAME = 'owners';
 export const TYPE_NAMES_FILTER_NAME = 'typeNames';
 export const PLATFORM_FILTER_NAME = 'platform';
@@ -26,6 +25,11 @@ export const REMOVED_FILTER_NAME = 'removed';
 export const ORIGIN_FILTER_NAME = 'origin';
 export const DEGREE_FILTER_NAME = 'degree';
 export const BROWSE_PATH_V2_FILTER_NAME = 'browsePathV2';
+export const STRUCTURED_PROPERTIES_FILTER_NAME = 'structuredProperties.';
+export const ENTITY_TYPES_FILTER_NAME = 'entityTypes';
+export const IS_HIDDEN_PROPERTY_FILTER_NAME = 'isHidden';
+export const SHOW_IN_COLUMNS_TABLE_PROPERTY_FILTER_NAME = 'showInColumnsTable';
+export const SHOW_IN_ASSET_SUMMARY_PROPERTY_FILTER_NAME = 'showInAssetSummary';
 
 export const LEGACY_ENTITY_FILTER_FIELDS = [ENTITY_FILTER_NAME, LEGACY_ENTITY_FILTER_NAME];
 
@@ -57,7 +61,6 @@ export const ORDERED_FIELDS = [
     TAGS_FILTER_NAME,
     GLOSSARY_TERMS_FILTER_NAME,
     DOMAINS_FILTER_NAME,
-    DATA_PRODUCTS_FILTER_NAME,
     FIELD_TAGS_FILTER_NAME,
     FIELD_GLOSSARY_TERMS_FILTER_NAME,
     FIELD_PATHS_FILTER_NAME,
@@ -74,7 +77,6 @@ export const FIELD_TO_LABEL = {
     owners: 'Owner',
     tags: 'Tag',
     domains: 'Domain',
-    [DATA_PRODUCTS_FILTER_NAME]: 'Data Product',
     platform: 'Platform',
     fieldTags: 'Column Tag',
     glossaryTerms: 'Glossary Term',
@@ -123,4 +125,6 @@ export const FilterModes = {
     ADVANCED: 'advanced',
 } as const;
 
-export type FilterMode = typeof FilterModes[keyof typeof FilterModes];
+export type FilterMode = (typeof FilterModes)[keyof typeof FilterModes];
+
+export const MAX_COUNT_VAL = 10000;

@@ -17,6 +17,20 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
 logger = logging.getLogger(__name__)
 
 
+def test_elasticsearch_throws_error_wrong_operation_config():
+    with pytest.raises(pydantic.ValidationError):
+        ElasticsearchSourceConfig.parse_obj(
+            {
+                "profiling": {
+                    "enabled": True,
+                    "operation_config": {
+                        "lower_freq_profile_enabled": True,
+                    },
+                }
+            }
+        )
+
+
 def assert_field_paths_are_unique(fields: List[SchemaField]) -> None:
     fields_paths = [f.fieldPath for f in fields if re.match(".*[^]]$", f.fieldPath)]
 

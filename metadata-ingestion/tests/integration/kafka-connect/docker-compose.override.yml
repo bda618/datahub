@@ -1,5 +1,4 @@
 ---
-version: '3.8'
 services:
   connect:
     image: confluentinc/cp-kafka-connect:7.4.0
@@ -32,14 +31,15 @@ services:
         #
         confluent-hub install --no-prompt debezium/debezium-connector-mysql:1.7.0
         #
-        #confluent-hub install --no-prompt wepay/kafka-connect-bigquery:1.6.8
+        confluent-hub install --no-prompt wepay/kafka-connect-bigquery:1.6.8
         #
         confluent-hub install --no-prompt mongodb/kafka-connect-mongodb:1.10.1
+        #
+        confluent-hub install --no-prompt confluentinc/kafka-connect-s3:10.5.1
         #
         curl -k -SL "https://dev.mysql.com/get/Downloads/Connector-J/mysql-connector-java-8.0.27.tar.gz" \
              | tar -xzf - -C /usr/share/confluent-hub-components/confluentinc-kafka-connect-jdbc/lib \
              --strip-components=1 mysql-connector-java-8.0.27/mysql-connector-java-8.0.27.jar
-        #
         curl -k -SL "https://repo1.maven.org/maven2/io/strimzi/kafka-env-var-config-provider/0.1.1/kafka-env-var-config-provider-0.1.1.tar.gz" \
              | tar -xzf - -C /usr/share/confluent-hub-components/
         #             
@@ -86,3 +86,10 @@ services:
       - MONGO_INITDB_DATABASE=test_db
     volumes:
       - ./../kafka-connect/setup/conf/:/scripts/
+
+  s3mock:
+    image: adobe/s3mock:2.13.0
+    environment:
+      - initialBuckets=test-bucket
+    ports:
+      - "9090:9090"

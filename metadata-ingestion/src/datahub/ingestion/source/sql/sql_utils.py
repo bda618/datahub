@@ -1,4 +1,5 @@
-from typing import Dict, Iterable, List, Optional, Tuple
+import re
+from typing import Dict, Iterable, List, Optional
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter.mce_builder import (
@@ -8,8 +9,8 @@ from datahub.emitter.mce_builder import (
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import (
+    ContainerKey,
     DatabaseKey,
-    PlatformKey,
     SchemaKey,
     add_dataset_to_container,
     add_domain_to_entity_wu,
@@ -17,9 +18,15 @@ from datahub.emitter.mcp_builder import (
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import UpstreamLineage
+from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
 from datahub.metadata.schema_classes import DataPlatformInstanceClass
-from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.utilities.registries.domain_registry import DomainRegistry
+from datahub.utilities.urns.dataset_urn import DatasetUrn
+
+ARRAY_TOKEN = "[type=array]"
+UNION_TOKEN = "[type=union]"
+KEY_SCHEMA_PREFIX = "[key=True]."
+VERSION_PREFIX = "[version=2.0]."
 
 
 def gen_schema_key(
@@ -28,7 +35,7 @@ def gen_schema_key(
     platform: str,
     platform_instance: Optional[str],
     env: Optional[str],
-) -> PlatformKey:
+) -> SchemaKey:
     return SchemaKey(
         database=db_name,
         schema=schema,
@@ -41,7 +48,7 @@ def gen_schema_key(
 
 def gen_database_key(
     database: str, platform: str, platform_instance: Optional[str], env: Optional[str]
-) -> PlatformKey:
+) -> DatabaseKey:
     return DatabaseKey(
         database=database,
         platform=platform,
@@ -55,8 +62,8 @@ def gen_schema_container(
     schema: str,
     database: str,
     sub_types: List[str],
-    database_container_key: PlatformKey,
-    schema_container_key: PlatformKey,
+    database_container_key: ContainerKey,
+    schema_container_key: ContainerKey,
     domain_registry: Optional[DomainRegistry] = None,
     domain_config: Optional[Dict[str, AllowDenyPattern]] = None,
     name: Optional[str] = None,
@@ -113,7 +120,7 @@ def gen_domain_urn(
 
 def gen_database_container(
     database: str,
-    database_container_key: PlatformKey,
+    database_container_key: ContainerKey,
     sub_types: List[str],
     domain_config: Optional[Dict[str, AllowDenyPattern]] = None,
     domain_registry: Optional[DomainRegistry] = None,
@@ -152,7 +159,7 @@ def gen_database_container(
 
 def add_table_to_schema_container(
     dataset_urn: str,
-    parent_container_key: PlatformKey,
+    parent_container_key: ContainerKey,
 ) -> Iterable[MetadataWorkUnit]:
     yield from add_dataset_to_container(
         container_key=parent_container_key,
@@ -194,32 +201,61 @@ def get_dataplatform_instance_aspect(
 
 def gen_lineage(
     dataset_urn: str,
-    lineage_info: Optional[Tuple[UpstreamLineage, Dict[str, str]]] = None,
-    incremental_lineage: bool = True,
+    upstream_lineage: Optional[UpstreamLineage],
 ) -> Iterable[MetadataWorkUnit]:
-    if lineage_info is None:
-        return
-
-    upstream_lineage, upstream_column_props = lineage_info
     if upstream_lineage is not None:
-        if incremental_lineage:
-            patch_builder: DatasetPatchBuilder = DatasetPatchBuilder(urn=dataset_urn)
-            for upstream in upstream_lineage.upstreams:
-                patch_builder.add_upstream_lineage(upstream)
+        lineage_workunits = [
+            MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn, aspect=upstream_lineage
+            ).as_workunit()
+        ]
 
-            lineage_workunits = [
-                MetadataWorkUnit(
-                    id=f"upstreamLineage-for-{dataset_urn}",
-                    mcp_raw=mcp,
-                )
-                for mcp in patch_builder.build()
-            ]
+        yield from lineage_workunits
+
+
+# downgrade a schema field
+def downgrade_schema_field_from_v2(field: SchemaField) -> SchemaField:
+    field.fieldPath = DatasetUrn.get_simple_field_path_from_v2_field_path(
+        field.fieldPath
+    )
+    return field
+
+
+# downgrade a list of schema fields
+def downgrade_schema_from_v2(
+    canonical_schema: List[SchemaField],
+) -> List[SchemaField]:
+    return [downgrade_schema_field_from_v2(field) for field in canonical_schema]
+
+
+# v2 is only required in case UNION or ARRAY types are present- all other types can be represented in v1 paths
+def schema_requires_v2(canonical_schema: List[SchemaField]) -> bool:
+    for field in canonical_schema:
+        field_name = field.fieldPath
+        if ARRAY_TOKEN in field_name or UNION_TOKEN in field_name:
+            return True
+    return False
+
+
+CHECK_TABLE_TABLE_PART_SEPARATOR_PATTERN = re.compile("\\\\?\\.")
+
+
+def check_table_with_profile_pattern(
+    profile_pattern: AllowDenyPattern, table_name: str
+) -> bool:
+    parts = len(table_name.split("."))
+    allow_list: List[str] = []
+
+    for pattern in profile_pattern.allow:
+        replaced_pattern = pattern.replace(".*", "").replace(".+", "")
+        splits = re.split(CHECK_TABLE_TABLE_PART_SEPARATOR_PATTERN, replaced_pattern)
+        if parts + 1 == len(splits):
+            table_pattern = pattern[: pattern.find(splits[-2]) + len(splits[-2])]
+            allow_list.append(table_pattern + "$")
         else:
-            lineage_workunits = [
-                MetadataChangeProposalWrapper(
-                    entityUrn=dataset_urn, aspect=upstream_lineage
-                ).as_workunit()
-            ]
+            allow_list.append(pattern)
 
-        for wu in lineage_workunits:
-            yield wu
+    table_allow_deny_pattern = AllowDenyPattern(
+        allow=allow_list, deny=profile_pattern.deny
+    )
+    return table_allow_deny_pattern.allowed(table_name)

@@ -11,6 +11,7 @@
                         "description": "lorem ipsum",
                         "charts": [],
                         "datasets": [],
+                        "dashboards": [],
                         "lastModified": {
                             "created": {
                                 "time": 1586847600000,
@@ -34,7 +35,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "looker-test"
+        "runId": "looker-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -49,7 +51,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "looker-test"
+        "runId": "looker-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -74,9 +77,6 @@
                         },
                         "nativeDataType": "string",
                         "recursive": false,
-                        "globalTags": {
-                            "tags": []
-                        },
                         "isPartOfKey": false
                     }
                 }
@@ -85,7 +85,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "looker-test"
+        "runId": "looker-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -110,9 +111,6 @@
                         },
                         "nativeDataType": "string",
                         "recursive": false,
-                        "globalTags": {
-                            "tags": []
-                        },
                         "isPartOfKey": false
                     }
                 }
@@ -121,7 +119,100 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "looker-test"
+        "runId": "looker-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:59a5aa45397364e6882e793f1bc77b42",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "looker",
+                "env": "PROD",
+                "model_name": "data"
+            },
+            "name": "data",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "looker-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:59a5aa45397364e6882e793f1bc77b42",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "looker-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:59a5aa45397364e6882e793f1bc77b42",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:looker"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "looker-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:59a5aa45397364e6882e793f1bc77b42",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "LookML Model"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "looker-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:59a5aa45397364e6882e793f1bc77b42",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "Explore"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "looker-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -132,7 +223,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/looker/lkml_samples/explores"
+                            "/Explore/data"
                         ]
                     }
                 },
@@ -144,7 +235,10 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
+                            "project": "lkml_samples",
+                            "model": "data",
                             "looker.explore.label": "My Explore View",
+                            "looker.explore.name": "my_view",
                             "looker.explore.file": "test_source_file.lkml"
                         },
                         "externalUrl": "https://looker.company.com/explore/data/my_view",
@@ -158,8 +252,8 @@
                         "upstreams": [
                             {
                                 "auditStamp": {
-                                    "time": 0,
-                                    "actor": "urn:li:corpuser:unknown"
+                                    "time": 1586847600000,
+                                    "actor": "urn:li:corpuser:datahub"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.underlying_view,PROD)",
                                 "type": "VIEW"
@@ -217,7 +311,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "looker-test"
+        "runId": "looker-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -234,7 +329,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "looker-test"
+        "runId": "looker-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -249,7 +345,24 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "looker-test"
+        "runId": "looker-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,data.explore.my_view,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:59a5aa45397364e6882e793f1bc77b42"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "looker-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -261,17 +374,19 @@
         "json": {
             "path": [
                 {
-                    "id": "lkml_samples"
+                    "id": "Explore"
                 },
                 {
-                    "id": "explores"
+                    "id": "urn:li:container:59a5aa45397364e6882e793f1bc77b42",
+                    "urn": "urn:li:container:59a5aa45397364e6882e793f1bc77b42"
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "looker-test"
+        "runId": "looker-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -279,20 +394,6 @@
         "com.linkedin.pegasus2avro.metadata.snapshot.TagSnapshot": {
             "urn": "urn:li:tag:Dimension",
             "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.common.Ownership": {
-                        "owners": [
-                            {
-                                "owner": "urn:li:corpuser:datahub",
-                                "type": "DATAOWNER"
-                            }
-                        ],
-                        "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        }
-                    }
-                },
                 {
                     "com.linkedin.pegasus2avro.tag.TagProperties": {
                         "name": "Dimension",
@@ -304,7 +405,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "looker-test"
+        "runId": "looker-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -312,20 +414,6 @@
         "com.linkedin.pegasus2avro.metadata.snapshot.TagSnapshot": {
             "urn": "urn:li:tag:Temporal",
             "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.common.Ownership": {
-                        "owners": [
-                            {
-                                "owner": "urn:li:corpuser:datahub",
-                                "type": "DATAOWNER"
-                            }
-                        ],
-                        "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        }
-                    }
-                },
                 {
                     "com.linkedin.pegasus2avro.tag.TagProperties": {
                         "name": "Temporal",
@@ -337,7 +425,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "looker-test"
+        "runId": "looker-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -345,20 +434,6 @@
         "com.linkedin.pegasus2avro.metadata.snapshot.TagSnapshot": {
             "urn": "urn:li:tag:Measure",
             "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.common.Ownership": {
-                        "owners": [
-                            {
-                                "owner": "urn:li:corpuser:datahub",
-                                "type": "DATAOWNER"
-                            }
-                        ],
-                        "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        }
-                    }
-                },
                 {
                     "com.linkedin.pegasus2avro.tag.TagProperties": {
                         "name": "Measure",
@@ -370,7 +445,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "looker-test"
+        "runId": "looker-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -382,8 +458,8 @@
         "json": {
             "timestampMillis": 1586847600000,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "viewsCount": 25,
             "favoritesCount": 5,
@@ -392,7 +468,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "looker-test"
+        "runId": "looker-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -408,8 +485,8 @@
                 "multiple": 1
             },
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "executionsCount": 14,
             "uniqueUserCount": 1,
@@ -431,7 +508,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "looker-test"
+        "runId": "looker-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -447,8 +525,8 @@
                 "multiple": 1
             },
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "executionsCount": 14,
             "uniqueUserCount": 1
@@ -456,7 +534,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "looker-test"
+        "runId": "looker-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -472,8 +551,8 @@
                 "multiple": 1
             },
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "executionsCount": 5,
             "uniqueUserCount": 1,
@@ -489,7 +568,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "looker-test"
+        "runId": "looker-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -501,15 +581,16 @@
         "json": {
             "timestampMillis": 1586847600000,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "viewsCount": 30
         }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "looker-test"
+        "runId": "looker-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -525,8 +606,8 @@
                 "multiple": 1
             },
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "viewsCount": 10,
             "userCounts": [
@@ -543,7 +624,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "looker-test"
+        "runId": "looker-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -559,15 +641,16 @@
                 "multiple": 1
             },
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "viewsCount": 20
         }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "looker-test"
+        "runId": "looker-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -583,15 +666,16 @@
                 "multiple": 1
             },
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "viewsCount": 35
         }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "looker-test"
+        "runId": "looker-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -606,7 +690,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "looker-test"
+        "runId": "looker-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -621,7 +706,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "looker-test"
+        "runId": "looker-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -636,7 +722,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "looker-test"
+        "runId": "looker-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -651,7 +738,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "looker-test"
+        "runId": "looker-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -666,7 +754,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "looker-test"
+        "runId": "looker-test",
+        "lastRunId": "no-run-id-provided"
     }
 }
 ]

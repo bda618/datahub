@@ -11,8 +11,8 @@ from datahub.ingestion.source.unity.report import UnityCatalogReport
 
 
 class UnityCatalogConnectionTest:
-    def __init__(self, config_dict: dict):
-        self.config = UnityCatalogSourceConfig.parse_obj_allow_extras(config_dict)
+    def __init__(self, config: UnityCatalogSourceConfig):
+        self.config = config
         self.report = UnityCatalogReport()
         self.proxy = UnityCatalogApiProxy(
             self.config.workspace_url,
@@ -60,7 +60,7 @@ class UnityCatalogConnectionTest:
             return CapabilityReport(capable=False, failure_reason=str(e))
 
     def profiling_connectivity(self) -> Optional[CapabilityReport]:
-        if not self.config.profiling.enabled:
+        if not self.config.is_profiling_enabled():
             return None
         try:
             return CapabilityReport(capable=self.proxy.check_profiling_connectivity())

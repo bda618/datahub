@@ -83,6 +83,10 @@ class DeltaInfoOperator(BaseOperator):
 AspectsByUrn = Dict[str, Dict[str, List[AspectForDiff]]]
 
 
+class CannotCompareMCPs(Exception):
+    pass
+
+
 def get_aspects_by_urn(obj: object) -> AspectsByUrn:
     """Restructure a list of serialized MCPs by urn and aspect.
     Retains information like the original dict and index to facilitate `apply_delta` later.
@@ -95,7 +99,7 @@ def get_aspects_by_urn(obj: object) -> AspectsByUrn:
     for i, entry in enumerate(obj):
         assert isinstance(entry, dict), entry
         if "proposedSnapshot" in entry:
-            raise AssertionError("Found MCEs in output")
+            raise CannotCompareMCPs("Found MCEs")
         elif "entityUrn" in entry and "aspectName" in entry and "aspect" in entry:
             urn = entry["entityUrn"]
             aspect_name = entry["aspectName"]
@@ -145,6 +149,7 @@ class MCPDiff:
     aspect_changes: Dict[str, Dict[str, MCPAspectDiff]]  # urn -> aspect -> diff
     urns_added: Set[str]
     urns_removed: Set[str]
+    is_delta_valid: bool
 
     def __bool__(self) -> bool:
         return bool(self.aspect_changes)
@@ -158,25 +163,31 @@ class MCPDiff:
     ) -> "MCPDiff":
         ignore_paths = [cls.convert_path(path) for path in ignore_paths]
 
+        is_delta_valid = True
         aspect_changes: Dict[str, Dict[str, MCPAspectDiff]] = defaultdict(dict)
         for urn in golden.keys() | output.keys():
             golden_map = golden.get(urn, {})
             output_map = output.get(urn, {})
             for aspect_name in golden_map.keys() | output_map.keys():
+                t1 = golden_map.get(aspect_name, [])
+                t2 = output_map.get(aspect_name, [])
                 diff = DeepDiff(
-                    t1=golden_map.get(aspect_name, []),
-                    t2=output_map.get(aspect_name, []),
+                    t1=t1,
+                    t2=t2,
                     exclude_regex_paths=ignore_paths,
                     ignore_order=True,
                     custom_operators=[DeltaInfoOperator()],
                 )
                 if diff:
                     aspect_changes[urn][aspect_name] = MCPAspectDiff.create(diff)
+                if len(t1) > 1 or len(t2) > 1:
+                    is_delta_valid = False
 
         return cls(
             urns_added=output.keys() - golden.keys(),
             urns_removed=golden.keys() - output.keys(),
             aspect_changes=aspect_changes,
+            is_delta_valid=is_delta_valid,
         )
 
     @staticmethod
@@ -189,9 +200,13 @@ class MCPDiff:
         )
 
     def apply_delta(self, golden: List[Dict[str, Any]]) -> None:
+        """Update a golden file to match an output file based on the diff.
+
+        :param golden: Golden file represented as a list of MCPs, altered in-place.
+        """
         aspect_diffs = [v for d in self.aspect_changes.values() for v in d.values()]
         for aspect_diff in aspect_diffs:
-            for (_, old, new), diffs in aspect_diff.aspects_changed.items():
+            for _, old, new in aspect_diff.aspects_changed.keys():
                 golden[old.delta_info.idx] = new.delta_info.original
 
         indices_to_remove = set()
@@ -264,7 +279,7 @@ class MCPDiff:
             suffix = "rd"
         else:
             suffix = "th"
-        ordinal = f"{(idx+1)}{suffix} " if idx else ""
+        ordinal = f"{(idx + 1)}{suffix} " if idx else ""
         return f"{ordinal}<{ga.aspect_name}> {msg}"
 
     @staticmethod

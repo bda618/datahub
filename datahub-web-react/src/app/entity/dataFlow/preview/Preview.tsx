@@ -5,8 +5,10 @@ import {
     DataProduct,
     Deprecation,
     Domain,
+    EntityPath,
     EntityType,
     GlobalTags,
+    Health,
     Owner,
     SearchInsight,
 } from '../../../../types.generated';
@@ -35,6 +37,9 @@ export const Preview = ({
     insights,
     jobCount,
     deprecation,
+    degree,
+    paths,
+    health,
 }: {
     urn: string;
     name: string;
@@ -51,6 +56,9 @@ export const Preview = ({
     snippet?: React.ReactNode | null;
     insights?: Array<SearchInsight> | null;
     jobCount?: number | null;
+    degree?: number;
+    paths?: EntityPath[];
+    health?: Health[] | null;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     return (
@@ -80,6 +88,9 @@ export const Preview = ({
                 ]) ||
                 undefined
             }
+            degree={degree}
+            paths={paths}
+            health={health || undefined}
         />
     );
 };

@@ -1,18 +1,20 @@
-import datetime
 import functools
 import json
 import logging
 import os
 from json.decoder import JSONDecodeError
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union
 
 import requests
 from deprecated import deprecated
 from requests.adapters import HTTPAdapter, Retry
 from requests.exceptions import HTTPError, RequestException
 
-from datahub.cli.cli_utils import get_system_auth
+from datahub import nice_version_name
+from datahub.cli import config_utils
+from datahub.cli.cli_utils import ensure_has_system_metadata, fixup_gms_url
 from datahub.configuration.common import ConfigurationError, OperationalError
+from datahub.emitter.generic_emitter import Emitter
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.request_helper import make_curl_command
 from datahub.emitter.serialization_helper import pre_json_transform
@@ -23,6 +25,9 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
 )
 from datahub.metadata.com.linkedin.pegasus2avro.usage import UsageAggregation
 
+if TYPE_CHECKING:
+    from datahub.ingestion.graph.client import DataHubGraph
+
 logger = logging.getLogger(__name__)
 
 _DEFAULT_CONNECT_TIMEOUT_SEC = 30  # 30 seconds should be plenty to connect
@@ -31,17 +36,21 @@ _DEFAULT_READ_TIMEOUT_SEC = (
 )
 _DEFAULT_RETRY_STATUS_CODES = [  # Additional status codes to retry on
     429,
+    500,
     502,
     503,
     504,
 ]
 _DEFAULT_RETRY_METHODS = ["HEAD", "GET", "POST", "PUT", "DELETE", "OPTIONS", "TRACE"]
 _DEFAULT_RETRY_MAX_TIMES = int(
-    os.getenv("DATAHUB_REST_EMITTER_DEFAULT_RETRY_MAX_TIMES", "3")
+    os.getenv("DATAHUB_REST_EMITTER_DEFAULT_RETRY_MAX_TIMES", "4")
 )
 
+# The limit is 16mb. We will use a max of 15mb to have some space for overhead.
+_MAX_BATCH_INGEST_PAYLOAD_SIZE = 15 * 1024 * 1024
 
-class DataHubRestEmitter(Closeable):
+
+class DataHubRestEmitter(Closeable, Emitter):
     _gms_server: str
     _token: Optional[str]
     _session: requests.Session
@@ -55,6 +64,7 @@ class DataHubRestEmitter(Closeable):
         self,
         gms_server: str,
         token: Optional[str] = None,
+        timeout_sec: Optional[float] = None,
         connect_timeout_sec: Optional[float] = None,
         read_timeout_sec: Optional[float] = None,
         retry_status_codes: Optional[List[int]] = None,
@@ -62,11 +72,18 @@ class DataHubRestEmitter(Closeable):
         retry_max_times: Optional[int] = None,
         extra_headers: Optional[Dict[str, str]] = None,
         ca_certificate_path: Optional[str] = None,
+        client_certificate_path: Optional[str] = None,
         disable_ssl_verification: bool = False,
     ):
         if not gms_server:
             raise ConfigurationError("gms server is required")
-        self._gms_server = gms_server
+        if gms_server == "__from_env__" and token is None:
+            # HACK: similar to what we do with system auth, we transparently
+            # inject the config in here. Ideally this should be done in the
+            # config loader or by the caller, but it gets the job done for now.
+            gms_server, token = config_utils.require_config_from_env()
+
+        self._gms_server = fixup_gms_url(gms_server)
         self._token = token
         self.server_config: Dict[str, Any] = {}
 
@@ -75,30 +92,40 @@ class DataHubRestEmitter(Closeable):
         self._session.headers.update(
             {
                 "X-RestLi-Protocol-Version": "2.0.0",
+                "X-DataHub-Py-Cli-Version": nice_version_name(),
                 "Content-Type": "application/json",
             }
         )
         if token:
             self._session.headers.update({"Authorization": f"Bearer {token}"})
         else:
-            system_auth = get_system_auth()
+            # HACK: When no token is provided but system auth env variables are set, we use them.
+            # Ideally this should simply get passed in as config, instead of being sneakily injected
+            # in as part of this constructor.
+            # It works because everything goes through here. The DatahubGraph inherits from the
+            # rest emitter, and the rest sink uses the rest emitter under the hood.
+            system_auth = config_utils.get_system_auth()
             if system_auth is not None:
                 self._session.headers.update({"Authorization": system_auth})
 
         if extra_headers:
             self._session.headers.update(extra_headers)
 
+        if client_certificate_path:
+            self._session.cert = client_certificate_path
+
         if ca_certificate_path:
-            self._session.cert = ca_certificate_path
+            self._session.verify = ca_certificate_path
 
         if disable_ssl_verification:
             self._session.verify = False
 
-        if connect_timeout_sec:
-            self._connect_timeout_sec = connect_timeout_sec
-
-        if read_timeout_sec:
-            self._read_timeout_sec = read_timeout_sec
+        self._connect_timeout_sec = (
+            connect_timeout_sec or timeout_sec or _DEFAULT_CONNECT_TIMEOUT_SEC
+        )
+        self._read_timeout_sec = (
+            read_timeout_sec or timeout_sec or _DEFAULT_READ_TIMEOUT_SEC
+        )
 
         if self._connect_timeout_sec < 1 or self._read_timeout_sec < 1:
             logger.warning(
@@ -115,11 +142,15 @@ class DataHubRestEmitter(Closeable):
             self._retry_max_times = retry_max_times
 
         try:
+            # Set raise_on_status to False to propagate errors:
+            # https://stackoverflow.com/questions/70189330/determine-status-code-from-python-retry-exception
+            # Must call `raise_for_status` after making a request, which we do
             retry_strategy = Retry(
                 total=self._retry_max_times,
                 status_forcelist=self._retry_status_codes,
                 backoff_factor=2,
                 allowed_methods=self._retry_methods,
+                raise_on_status=False,
             )
         except TypeError:
             # Prior to urllib3 1.26, the Retry class used `method_whitelist` instead of `allowed_methods`.
@@ -128,6 +159,7 @@ class DataHubRestEmitter(Closeable):
                 status_forcelist=self._retry_status_codes,
                 backoff_factor=2,
                 method_whitelist=self._retry_methods,
+                raise_on_status=False,
             )
 
         adapter = HTTPAdapter(
@@ -143,32 +175,21 @@ class DataHubRestEmitter(Closeable):
             timeout=(self._connect_timeout_sec, self._read_timeout_sec),
         )
 
-    def test_connection(self) -> dict:
+    def test_connection(self) -> None:
         url = f"{self._gms_server}/config"
         response = self._session.get(url)
         if response.status_code == 200:
             config: dict = response.json()
             if config.get("noCode") == "true":
                 self.server_config = config
-                return config
+                return
 
             else:
-                # Looks like we either connected to an old GMS or to some other service. Let's see if we can determine which before raising an error
-                # A common misconfiguration is connecting to datahub-frontend so we special-case this check
-                if (
-                    config.get("config", {}).get("application") == "datahub-frontend"
-                    or config.get("config", {}).get("shouldShowDatasetLineage")
-                    is not None
-                ):
-                    raise ConfigurationError(
-                        "You seem to have connected to the frontend instead of the GMS endpoint. "
-                        "The rest emitter should connect to DataHub GMS (usually <datahub-gms-host>:8080) or Frontend GMS API (usually <frontend>:9002/api/gms)"
-                    )
-                else:
-                    raise ConfigurationError(
-                        "You have either connected to a pre-v0.8.0 DataHub GMS instance, or to a different server altogether! "
-                        "Please check your configuration and make sure you are talking to the DataHub GMS endpoint."
-                    )
+                raise ConfigurationError(
+                    "You seem to have connected to the frontend service instead of the GMS endpoint. "
+                    "The rest emitter should connect to DataHub GMS (usually <datahub-gms-host>:8080) or Frontend GMS API (usually <frontend>:9002/api/gms). "
+                    "For Acryl users, the endpoint should be https://<name>.acryl.io/gms"
+                )
         else:
             logger.debug(
                 f"Unable to connect to {url} with status_code: {response.status_code}. Response: {response.text}"
@@ -180,6 +201,15 @@ class DataHubRestEmitter(Closeable):
             message += "\nPlease check your configuration and make sure you are talking to the DataHub GMS (usually <datahub-gms-host>:8080) or Frontend GMS API (usually <frontend>:9002/api/gms)."
             raise ConfigurationError(message)
 
+    def get_server_config(self) -> dict:
+        self.test_connection()
+        return self.server_config
+
+    def to_graph(self) -> "DataHubGraph":
+        from datahub.ingestion.graph.client import DataHubGraph
+
+        return DataHubGraph.from_emitter(self)
+
     def emit(
         self,
         item: Union[
@@ -188,19 +218,16 @@ class DataHubRestEmitter(Closeable):
             MetadataChangeProposalWrapper,
             UsageAggregation,
         ],
-        # NOTE: This signature should have the exception be optional rather than
-        #      required. However, this would be a breaking change that may need
-        #      more careful consideration.
         callback: Optional[Callable[[Exception, str], None]] = None,
-    ) -> Tuple[datetime.datetime, datetime.datetime]:
-        start_time = datetime.datetime.now()
+        async_flag: Optional[bool] = None,
+    ) -> None:
         try:
             if isinstance(item, UsageAggregation):
                 self.emit_usage(item)
             elif isinstance(
                 item, (MetadataChangeProposal, MetadataChangeProposalWrapper)
             ):
-                self.emit_mcp(item)
+                self.emit_mcp(item, async_flag=async_flag)
             else:
                 self.emit_mce(item)
         except Exception as e:
@@ -210,7 +237,6 @@ class DataHubRestEmitter(Closeable):
         else:
             if callback:
                 callback(None, "success")  # type: ignore
-            return start_time, datetime.datetime.now()
 
     def emit_mce(self, mce: MetadataChangeEvent) -> None:
         url = f"{self._gms_server}/entities?action=ingest"
@@ -220,12 +246,10 @@ class DataHubRestEmitter(Closeable):
         snapshot_fqn = (
             f"com.linkedin.metadata.snapshot.{mce.proposedSnapshot.RECORD_SCHEMA.name}"
         )
-        system_metadata_obj = {}
-        if mce.systemMetadata is not None:
-            system_metadata_obj = {
-                "lastObserved": mce.systemMetadata.lastObserved,
-                "runId": mce.systemMetadata.runId,
-            }
+        ensure_has_system_metadata(mce)
+        # To make lint happy
+        assert mce.systemMetadata is not None
+        system_metadata_obj = mce.systemMetadata.to_obj()
         snapshot = {
             "entity": {"value": {snapshot_fqn: mce_obj}},
             "systemMetadata": system_metadata_obj,
@@ -235,14 +259,58 @@ class DataHubRestEmitter(Closeable):
         self._emit_generic(url, payload)
 
     def emit_mcp(
-        self, mcp: Union[MetadataChangeProposal, MetadataChangeProposalWrapper]
+        self,
+        mcp: Union[MetadataChangeProposal, MetadataChangeProposalWrapper],
+        async_flag: Optional[bool] = None,
     ) -> None:
         url = f"{self._gms_server}/aspects?action=ingestProposal"
+        ensure_has_system_metadata(mcp)
 
         mcp_obj = pre_json_transform(mcp.to_obj())
-        payload = json.dumps({"proposal": mcp_obj})
+        payload_dict = {"proposal": mcp_obj}
+
+        if async_flag is not None:
+            payload_dict["async"] = "true" if async_flag else "false"
+
+        payload = json.dumps(payload_dict)
 
         self._emit_generic(url, payload)
+
+    def emit_mcps(
+        self,
+        mcps: List[Union[MetadataChangeProposal, MetadataChangeProposalWrapper]],
+        async_flag: Optional[bool] = None,
+    ) -> int:
+        url = f"{self._gms_server}/aspects?action=ingestProposalBatch"
+        for mcp in mcps:
+            ensure_has_system_metadata(mcp)
+
+        mcp_objs = [pre_json_transform(mcp.to_obj()) for mcp in mcps]
+
+        # As a safety mechanism, we need to make sure we don't exceed the max payload size for GMS.
+        # If we will exceed the limit, we need to break it up into chunks.
+        mcp_obj_chunks: List[List[str]] = []
+        current_chunk_size = _MAX_BATCH_INGEST_PAYLOAD_SIZE
+        for mcp_obj in mcp_objs:
+            mcp_obj_size = len(json.dumps(mcp_obj))
+
+            if mcp_obj_size + current_chunk_size > _MAX_BATCH_INGEST_PAYLOAD_SIZE:
+                mcp_obj_chunks.append([])
+                current_chunk_size = 0
+            mcp_obj_chunks[-1].append(mcp_obj)
+            current_chunk_size += mcp_obj_size
+
+        for mcp_obj_chunk in mcp_obj_chunks:
+            # TODO: We're calling json.dumps on each MCP object twice, once to estimate
+            # the size when chunking, and again for the actual request.
+            payload_dict: dict = {"proposals": mcp_obj_chunk}
+            if async_flag is not None:
+                payload_dict["async"] = True if async_flag else False
+
+            payload = json.dumps(payload_dict)
+            self._emit_generic(url, payload)
+
+        return len(mcp_obj_chunks)
 
     @deprecated
     def emit_usage(self, usageStats: UsageAggregation) -> None:
@@ -267,12 +335,21 @@ class DataHubRestEmitter(Closeable):
         except HTTPError as e:
             try:
                 info: Dict = response.json()
-                logger.debug(
-                    "Full stack trace from DataHub:\n%s", info.get("stackTrace")
-                )
-                info.pop("stackTrace", None)
+
+                if info.get("stackTrace"):
+                    logger.debug(
+                        "Full stack trace from DataHub:\n%s", info.get("stackTrace")
+                    )
+                    info.pop("stackTrace", None)
+
+                hint = ""
+                if "unrecognized field found but not allowed" in (
+                    info.get("message") or ""
+                ):
+                    hint = ", likely because the server version is too old relative to the client"
+
                 raise OperationalError(
-                    f"Unable to emit metadata to DataHub GMS: {info.get('message')}",
+                    f"Unable to emit metadata to DataHub GMS{hint}: {info.get('message')}",
                     info,
                 ) from e
             except JSONDecodeError:
