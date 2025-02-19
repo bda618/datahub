@@ -21,6 +21,7 @@ import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.test.metadata.aspect.TestEntityRegistry;
 import java.net.URISyntaxException;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -115,7 +116,7 @@ public class TestMCP implements ChangeMCP {
 
   private Urn urn;
   private RecordTemplate recordTemplate;
-  private SystemMetadata systemMetadata;
+  @Setter private SystemMetadata systemMetadata;
   private AuditStamp auditStamp;
   private ChangeType changeType;
   @Nonnull private final EntitySpec entitySpec;
@@ -126,12 +127,6 @@ public class TestMCP implements ChangeMCP {
   @Setter private long nextAspectVersion;
   @Setter private Map<String, String> headers;
 
-  @Nonnull
-  @Override
-  public SystemAspect getSystemAspect(@Nullable Long nextAspectVersion) {
-    return null;
-  }
-
   @Override
   public Map<String, String> getHeaders() {
     return Optional.ofNullable(metadataChangeProposal)
@@ -140,7 +135,7 @@ public class TestMCP implements ChangeMCP {
             mcp ->
                 mcp.getHeaders().entrySet().stream()
                     .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)))
-        .orElse(headers);
+        .orElse(headers != null ? headers : Collections.emptyMap());
   }
 
   @Override
