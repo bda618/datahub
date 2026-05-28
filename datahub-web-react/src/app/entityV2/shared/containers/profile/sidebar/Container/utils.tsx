@@ -1,23 +1,24 @@
 import React from 'react';
 import styled from 'styled-components';
-import { AggregationMetadata, EntityType, FacetMetadata, SearchResults } from '../../../../../../../types.generated';
-import { pluralize } from '../../../../../../shared/textUtil';
-import { EntityRegistry } from '../../../../../../../entityRegistryContext';
-import { ANTD_GRAY } from '../../../../constants';
+
+import { pluralize } from '@app/shared/textUtil';
+import { EntityRegistry } from '@src/entityRegistryContext';
+
+import { AggregationMetadata, EntityType, FacetMetadata, SearchResults } from '@types';
 
 const UNIT_SEPARATOR = '␞';
 
 const SummaryText = styled.span`
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
-export type ContentTypeSummary = {
+type ContentTypeSummary = {
     type: string;
     count: number;
     isEntityType: boolean; // If false, this represents a sub-type.
 };
 
-export type ContentsSummary = {
+type ContentsSummary = {
     total: number;
     types: ContentTypeSummary[];
 };

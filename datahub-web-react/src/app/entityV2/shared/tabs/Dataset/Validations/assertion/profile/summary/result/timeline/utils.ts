@@ -1,19 +1,20 @@
-import { AssertionRunEventDetailsFragment } from '../../../../../../../../../../../graphql/assertion.generated';
-import { LOOKBACK_WINDOWS, LookbackWindow } from '../../../../../../Stats/lookbackWindows';
+import { LOOKBACK_WINDOWS, LookbackWindow } from '@app/entityV2/shared/tabs/Dataset/Stats/lookbackWindows';
+
+import { AssertionRunEventDetailsFragment } from '@graphql/assertion.generated';
 
 const ONE_HOUR_IN_MS = 60 * 60 * 1000; // Milliseconds in one hour
 const ONE_DAY_IN_MS = 24 * ONE_HOUR_IN_MS; // Milliseconds in one day
 const ONE_WEEK_IN_MS = 7 * ONE_DAY_IN_MS; // Milliseconds in one week
 
-export function isLessThanOneDay(timeRange) {
+function isLessThanOneDay(timeRange) {
     return timeRange.endMs - timeRange.startMs <= ONE_DAY_IN_MS;
 }
 
-export function isLessThanOneHour(timeRange) {
+function isLessThanOneHour(timeRange) {
     return timeRange.endMs - timeRange.startMs <= ONE_HOUR_IN_MS;
 }
 
-export function isGreaterThanOneYear(timeRange) {
+function isGreaterThanOneYear(timeRange) {
     return timeRange.endMs - timeRange.startMs >= 365 * ONE_DAY_IN_MS;
 }
 

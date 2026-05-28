@@ -1,17 +1,20 @@
-import { Button, Modal, Table, Typography } from 'antd';
+import { Modal } from '@components';
+import { Button, Table, Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { DatasetProfile } from '../../../../../../../../types.generated';
-import { formatBytes, formatNumberWithoutAbbreviation } from '../../../../../../../shared/formatNumber';
-import { FULL_TABLE_PARTITION_KEYS } from '../../constants';
-import ColumnStats from '../../snapshot/ColumnStats';
-import TableStats from '../../snapshot/TableStats';
 
-export const ChartTable = styled(Table)`
+import { FULL_TABLE_PARTITION_KEYS } from '@app/entityV2/shared/tabs/Dataset/Stats/constants';
+import ColumnStats from '@app/entityV2/shared/tabs/Dataset/Stats/snapshot/ColumnStats';
+import TableStats from '@app/entityV2/shared/tabs/Dataset/Stats/snapshot/TableStats';
+import { formatBytes, formatNumberWithoutAbbreviation } from '@app/shared/formatNumber';
+
+import { DatasetProfile } from '@types';
+
+const ChartTable = styled(Table)`
     margin-top: 16px;
 `;
 
-export type Props = {
+type Props = {
     profiles: Array<DatasetProfile>;
     areAllProfilesPartitioned: boolean;
 };
@@ -89,7 +92,13 @@ export default function ProfilingRunsChart({ profiles, areAllProfilesPartitioned
     return (
         <>
             {selectedProfile && (
-                <Modal width="100%" footer={null} title={profileModalTitle} visible={showModal} onCancel={onClose}>
+                <Modal
+                    buttons={[]}
+                    width="100%"
+                    title={profileModalTitle || 'Profile'}
+                    open={showModal}
+                    onCancel={onClose}
+                >
                     <TableStats
                         rowCount={selectedProfile.rowCount || -1}
                         columnCount={selectedProfile.columnCount || -1}

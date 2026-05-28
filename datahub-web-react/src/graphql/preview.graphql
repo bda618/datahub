@@ -195,6 +195,9 @@ fragment entityPreview on Entity {
         health {
             ...entityHealth
         }
+        subTypes {
+            typeNames
+        }
     }
     ... on DataJob {
         urn
@@ -341,6 +344,9 @@ fragment entityPreview on Entity {
         parentDomains {
             ...parentDomainsFields
         }
+        displayProperties {
+            ...displayPropertiesFields
+        }
         ...domainEntitiesFields
     }
     ... on Container {
@@ -350,5 +356,8 @@ fragment entityPreview on Entity {
         versionProperties {
             ...versionProperties
         }
+    }
+    ... on DataProduct {
+        ...dataProductFields
     }
 }

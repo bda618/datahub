@@ -1,11 +1,31 @@
 import logging
+import threading
 from dataclasses import dataclass, field
 from typing import Any, Dict, Optional
 
+import boto3
 from humanfriendly import format_timespan
-from pydantic import Field, validator
-from pyiceberg.catalog import Catalog, load_catalog
+from pydantic import Field, field_validator
+from pyiceberg.catalog import BOTOCORE_SESSION, Catalog, load_catalog
+from pyiceberg.catalog.glue import (
+    GLUE_ACCESS_KEY_ID,
+    GLUE_PROFILE_NAME,
+    GLUE_REGION,
+    GLUE_SECRET_ACCESS_KEY,
+    GLUE_SESSION_TOKEN,
+)
+from pyiceberg.catalog.rest import RestCatalog
+from pyiceberg.io import (
+    AWS_ACCESS_KEY_ID,
+    AWS_REGION,
+    AWS_ROLE_ARN,
+    AWS_SECRET_ACCESS_KEY,
+    AWS_SESSION_TOKEN,
+)
+from pyiceberg.utils.properties import get_first_property_value
+from requests.adapters import HTTPAdapter
 from sortedcontainers import SortedList
+from urllib3.util import Retry
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import DatasetSourceConfigMixin
@@ -24,6 +44,25 @@ from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.stats_collections import TopKDict, int_top_k_dict
 
 logger = logging.getLogger(__name__)
+
+DEFAULT_REST_TIMEOUT = 120
+DEFAULT_REST_RETRY_POLICY = {"total": 3, "backoff_factor": 0.1}
+
+GLUE_ROLE_ARN = "glue.role-arn"
+
+
+class TimeoutHTTPAdapter(HTTPAdapter):
+    def __init__(self, *args, **kwargs):
+        if "timeout" in kwargs:
+            self.timeout = kwargs["timeout"]
+            del kwargs["timeout"]
+        super().__init__(*args, **kwargs)
+
+    def send(self, request, *args, **kwargs):
+        timeout = kwargs.get("timeout")
+        if timeout is None and hasattr(self, "timeout"):
+            kwargs["timeout"] = self.timeout
+        return super().send(request, *args, **kwargs)
 
 
 class IcebergProfilingConfig(ConfigModel):
@@ -86,8 +125,18 @@ class IcebergSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin)
     processing_threads: int = Field(
         default=1, description="How many threads will be processing tables"
     )
+    domain: Dict[str, AllowDenyPattern] = Field(
+        default_factory=dict,
+        description=(
+            "A map of domain names to allow/deny patterns for tables and namespaces. "
+            'Domain key can be a guid like "urn:li:domain:ec428203-ce86-4db3-985d-5a8ee6df32ba" '
+            'or a string like "Engineering". '
+            "If multiple patterns match, at most one domain is assigned to the entity."
+        ),
+    )
 
-    @validator("catalog", pre=True, always=True)
+    @field_validator("catalog", mode="before")
+    @classmethod
     def handle_deprecated_catalog_format(cls, value):
         # Once support for deprecated format is dropped, we can remove this validator.
         if (
@@ -110,7 +159,8 @@ class IcebergSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin)
         # In case the input is already the new format or is invalid
         return value
 
-    @validator("catalog")
+    @field_validator("catalog", mode="after")
+    @classmethod
     def validate_catalog_size(cls, value):
         if len(value) != 1:
             raise ValueError("The catalog must contain exactly one entry.")
@@ -131,6 +181,76 @@ class IcebergSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin)
             self.profiling.operation_config
         )
 
+    def _custom_glue_catalog_handling(self, catalog_config: Dict[str, Any]) -> None:
+        role_to_assume = get_first_property_value(
+            catalog_config, GLUE_ROLE_ARN, AWS_ROLE_ARN
+        )
+        if role_to_assume:
+            logger.debug(
+                "Recognized role ARN in glue catalog config, attempting to workaround pyiceberg limitation in role assumption for the glue client"
+            )
+            session = boto3.Session(
+                profile_name=catalog_config.get(GLUE_PROFILE_NAME),
+                region_name=get_first_property_value(
+                    catalog_config, GLUE_REGION, AWS_REGION
+                ),
+                botocore_session=catalog_config.get(BOTOCORE_SESSION),
+                aws_access_key_id=get_first_property_value(
+                    catalog_config, GLUE_ACCESS_KEY_ID, AWS_ACCESS_KEY_ID
+                ),
+                aws_secret_access_key=get_first_property_value(
+                    catalog_config, GLUE_SECRET_ACCESS_KEY, AWS_SECRET_ACCESS_KEY
+                ),
+                aws_session_token=get_first_property_value(
+                    catalog_config, GLUE_SESSION_TOKEN, AWS_SESSION_TOKEN
+                ),
+            )
+
+            sts_client = session.client("sts")
+            identity = sts_client.get_caller_identity()
+            logger.debug(
+                f"Authenticated as {identity['Arn']}, attempting to assume a role: {role_to_assume}"
+            )
+
+            current_role_arn = None
+            try:
+                if ":assumed-role/" in identity["Arn"]:
+                    current_role_arn = (
+                        "/".join(identity["Arn"].split("/")[0:-1])
+                        .replace(":assumed-role/", ":role/")
+                        .replace("arn:aws:sts", "arn:aws:iam")
+                    )
+                    logger.debug(f"Deducted current role: {current_role_arn}")
+            except Exception as e:
+                logger.warning(
+                    "We couldn't convert currently assumed role to 'role' format so that we could compare "
+                    f"it with the target role, will try to assume the target role nonetheless, exception: {e}"
+                )
+
+            if current_role_arn == role_to_assume:
+                logger.debug(
+                    "Current role and the role we wanted to assume are the same, continuing without further assumption steps"
+                )
+            else:
+                logger.debug(f"Assuming the role {role_to_assume}")
+                # below might fail if such duration is not allowed per policies
+                try:
+                    response = sts_client.assume_role(
+                        RoleArn=role_to_assume,
+                        RoleSessionName="session",
+                        DurationSeconds=43200,
+                    )
+                except sts_client.exceptions.ClientError:
+                    # Fallback to default duration
+                    response = sts_client.assume_role(
+                        RoleArn=role_to_assume, RoleSessionName="session"
+                    )
+                logger.debug(f"Assumed role: {response['AssumedRoleUser']}")
+                creds = response["Credentials"]
+                catalog_config[GLUE_ACCESS_KEY_ID] = creds["AccessKeyId"]
+                catalog_config[GLUE_SECRET_ACCESS_KEY] = creds["SecretAccessKey"]
+                catalog_config[GLUE_SESSION_TOKEN] = creds["SessionToken"]
+
     def get_catalog(self) -> Catalog:
         """Returns the Iceberg catalog instance as configured by the `catalog` dictionary.
 
@@ -142,10 +262,33 @@ class IcebergSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin)
 
         # Retrieve the dict associated with the one catalog entry
         catalog_name, catalog_config = next(iter(self.catalog.items()))
-        logger.debug(
-            "Initializing the catalog %s with config: %s", catalog_name, catalog_config
-        )
-        return load_catalog(name=catalog_name, **catalog_config)
+        logger.debug("Initializing the catalog %s", catalog_name)
+
+        # workaround pyiceberg 0.10.0 issue with ignoring role assumption for glue catalog,
+        # remove this code once pyiceberg is fixed, raised issue: https://github.com/apache/iceberg-python/issues/2747
+        if catalog_config.get("type") == "glue":
+            self._custom_glue_catalog_handling(catalog_config)
+
+        catalog = load_catalog(name=catalog_name, **catalog_config)
+        if isinstance(catalog, RestCatalog):
+            logger.debug(
+                "Recognized REST catalog type being configured, attempting to configure HTTP Adapter for the session"
+            )
+            retry_policy: Dict[str, Any] = DEFAULT_REST_RETRY_POLICY.copy()
+            retry_policy.update(catalog_config.get("connection", {}).get("retry", {}))
+            retries = Retry(**retry_policy)
+            logger.debug(f"Retry policy to be set: {retry_policy}")
+            timeout = catalog_config.get("connection", {}).get(
+                "timeout", DEFAULT_REST_TIMEOUT
+            )
+            logger.debug(f"Timeout to be set: {timeout}")
+            catalog._session.mount(
+                "http://", TimeoutHTTPAdapter(timeout=timeout, max_retries=retries)
+            )
+            catalog._session.mount(
+                "https://", TimeoutHTTPAdapter(timeout=timeout, max_retries=retries)
+            )
+        return catalog
 
 
 class TopTableTimings:
@@ -156,18 +299,21 @@ class TopTableTimings:
     def __init__(self, size: int = 10):
         self._size = size
         self.top_entites = SortedList(key=lambda x: -x.get(self._VALUE_FIELD, 0))
+        self._lock = threading.Lock()
 
     def add(self, entity: Dict[str, Any]) -> None:
         if self._VALUE_FIELD not in entity:
             return
-        self.top_entites.add(entity)
-        if len(self.top_entites) > self._size:
-            self.top_entites.pop()
+        with self._lock:
+            self.top_entites.add(entity)
+            if len(self.top_entites) > self._size:
+                self.top_entites.pop()
 
     def __str__(self) -> str:
-        if len(self.top_entites) == 0:
-            return "no timings reported"
-        return str(list(self.top_entites))
+        with self._lock:
+            if len(self.top_entites) == 0:
+                return "no timings reported"
+            return str(list(self.top_entites))
 
 
 class TimingClass:
@@ -175,24 +321,31 @@ class TimingClass:
 
     def __init__(self):
         self.times = SortedList()
+        self._lock = threading.Lock()
 
     def add_timing(self, t: float) -> None:
-        self.times.add(t)
+        with self._lock:
+            self.times.add(t)
 
     def __str__(self) -> str:
-        if len(self.times) == 0:
-            return "no timings reported"
-        total = sum(self.times)
-        avg = total / len(self.times)
-        return str(
-            {
-                "average_time": format_timespan(avg, detailed=True, max_units=3),
-                "min_time": format_timespan(self.times[0], detailed=True, max_units=3),
-                "max_time": format_timespan(self.times[-1], detailed=True, max_units=3),
-                # total_time does not provide correct information in case we run in more than 1 thread
-                "total_time": format_timespan(total, detailed=True, max_units=3),
-            }
-        )
+        with self._lock:
+            if len(self.times) == 0:
+                return "no timings reported"
+            total = sum(self.times)
+            avg = total / len(self.times)
+            return str(
+                {
+                    "average_time": format_timespan(avg, detailed=True, max_units=3),
+                    "min_time": format_timespan(
+                        self.times[0], detailed=True, max_units=3
+                    ),
+                    "max_time": format_timespan(
+                        self.times[-1], detailed=True, max_units=3
+                    ),
+                    # total_time does not provide correct information in case we run in more than 1 thread
+                    "total_time": format_timespan(total, detailed=True, max_units=3),
+                }
+            )
 
 
 @dataclass

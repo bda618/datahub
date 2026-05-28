@@ -1,11 +1,11 @@
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
-import { isTransformational, LineageNodesContext } from '@app/lineageV2/common';
-import { ControlPanel, ControlPanelSubtext, ControlPanelTitle } from '@app/lineageV2/controls/common';
-import InfoPopover from '@app/sharedV2/icons/InfoPopover';
-import { Switch } from 'antd';
 import { Tooltip } from '@components';
+import { Switch } from 'antd';
 import React, { useContext, useMemo } from 'react';
 import styled from 'styled-components';
+
+import { LineageNodesContext, isTransformational } from '@app/lineageV2/common';
+import { ControlPanel, ControlPanelSubtext, ControlPanelTitle } from '@app/lineageV2/controls/common';
+import InfoPopover from '@app/sharedV2/icons/InfoPopover';
 
 const ToggleWrapper = styled.div`
     display: flex;
@@ -20,12 +20,12 @@ const ToggleLabel = styled.span`
     display: flex;
     align-items: center;
     gap: 4px;
-    color: ${ANTD_GRAY[9]};
+    color: ${(props) => props.theme.colors.text};
 `;
 
 const StyledInfoPopover = styled(InfoPopover)`
     position: relative;
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 const PopoverWrapper = styled.div`
@@ -80,13 +80,17 @@ export default function LineageSearchFilters() {
             <ToggleWrapper>
                 <span>
                     <ToggleLabel>
-                        Show Process Instances
+                        Hide Process Instances
                         <StyledInfoPopover
-                            content={<PopoverWrapper>Show task runs. Will not hide home node.</PopoverWrapper>}
+                            content={<PopoverWrapper>Hide task runs. Will not hide home node.</PopoverWrapper>}
                         />
                     </ToggleLabel>
                 </span>
-                <StyledSwitch size="small" checked={showDataProcessInstances} onChange={setShowDataProcessInstances} />
+                <StyledSwitch
+                    size="small"
+                    checked={!showDataProcessInstances}
+                    onChange={() => setShowDataProcessInstances(!showDataProcessInstances)}
+                />
             </ToggleWrapper>
             <ToggleWrapper>
                 <span>

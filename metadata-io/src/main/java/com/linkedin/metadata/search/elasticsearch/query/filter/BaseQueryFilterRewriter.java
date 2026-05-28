@@ -12,6 +12,8 @@ import com.linkedin.metadata.aspect.models.graph.RelatedEntitiesScrollResult;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.search.utils.QueryUtils;
+import com.linkedin.metadata.utils.metrics.CascadeOperationContext;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.HashSet;
 import java.util.List;
@@ -20,6 +22,8 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
@@ -29,10 +33,12 @@ import org.opensearch.index.query.TermsQueryBuilder;
 @Slf4j
 public abstract class BaseQueryFilterRewriter implements QueryFilterRewriter {
 
+  @Setter @Nullable protected MetricUtils metricUtils;
+
   protected <T extends QueryBuilder> T expandUrnsByGraph(
       @Nonnull OperationContext opContext,
       T queryBuilder,
-      List<String> relationshipTypes,
+      Set<String> relationshipTypes,
       RelationshipDirection relationshipDirection,
       int pageSize,
       int limit) {
@@ -69,7 +75,7 @@ public abstract class BaseQueryFilterRewriter implements QueryFilterRewriter {
   private BoolQueryBuilder handleNestedFilters(
       OperationContext opContext,
       BoolQueryBuilder boolQueryBuilder,
-      List<String> relationshipTypes,
+      Set<String> relationshipTypes,
       RelationshipDirection relationshipDirection,
       int pageSize,
       int limit) {
@@ -127,10 +133,10 @@ public abstract class BaseQueryFilterRewriter implements QueryFilterRewriter {
    * @param limit max results
    * @return updated query builder with expanded terms
    */
-  private static QueryBuilder expandTerms(
+  private QueryBuilder expandTerms(
       OperationContext opContext,
       TermsQueryBuilder termsQueryBuilder,
-      List<String> relationshipTypes,
+      Set<String> relationshipTypes,
       RelationshipDirection relationshipDirection,
       int pageSize,
       int limit) {
@@ -142,14 +148,19 @@ public abstract class BaseQueryFilterRewriter implements QueryFilterRewriter {
 
     if (!queryUrns.isEmpty()) {
 
-      scrollGraph(
-          opContext.getRetrieverContext().getGraphRetriever(),
-          queryUrns,
-          relationshipTypes,
-          relationshipDirection,
-          expandedUrns,
-          pageSize,
-          limit);
+      try (CascadeOperationContext cascade =
+          CascadeOperationContext.begin(
+              metricUtils, getClass().getSimpleName(), null, -1, "datahub.filter_rewrite")) {
+        scrollGraph(
+            opContext.getRetrieverContext().getGraphRetriever(),
+            queryUrns,
+            relationshipTypes,
+            relationshipDirection,
+            expandedUrns,
+            pageSize,
+            limit,
+            cascade);
+      }
 
       return expandTermsQueryUrnValues(termsQueryBuilder, expandedUrns);
     }
@@ -174,17 +185,22 @@ public abstract class BaseQueryFilterRewriter implements QueryFilterRewriter {
         .boost(termsQueryBuilder.boost());
   }
 
-  private static void scrollGraph(
+  private void scrollGraph(
       @Nonnull GraphRetriever graphRetriever,
       @Nonnull Set<Urn> queryUrns,
-      List<String> relationshipTypes,
+      Set<String> relationshipTypes,
       RelationshipDirection relationshipDirection,
       @Nonnull Set<Urn> visitedUrns,
       int pageSize,
-      int limit) {
+      int limit,
+      @Nullable CascadeOperationContext cascade) {
 
-    List<String> entityTypes =
-        queryUrns.stream().map(Urn::getEntityType).distinct().collect(Collectors.toList());
+    if (cascade != null) {
+      cascade.recordHop();
+    }
+
+    Set<String> entityTypes =
+        queryUrns.stream().map(Urn::getEntityType).distinct().collect(Collectors.toSet());
     List<String> queryUrnStrs = queryUrns.stream().map(Urn::toString).collect(Collectors.toList());
 
     Set<Urn> nextUrns = new HashSet<>();
@@ -223,6 +239,9 @@ public abstract class BaseQueryFilterRewriter implements QueryFilterRewriter {
     // mark visited
     visitedUrns.addAll(queryUrns);
 
+    if (cascade != null && !nextUrns.isEmpty()) {
+      cascade.recordEntitiesProcessed(nextUrns.size());
+    }
     if (earlyExitCriteria.get()) {
       visitedUrns.addAll(nextUrns);
     } else if (!nextUrns.isEmpty()) {
@@ -234,7 +253,8 @@ public abstract class BaseQueryFilterRewriter implements QueryFilterRewriter {
           relationshipDirection,
           visitedUrns,
           pageSize,
-          limit);
+          limit,
+          cascade);
     }
   }
 }

@@ -1,22 +1,22 @@
-import React from 'react';
-import styled from 'styled-components/macro';
-import { Link } from 'react-router-dom';
 import { Tooltip } from '@components';
-import { ANTD_GRAY, ANTD_GRAY_V2, REDESIGN_COLORS } from '../../entityV2/shared/constants';
-import { formatNumber, formatNumberWithoutAbbreviation } from '../../shared/formatNumber';
-import { generateColor } from '../../entityV2/shared/components/styled/StyledTag';
+import React from 'react';
+import { Link } from 'react-router-dom';
+import styled from 'styled-components/macro';
+
+import { generateColor } from '@app/entityV2/shared/components/styled/StyledTag';
+import { formatNumber, formatNumberWithoutAbbreviation } from '@app/shared/formatNumber';
 
 const Card = styled(Link)`
     align-items: center;
-    background-color: ${ANTD_GRAY[1]};
-    border: 1.5px solid ${ANTD_GRAY_V2[5]};
+    background-color: ${(props) => props.theme.colors.bg};
+    border: 1.5px solid ${(props) => props.theme.colors.border};
     border-radius: 10px;
     display: flex;
     justify-content: start;
     min-width: 180px;
     padding: 16px;
     :hover {
-        border: 1.5px solid ${REDESIGN_COLORS.BLUE};
+        border: 1.5px solid ${(props) => props.theme.colors.borderInformation};
         cursor: pointer;
     }
 `;
@@ -27,7 +27,7 @@ const Text = styled.div`
 
 const Name = styled.div`
     font-size: 16px;
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
     overflow: hidden;
     text-overflow: ellipsis;
     text-transform: capitalize;
@@ -38,7 +38,7 @@ const Name = styled.div`
 const IconWrapper = styled.div<{ color?: string; backgroundColor?: string }>`
     align-items: center;
     border-radius: 12px;
-    background-color: ${({ backgroundColor }) => backgroundColor || ANTD_GRAY[3]};
+    background-color: ${(props) => props.backgroundColor || props.theme.colors.bgSurface};
     display: flex;
     height: 50px;
     justify-content: center;
@@ -53,7 +53,7 @@ const IconWrapper = styled.div<{ color?: string; backgroundColor?: string }>`
 
 const Count = styled.div`
     font-size: 20px;
-    color: ${ANTD_GRAY[10]};
+    color: ${(props) => props.theme.colors.text};
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;

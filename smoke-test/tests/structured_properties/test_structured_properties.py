@@ -28,12 +28,7 @@ from datahub.utilities.urns.structured_properties_urn import StructuredPropertyU
 from datahub.utilities.urns.urn import Urn
 from tests.consistency_utils import wait_for_writes_to_sync
 from tests.utilities.file_emitter import FileEmitter
-from tests.utils import (
-    delete_urns,
-    delete_urns_from_file,
-    get_sleep_info,
-    ingest_file_via_rest,
-)
+from tests.utils import delete_urns, delete_urns_from_file, ingest_file_via_rest
 
 logger = logging.getLogger(__name__)
 
@@ -75,18 +70,15 @@ def create_test_data(filename: str):
     wait_for_writes_to_sync()
 
 
-sleep_sec, sleep_times = get_sleep_info()
-
-
 @pytest.fixture(scope="module")
 def ingest_cleanup_data(auth_session, graph_client, request):
     new_file, filename = tempfile.mkstemp()
     try:
         create_test_data(filename)
-        print("ingesting structured properties test data")
+        logger.info("ingesting structured properties test data")
         ingest_file_via_rest(auth_session, filename)
         yield
-        print("removing structured properties test data")
+        logger.info("removing structured properties test data")
         delete_urns_from_file(graph_client, filename)
         delete_urns(graph_client, generated_urns)
         wait_for_writes_to_sync()
@@ -341,8 +333,9 @@ def test_dataset_yaml_loader(ingest_cleanup_data, graph_client):
     wait_for_writes_to_sync()
 
     property_name = "io.acryl.dataManagement.deprecationDate"
+    field_name = "[version=2.0].[type=ClickEvent].[type=string].ip"
     assert get_property_from_entity(
-        make_schema_field_urn(make_dataset_urn("hive", "user.clicks"), "ip"),
+        make_schema_field_urn(make_dataset_urn("hive", "user.clicks"), field_name),
         property_name,
         graph=graph_client,
     ) == ["2023-01-01"]
@@ -351,19 +344,21 @@ def test_dataset_yaml_loader(ingest_cleanup_data, graph_client):
         graph=graph_client,
         urn="urn:li:dataset:(urn:li:dataPlatform:hive,user.clicks,PROD)",
     )
-    field_name = "ip"
     assert dataset.schema_metadata is not None
     assert dataset.schema_metadata.fields is not None
     matching_fields = [
         f
         for f in dataset.schema_metadata.fields
-        if f.id is not None and Dataset._simplify_field_path(f.id) == field_name
+        if f.id is not None and f.id == Dataset._simplify_field_path(field_name)
     ]
     assert len(matching_fields) == 1
     assert matching_fields[0].structured_properties is not None
-    assert matching_fields[0].structured_properties[
-        Urn.make_structured_property_urn("io.acryl.dataManagement.deprecationDate")
-    ] == ["2023-01-01"]
+    assert (
+        matching_fields[0].structured_properties[
+            "io.acryl.dataManagement.deprecationDate"
+        ]
+        == "2023-01-01"
+    )
 
 
 def test_structured_property_search(
@@ -405,7 +400,7 @@ def test_structured_property_search(
             extraFilters=[
                 {
                     "field": to_es_filter_name(dataset_property_name),
-                    "negated": "false",
+                    "negated": False,
                     "condition": "EXISTS",
                 }
             ]
@@ -436,7 +431,7 @@ def test_structured_property_search(
                     "field": to_es_filter_name(
                         field_property_name, namespace="io.datahubproject.test"
                     ),
-                    "negated": "false",
+                    "negated": False,
                     "condition": "EXISTS",
                 }
             ],
@@ -451,7 +446,7 @@ def test_structured_property_search(
             extraFilters=[
                 {
                     "field": to_es_filter_name(dataset_property_name),
-                    "negated": "false",
+                    "negated": False,
                     "condition": "EXISTS",
                 }
             ],
@@ -638,7 +633,7 @@ def test_dataset_structured_property_soft_delete_search_filter_validation(
             extraFilters=[
                 {
                     "field": to_es_filter_name(property_name=dataset_property_name),
-                    "negated": "false",
+                    "negated": False,
                     "condition": "EXISTS",
                 }
             ]
@@ -660,7 +655,7 @@ def test_dataset_structured_property_soft_delete_search_filter_validation(
                 extraFilters=[
                     {
                         "field": to_es_filter_name(property_name=dataset_property_name),
-                        "negated": "false",
+                        "negated": False,
                         "condition": "EXISTS",
                     }
                 ]
@@ -721,7 +716,7 @@ def test_dataset_structured_property_delete(ingest_cleanup_data, graph_client, c
                 extraFilters=[
                     {
                         "field": to_es_filter_name(qualified_name=qualified_name),
-                        "negated": "false",
+                        "negated": False,
                         "condition": "EXISTS",
                     }
                 ]

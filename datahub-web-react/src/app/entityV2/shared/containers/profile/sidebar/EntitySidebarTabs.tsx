@@ -1,12 +1,13 @@
-import React, { useContext } from 'react';
-import styled from 'styled-components/macro';
+import { Icon, Tooltip } from '@components';
+import { ArrowLineLeft } from '@phosphor-icons/react/dist/csr/ArrowLineLeft';
+import { ArrowLineRight } from '@phosphor-icons/react/dist/csr/ArrowLineRight';
 import { Tabs } from 'antd';
-import { Tooltip } from '@components';
-import { EntitySidebarTab } from '../../../types';
-import { useBaseEntity, useEntityData } from '../../../../../entity/shared/EntityContext';
-import SidebarCollapseIcon from './SidebarCollapseIcon';
-import EntitySidebarContext from '../../../../../sharedV2/EntitySidebarContext';
-import { REDESIGN_COLORS } from '../../../constants';
+import React, { useContext } from 'react';
+import styled, { useTheme } from 'styled-components/macro';
+
+import { useBaseEntity, useEntityData } from '@app/entity/shared/EntityContext';
+import { EntitySidebarTab } from '@app/entityV2/shared/types';
+import EntitySidebarContext from '@app/sharedV2/EntitySidebarContext';
 
 type Props = {
     tabs: EntitySidebarTab[];
@@ -17,50 +18,94 @@ type Props = {
 
 const UnborderedTabs = styled(Tabs)<{ $isClosed: boolean }>`
     height: 100%;
-
+    width: 64px;
+    box-sizing: border-box;
+    user-select: none;
+    overflow: visible;
     &&& .ant-tabs-nav {
-        margin-bottom: 0;
+        margin: 0;
+        width: 64px;
+        display: flex;
+        justify-content: center;
+        box-sizing: border-box;
+        overflow: visible;
     }
-
+    &&& .ant-tabs-nav-operations {
+        display: none;
+    }
+    &&& .ant-tabs-nav-wrap {
+        margin: 0;
+        padding: 0;
+        display: flex;
+        justify-content: center;
+        min-width: 64px;
+        box-sizing: border-box;
+        overflow: visible;
+    }
+    &&& .ant-tabs-nav-list {
+        margin: 0;
+        gap: 4px;
+        width: 64px;
+        display: flex;
+        align-items: center;
+        padding: 4px 0px;
+        box-sizing: border-box;
+        overflow: visible;
+    }
     &&& .ant-tabs-ink-bar {
         display: none;
     }
-
     &&& .ant-tabs-tab {
-        padding: 10px 10px 10px 10px;
-        margin: 8px 8px 16px 8px;
-        border-radius: 6px;
+        padding: 0;
+        margin: 0 0 4px 0 !important;
+        border-radius: 8px;
         display: flex;
         align-items: center;
         justify-content: center;
-
-        .ant-tabs-tab-btn {
-            color: ${(props) => (props.$isClosed ? REDESIGN_COLORS.BLACK : REDESIGN_COLORS.TITLE_PURPLE)};
+        width: 52px;
+        height: 52px;
+        transition: none !important;
+        overflow: visible;
+        .anticon {
+            margin-right: 0;
         }
-
-        :hover {
-            color: ${REDESIGN_COLORS.WHITE};
-            background-color: ${REDESIGN_COLORS.TITLE_PURPLE};
-
-            .ant-tabs-tab-btn {
-                color: ${REDESIGN_COLORS.WHITE};
-            }
+        .ant-tabs-tab-btn {
+            color: inherit !important;
+            transition: none !important;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 100%;
+            height: 100%;
+        }
+        &:hover {
+            background: ${(props) => props.theme.colors.bgHover} !important;
+            box-shadow: ${(props) => props.theme.colors.shadowXs};
+        }
+        &:last-child {
+            margin-bottom: 0 !important;
         }
     }
-
     &&& .ant-tabs-tab-active {
-        background-color: ${(props) => !props.$isClosed && REDESIGN_COLORS.TITLE_PURPLE_2};
-
+        background: ${(props) =>
+            props.$isClosed ? 'transparent !important' : `${props.theme.colors.bgSelectedSubtle} !important`};
+        box-shadow: ${(props) =>
+            props.$isClosed ? 'none !important' : `${props.theme.colors.shadowFocusBrand} !important`};
         .ant-tabs-tab-btn {
-            color: ${(props) => (props.$isClosed ? REDESIGN_COLORS.TITLE_PURPLE : REDESIGN_COLORS.WHITE)};
+            color: inherit !important;
+        }
+        &:hover {
+            background: ${(props) =>
+                props.$isClosed
+                    ? `${props.theme.colors.bgHover}`
+                    : `${props.theme.colors.bgSelectedSubtle}`} !important;
+            box-shadow: ${(props) => props.theme.colors.shadowXs};
         }
     }
-
     &&& .ant-tabs-content-holder {
         display: none;
     }
-
-    background-color: #ffffff;
+    background-color: ${(props) => props.theme.colors.bg};
 `;
 
 const Tab = styled(Tabs.TabPane)`
@@ -70,46 +115,239 @@ const Tab = styled(Tabs.TabPane)`
     align-items: center;
 `;
 
-const tabIconStyle = { fontSize: 20, margin: 0, display: 'flex' };
+const TabIconContainer = styled.div<{ $isSelected?: boolean }>`
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    transition: none !important;
+    color: ${(props) => props.theme.colors.textTertiary};
+    width: 48px;
+    height: 48px;
+    padding: 0;
+    margin: 0;
+    gap: 2px;
+    user-select: none;
+`;
+
+const TabText = styled.span<{ $isSelected?: boolean }>`
+    font-size: 10px;
+    font-weight: ${(props) => (props.$isSelected ? '500' : '400')};
+    text-align: center;
+    transition: none !important;
+    user-select: none;
+    display: block;
+    width: 48px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: ${(props) =>
+        props.$isSelected ? 'transparent !important' : `${props.theme.colors.textTertiary} !important`};
+    ${(props) =>
+        props.$isSelected &&
+        `
+        background: ${props.theme.colors.brandGradientSelected} !important;
+        background-clip: text !important;
+        -webkit-background-clip: text !important;
+        -webkit-text-fill-color: transparent !important;
+        `}
+`;
+
+const TabTextWithTooltip = ({ text, isSelected }: { text: string; isSelected?: boolean }) => {
+    const textRef = React.useRef<HTMLSpanElement>(null);
+    const [isOverflowing, setIsOverflowing] = React.useState(false);
+
+    React.useEffect(() => {
+        const element = textRef.current;
+        if (element) {
+            setIsOverflowing(element.scrollWidth > element.clientWidth);
+        }
+    }, [text]);
+
+    const tooltipText = text === 'Props' ? 'Structured Properties' : text;
+
+    return (
+        <Tooltip title={isOverflowing ? tooltipText : null} placement="right">
+            <TabText ref={textRef} $isSelected={isSelected}>
+                {text}
+            </TabText>
+        </Tooltip>
+    );
+};
+
+const IconWrapper = styled.div<{ $isSelected?: boolean }>`
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: none !important;
+    width: 20px;
+    height: 18px;
+    position: relative;
+
+    && svg {
+        ${(props) =>
+            props.$isSelected
+                ? `fill: url(#menu-item-selected-gradient) ${props.theme.colors.iconBrand};`
+                : `color: ${props.theme.colors.textTertiary};`}
+        width: 20px !important;
+        height: 20px !important;
+        min-width: 20px !important;
+        min-height: 20px !important;
+        max-width: 20px !important;
+        max-height: 20px !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        transition: none !important;
+    }
+
+    && span {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        ${(props) =>
+            props.$isSelected
+                ? `color: url(#menu-item-selected-gradient) ${props.theme.colors.iconBrand};`
+                : `color: ${props.theme.colors.textTertiary};`}
+        width: 20px !important;
+        height: 20px !important;
+
+        svg {
+            width: 20px !important;
+            height: 20px !important;
+            min-width: 20px !important;
+            min-height: 20px !important;
+            max-width: 20px !important;
+            max-height: 20px !important;
+        }
+    }
+
+    & .ph-fill {
+        fill: ${(props) =>
+            props.$isSelected
+                ? `url(#menu-item-selected-gradient) ${props.theme.colors.iconBrand}`
+                : props.theme.colors.textTertiary};
+    }
+`;
+
+const GradientDefs = () => {
+    const theme = useTheme();
+    const gradientValue = theme.colors.brandGradientSelected;
+    const fallback = [theme.colors.iconBrand, theme.colors.iconBrand];
+    const colorMatches = gradientValue.match(/#[0-9a-fA-F]{6}/g) || fallback;
+    return (
+        <svg width="0" height="0">
+            <defs>
+                <linearGradient id="menu-item-selected-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="20%" stopColor={colorMatches[0]} />
+                    <stop offset="80%" stopColor={colorMatches[1] || colorMatches[0]} />
+                </linearGradient>
+            </defs>
+        </svg>
+    );
+};
+
+const TabsWrapper = styled.div`
+    width: 64px;
+    flex-shrink: 0;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 0;
+    margin: 0;
+    overflow: visible;
+`;
 
 export const EntitySidebarTabs = <T,>({ tabs, selectedTab, onSelectTab, hideCollapse }: Props) => {
     const { entityData } = useEntityData();
     const baseEntity = useBaseEntity<T>();
-
     const { isClosed, setSidebarClosed } = useContext(EntitySidebarContext);
 
+    const handleTabClick = (name: string) => {
+        if (name === 'collapse') {
+            setSidebarClosed(!isClosed);
+            return;
+        }
+
+        if (selectedTab?.name === name) {
+            setSidebarClosed(!isClosed);
+            return;
+        }
+
+        onSelectTab(name);
+        if (isClosed) {
+            setSidebarClosed(false);
+        }
+    };
+
     return (
-        <>
-            {!hideCollapse && <SidebarCollapseIcon />}
+        <TabsWrapper>
+            <GradientDefs />
             <UnborderedTabs
                 id="entity-sidebar-tabs"
                 animated={false}
                 tabPosition="right"
                 activeKey={selectedTab?.name || ''}
-                size="large"
-                onTabClick={(name: string) => {
-                    onSelectTab(name);
-                    setSidebarClosed(false);
-                }}
+                onTabClick={handleTabClick}
                 $isClosed={isClosed}
             >
+                {!hideCollapse && (
+                    <Tab
+                        tab={
+                            <TabIconContainer>
+                                <IconWrapper>
+                                    <Icon icon={isClosed ? ArrowLineLeft : ArrowLineRight} size="lg" color="inherit" />
+                                </IconWrapper>
+                            </TabIconContainer>
+                        }
+                        key="collapse"
+                        data-node-key="collapse"
+                    />
+                )}
                 {tabs.map((tab) => {
                     const TabIcon = tab.icon;
+                    const SelectedTabIcon = tab.selectedIcon || tab.icon;
                     const { name } = tab;
                     const isDisabled = !tab.display?.enabled(entityData, baseEntity);
+                    const isSelected = !isClosed && selectedTab?.name === tab.name;
+
                     return (
                         <Tab
                             disabled={isDisabled}
                             tab={
-                                <Tooltip title={name} placement="left" showArrow={false}>
-                                    <TabIcon style={tabIconStyle} />
-                                </Tooltip>
+                                <TabIconContainer $isSelected={isSelected}>
+                                    <IconWrapper $isSelected={isSelected}>
+                                        {isSelected ? (
+                                            <SelectedTabIcon size={20} weight="fill" />
+                                        ) : (
+                                            <TabIcon size={20} weight="regular" />
+                                        )}
+                                    </IconWrapper>
+                                    <TabTextWithTooltip
+                                        text={(() => {
+                                            switch (name) {
+                                                case 'Summary':
+                                                    return 'Summary';
+                                                case 'Properties':
+                                                    return 'Props';
+                                                case 'Columns':
+                                                    return 'Columns';
+                                                case 'Lineage':
+                                                    return 'Lineage';
+                                                default:
+                                                    return name;
+                                            }
+                                        })()}
+                                        isSelected={isSelected}
+                                    />
+                                </TabIconContainer>
                             }
                             key={tab.name}
+                            data-node-key={tab.name}
                         />
                     );
                 })}
             </UnborderedTabs>
-        </>
+        </TabsWrapper>
     );
 };

@@ -1,20 +1,20 @@
-import * as React from 'react';
-import { Button, Select } from 'antd';
-import { Tooltip } from '@components';
 import { CaretDownOutlined } from '@ant-design/icons';
-import styled from 'styled-components/macro';
-import { blue } from '@ant-design/colors';
+import { Tooltip } from '@components';
+import { Button, Select } from 'antd';
+import * as React from 'react';
 import { useHistory, useLocation } from 'react-router';
-import { ImpactAnalysisIcon } from '../Dataset/Schema/components/MenuColumn';
-import updateQueryParams from '../../../../shared/updateQueryParams';
-import { downgradeV2FieldPath } from '../../../dataset/profile/schema/utils/utils';
-import { useEntityData } from '../../../../entity/shared/EntityContext';
-import { useGetEntityWithSchema } from '../Dataset/Schema/useGetEntitySchema';
+import styled from 'styled-components/macro';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import { downgradeV2FieldPath } from '@app/entityV2/dataset/profile/schema/utils/utils';
+import { ImpactAnalysisIcon } from '@app/entityV2/shared/tabs/Dataset/Schema/components/MenuColumn';
+import { useGetEntityWithSchema } from '@app/entityV2/shared/tabs/Dataset/Schema/useGetEntitySchema';
+import updateQueryParams from '@app/shared/updateQueryParams';
 
 const StyledSelect = styled(Select)`
     margin-right: 5px;
-    min-width: 140px;
-    max-width: 200px;
+    min-width: 200px;
+    max-width: 300px;
 `;
 
 const StyledButton = styled(Button)<{ $isSelected: boolean }>`
@@ -25,9 +25,9 @@ const StyledButton = styled(Button)<{ $isSelected: boolean }>`
     ${(props) =>
         props.$isSelected &&
         `
-        color: ${blue[5]};
+        color: ${props.theme.colors.textBrand};
         &:focus, &:hover {
-            color: ${blue[5]};
+            color: ${props.theme.colors.textBrand};
         }
     `};
 `;
@@ -70,11 +70,12 @@ export default function ColumnsLineageSelect({
                     showSearch
                     allowClear
                     placeholder="Select column"
+                    optionFilterProp="label"
                 >
                     {entityWithSchema?.schemaMetadata?.fields?.map((field) => {
                         const fieldPath = downgradeV2FieldPath(field.fieldPath);
                         return (
-                            <Select.Option value={field.fieldPath}>
+                            <Select.Option value={field.fieldPath} label={fieldPath}>
                                 <Tooltip title={fieldPath} showArrow={false}>
                                     {fieldPath}
                                 </Tooltip>
@@ -85,7 +86,7 @@ export default function ColumnsLineageSelect({
                         const fieldPath = downgradeV2FieldPath(field?.schemaField?.fieldPath);
                         const key = `${field?.schemaField?.fieldPath}-${idx}`;
                         return (
-                            <Select.Option key={key} value={field?.schemaField?.fieldPath || ''}>
+                            <Select.Option key={key} value={field?.schemaField?.fieldPath || ''} label={fieldPath}>
                                 <Tooltip title={fieldPath} showArrow={false}>
                                     {fieldPath}
                                 </Tooltip>

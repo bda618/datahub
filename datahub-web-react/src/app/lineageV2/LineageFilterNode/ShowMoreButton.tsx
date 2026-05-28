@@ -1,9 +1,8 @@
-import { applyOpacity } from '@app/sharedV2/colors/colorUtils';
+import KeyboardDoubleArrowDownIcon from '@mui/icons-material/KeyboardDoubleArrowDown';
 import React, { useCallback, useContext, useMemo } from 'react';
 import styled from 'styled-components';
-import KeyboardDoubleArrowDownIcon from '@mui/icons-material/KeyboardDoubleArrowDown';
-import { LineageFilter, LineageNodesContext, LINEAGE_FILTER_PAGINATION } from '../common';
-import { ANTD_GRAY, REDESIGN_COLORS } from '../../entityV2/shared/constants';
+
+import { LINEAGE_FILTER_PAGINATION, LineageFilter, LineageNodesContext } from '@app/lineageV2/common';
 
 const MAX_INCREASE = 100;
 const LINE_HEIGHT = '1.5em';
@@ -15,7 +14,7 @@ const ExtraButtons = styled.div`
 
     flex-direction: column;
     align-items: end;
-    background-color: ${REDESIGN_COLORS.WHITE};
+    background-color: ${(props) => props.theme.colors.bg};
 `;
 
 const Wrapper = styled.div`
@@ -38,8 +37,8 @@ const Button = styled.div`
     all: unset;
     align-items: center;
     border-radius: 20px;
-    background-color: ${REDESIGN_COLORS.WHITE};
-    color: ${ANTD_GRAY[9]};
+    background-color: ${(props) => props.theme.colors.bg};
+    color: ${(props) => props.theme.colors.text};
     cursor: pointer;
     display: flex;
     font-size: 10px;
@@ -47,8 +46,8 @@ const Button = styled.div`
     width: fit-content;
 
     :hover {
-        background-color: ${applyOpacity(REDESIGN_COLORS.TITLE_PURPLE, REDESIGN_COLORS.WHITE, 10)};
-        color: ${REDESIGN_COLORS.TITLE_PURPLE};
+        background-color: ${(props) => props.theme.colors.bgSurfaceBrand};
+        color: ${(props) => props.theme.colors.textHover};
     }
 `;
 
@@ -92,6 +91,7 @@ export function ShowMoreButton({ data, numMatches }: Props) {
                 <Button
                     key="show-more"
                     onClick={() => setPagination(Math.min(limit + LINEAGE_FILTER_PAGINATION, maximum))}
+                    data-testid="show-more"
                 >
                     <Text>{limit + LINEAGE_FILTER_PAGINATION >= maximum ? 'Show All' : 'Show More'}</Text>
                     <KeyboardDoubleArrowDownIcon fontSize="inherit" />
@@ -103,6 +103,7 @@ export function ShowMoreButton({ data, numMatches }: Props) {
                 <Button
                     key="show-less"
                     onClick={() => setPagination(Math.min(maximum, limit) - LINEAGE_FILTER_PAGINATION)}
+                    data-testid="show-less"
                 >
                     <Text>Show Less</Text>
                     <KeyboardDoubleArrowDownIcon fontSize="inherit" />
@@ -111,7 +112,7 @@ export function ShowMoreButton({ data, numMatches }: Props) {
         }
         if (limit + LINEAGE_FILTER_PAGINATION < maximum && limit + MAX_INCREASE >= maximum) {
             list.push(
-                <Button key="show-all" onClick={() => setPagination(maximum)}>
+                <Button key="show-all" onClick={() => setPagination(maximum)} data-testid="show-all">
                     <Text>Show All</Text>
                     <KeyboardDoubleArrowDownIcon fontSize="inherit" />
                 </Button>,
@@ -119,7 +120,7 @@ export function ShowMoreButton({ data, numMatches }: Props) {
         }
         if (limit + MAX_INCREASE < maximum) {
             list.push(
-                <Button key="show-max" onClick={() => setPagination(limit + MAX_INCREASE)}>
+                <Button key="show-max" onClick={() => setPagination(limit + MAX_INCREASE)} data-testid="show-max">
                     <Text>Show +{MAX_INCREASE}</Text>
                     <KeyboardDoubleArrowDownIcon fontSize="inherit" />
                 </Button>,
@@ -130,7 +131,7 @@ export function ShowMoreButton({ data, numMatches }: Props) {
 
     if (!buttons.length) return null;
     return (
-        <Wrapper className="show-more">
+        <Wrapper className="show-more" data-testid="show-max-wrapper">
             {buttons[0]}
             {buttons.length > 1 && <ExtraButtons>{buttons.slice(1)}</ExtraButtons>}
         </Wrapper>

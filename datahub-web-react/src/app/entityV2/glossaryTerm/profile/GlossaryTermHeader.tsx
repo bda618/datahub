@@ -1,7 +1,9 @@
 import { Divider, Space, Typography } from 'antd';
 import React from 'react';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { AvatarsGroup } from '../../../shared/avatar';
+
+import { AvatarsGroup } from '@app/shared/avatar';
+import { safeUrl } from '@app/shared/urlUtils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 type Props = {
     definition: string;
@@ -19,7 +21,7 @@ export default function GlossaryTermHeader({ definition, sourceRef, sourceUrl, o
                     <Typography.Text>Source</Typography.Text>
                     <Typography.Text strong>{sourceRef}</Typography.Text>
                     {sourceUrl && (
-                        <a href={decodeURIComponent(sourceUrl)} target="_blank" rel="noreferrer">
+                        <a href={safeUrl(decodeURIComponent(sourceUrl))} target="_blank" rel="noreferrer">
                             view source
                         </a>
                     )}

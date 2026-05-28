@@ -1,33 +1,31 @@
 import { LoadingOutlined } from '@ant-design/icons';
 import { Button } from 'antd';
 import React from 'react';
-import styled from 'styled-components/macro';
-import { ANTD_GRAY, SEARCH_COLORS } from '../../entityV2/shared/constants';
-import { useEnterKeyListener } from '../../shared/useEnterKeyListener';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import { SearchBar } from '../SearchBar';
+import styled, { useTheme } from 'styled-components/macro';
+
+import { SearchBar } from '@app/searchV2/SearchBar';
+import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 const StyledButton = styled(Button)`
     width: 100%;
     text-align: center;
-    background-color: ${SEARCH_COLORS.TITLE_PURPLE};
-    color: white;
+    background-color: ${(p) => p.theme.colors.buttonFillBrand};
+    color: ${(props) => props.theme.colors.textOnFillBrand};
     border-radius: 0;
 `;
 
-export const DropdownMenu = styled.div<{ type: 'card' | 'default' }>`
-    background-color: white;
+const DropdownMenu = styled.div<{ type: 'card' | 'default' }>`
+    background-color: ${(props) => props.theme.colors.bg};
     ${(props) => props.type === 'card' && 'border-radius: 5px;'}
-    ${(props) =>
-        props.type === 'card' &&
-        'box-shadow: 0 3px 6px -4px rgba(0, 0, 0, 0.12), 0 6px 16px 0 rgba(0, 0, 0, 0.08), 0 9px 28px 8px rgba(0, 0, 0, 0.05);'}
+    ${(props) => props.type === 'card' && `box-shadow: ${props.theme.colors.shadowMd};`}
     overflow: hidden;
     min-width: 200px;
 
     .ant-dropdown-menu-title-content {
-        background-color: white;
+        background-color: ${(props) => props.theme.colors.bg};
         &:hover {
-            background-color: white;
+            background-color: ${(props) => props.theme.colors.bg};
         }
     }
     .ant-dropdown-menu {
@@ -76,6 +74,7 @@ export default function OptionsDropdownMenu({
     className,
 }: Props) {
     const entityRegistry = useEntityRegistry();
+    const theme = useTheme();
 
     useEnterKeyListener({ querySelectorToExecuteClick: '#updateFiltersButton' });
 
@@ -100,8 +99,8 @@ export default function OptionsDropdownMenu({
                         onSearch={() => null}
                         onQueryChange={updateSearchQuery}
                         entityRegistry={entityRegistry}
-                        textColor={ANTD_GRAY[9]}
-                        placeholderColor={ANTD_GRAY[6]}
+                        textColor={theme.colors.text}
+                        placeholderColor={theme.colors.textPlaceholder}
                     />
                 )}
                 {React.cloneElement(menu as React.ReactElement, { style: { boxShadow: 'none' } })}

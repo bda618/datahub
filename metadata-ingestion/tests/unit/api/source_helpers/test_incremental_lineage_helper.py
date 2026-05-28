@@ -15,7 +15,7 @@ from datahub.ingestion.api.incremental_lineage_helper import (
 from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.sink.file import write_metadata_file
-from tests.test_helpers import mce_helpers
+from datahub.testing import mce_helpers
 
 platform = "platform"
 system_metadata = models.SystemMetadataClass(lastObserved=1643871600000, runId="run-id")
@@ -25,13 +25,15 @@ def make_lineage_aspect(
     dataset_name: str,
     upstreams: List[str],
     timestamp: int = 0,
-    columns: List[str] = [],
+    columns: Optional[List[str]] = None,
     include_cll: bool = False,
 ) -> models.UpstreamLineageClass:
     """
     Generates dataset properties and upstream lineage aspects
     with simple column to column lineage between current dataset and all upstreams
     """
+    if not columns:
+        columns = []
 
     dataset_urn = make_dataset_urn(platform, dataset_name)
     return models.UpstreamLineageClass(

@@ -1,17 +1,17 @@
+import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { Typography } from 'antd';
-import { ANTD_GRAY } from '../../../constants';
-import { toLocalDateString } from '../../../../../shared/time/timeUtils';
-import NoMarkdownViewer from '../../../components/styled/StripMarkdownText';
-import QueryCardDetailsMenu from './QueryCardDetailsMenu';
-import QueryCardEditButton from './QueryCardEditButton';
+
+import NoMarkdownViewer from '@app/entityV2/shared/components/styled/StripMarkdownText';
+import QueryCardDetailsMenu from '@app/entityV2/shared/tabs/Dataset/Queries/QueryCardDetailsMenu';
+import QueryCardEditButton from '@app/entityV2/shared/tabs/Dataset/Queries/QueryCardEditButton';
+import { toLocalDateString } from '@app/shared/time/timeUtils';
 
 const Title = styled(Typography.Title)<{ secondary?: boolean }>`
     && {
         margin: 0px;
         padding: 0px;
-        color: ${(props) => (props.secondary && ANTD_GRAY[6]) || ANTD_GRAY[9]};
+        color: ${(props) => (props.secondary && props.theme.colors.textTertiary) || props.theme.colors.text};
     }
     max-height: 40px;
     overflow: hidden;
@@ -63,11 +63,11 @@ const Date = styled.div`
 
 const EmptyText = styled.div`
     && {
-        color: ${ANTD_GRAY[6]};
+        color: ${(props) => props.theme.colors.textTertiary};
     }
 `;
 
-export type Props = {
+type Props = {
     urn?: string;
     title?: string;
     description?: string;

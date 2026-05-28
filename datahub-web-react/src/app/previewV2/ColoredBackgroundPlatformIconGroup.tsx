@@ -1,11 +1,11 @@
 import { Tooltip } from '@components';
-import { Maybe } from 'graphql/jsutils/Maybe';
 import OutputIcon from '@mui/icons-material/Output';
+import { Maybe } from 'graphql/jsutils/Maybe';
 import React from 'react';
-import styled from 'styled-components';
-import ImageWithColoredBackground, { Icon } from './ImageWIthColoredBackground';
-import { ANTD_GRAY } from '../entityV2/shared/constants';
-import { useIsShowSeparateSiblingsEnabled } from '../useAppConfig';
+import styled, { useTheme } from 'styled-components';
+
+import ImageWithColoredBackground, { Icon } from '@app/previewV2/ImageWIthColoredBackground';
+import { useIsShowSeparateSiblingsEnabled } from '@app/useAppConfig';
 
 const LogoIcon = styled.span`
     display: flex;
@@ -31,6 +31,7 @@ interface Props {
     icon?: React.ReactNode;
     backgroundSize?: number;
     imgSize?: number;
+    className?: string;
 }
 
 export default function ColoredBackgroundPlatformIconGroup(props: Props) {
@@ -44,8 +45,10 @@ export default function ColoredBackgroundPlatformIconGroup(props: Props) {
         icon,
         imgSize = 18,
         backgroundSize = 32,
+        className,
     } = props;
 
+    const theme = useTheme();
     const shouldShowSeparateSiblings = useIsShowSeparateSiblingsEnabled();
     const showSiblingPlatformLogos = !shouldShowSeparateSiblings && !!platformLogoUrls;
 
@@ -85,8 +88,8 @@ export default function ColoredBackgroundPlatformIconGroup(props: Props) {
                                 ))}
                         {isOutputPort && (
                             <Tooltip title="This asset is an output port for this Data Product" placement="topLeft">
-                                <Icon size={backgroundSize} background={ANTD_GRAY[4]} borderRadius={10}>
-                                    <OutputIcon style={{ fontSize: imgSize }} htmlColor={ANTD_GRAY[8]} />
+                                <Icon size={backgroundSize} background={theme.colors.bgSurface} borderRadius={10}>
+                                    <OutputIcon style={{ fontSize: imgSize }} htmlColor={theme.colors.textSecondary} />
                                 </Icon>
                             </Tooltip>
                         )}
@@ -96,5 +99,5 @@ export default function ColoredBackgroundPlatformIconGroup(props: Props) {
         );
     };
 
-    return <PlatformContentWrapper>{renderLogoIcon()}</PlatformContentWrapper>;
+    return <PlatformContentWrapper className={className}>{renderLogoIcon()}</PlatformContentWrapper>;
 }

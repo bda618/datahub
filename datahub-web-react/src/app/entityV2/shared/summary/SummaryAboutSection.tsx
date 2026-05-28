@@ -1,13 +1,13 @@
+import { EditOutlined, FileOutlined } from '@ant-design/icons';
 import React, { useCallback, useState } from 'react';
 import styled from 'styled-components';
-import { Button } from 'antd';
-import { EditOutlined, FileOutlined } from '@ant-design/icons';
-import { useEntityData, useRefetch, useRouteToTab } from '../../../entity/shared/EntityContext';
-import { Editor } from '../tabs/Documentation/components/editor/Editor';
-import { EmptyTab } from '../components/styled/EmptyTab';
-import { AddLinkModal } from '../components/styled/AddLinkModal';
-import { LinkList } from '../tabs/Documentation/components/LinkList';
-import { SectionContainer, SummaryTabHeaderTitle } from './HeaderComponents';
+
+import { useEntityData, useRouteToTab } from '@app/entity/shared/EntityContext';
+import { AddLinkModal } from '@app/entityV2/shared/components/styled/AddLinkModal';
+import { EmptyTab } from '@app/entityV2/shared/components/styled/EmptyTab';
+import { SectionContainer, SummaryTabHeaderTitle } from '@app/entityV2/shared/summary/HeaderComponents';
+import { LinkList } from '@app/entityV2/shared/tabs/Documentation/components/LinkList';
+import { Button, Editor } from '@src/alchemy-components';
 
 const UNEXPANDED_HEIGHT = 2000;
 
@@ -31,10 +31,10 @@ const DocumentationWrapper = styled.div<{ canExpand?: boolean }>`
 const EditorWrapper = styled.div<{ mask?: boolean; maxHeight: string }>`
     max-height: ${({ maxHeight }) => maxHeight};
     overflow-y: hidden;
-    ${({ mask }) =>
+    ${({ mask, theme }) =>
         mask &&
-        `-webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 50%, rgba(255,0,0,0.5) 60%, rgba(255,0,0,0) 90% );
-         mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 80%, rgba(255,0,0,0.5) 95%, rgba(255,0,0,0) 100%);`}
+        `-webkit-mask-image: linear-gradient(to bottom, black 50%, ${theme.colors.overlayMask} 60%, transparent 90%);
+         mask-image: linear-gradient(to bottom, black 80%, ${theme.colors.overlayMask} 95%, transparent 100%);`}
 `;
 
 const ExpandButton = styled(Button)`
@@ -47,7 +47,6 @@ const ExpandButton = styled(Button)`
 
 export default function SummaryAboutSection() {
     const { entityData } = useEntityData();
-    const refetch = useRefetch();
     const routeToTab = useRouteToTab();
 
     const [height, setHeight] = useState(0);
@@ -78,16 +77,16 @@ export default function SummaryAboutSection() {
                 )}
                 {!description && (
                     <EmptyTab tab="documentation" hideImage>
+                        <AddLinkModal />
                         <Button
                             data-testid="add-documentation"
                             onClick={() => routeToTab({ tabName: 'Documentation', tabParams: { editing: true } })}
                         >
                             <EditOutlined /> Add Documentation
                         </Button>
-                        <AddLinkModal refetch={refetch} />
                     </EmptyTab>
                 )}
-                <LinkList refetch={refetch} />
+                <LinkList />
             </DocumentationWrapper>
         </SectionContainer>
     );

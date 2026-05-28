@@ -1,6 +1,10 @@
-import { EntityType } from '../../../types.generated';
+// Disabling no hardcoded colors rule right now
+// TO-DO: Remove these colors once their usage in other files is migrated to semantic tokens
+/* eslint-disable rulesdir/no-hardcoded-colors */
+import { EntityType } from '@types';
 
 // TODO(Gabe): integrate this w/ the theme
+// These colors are deprecated, use the colors in @components/theme/foundations/colors
 export const REDESIGN_COLORS = {
     BACKGROUND: '#F4F5F7',
     GREY: '#e5e5e5',
@@ -44,8 +48,8 @@ export const REDESIGN_COLORS = {
     SECONDARY_LIGHT_GREY: '#9DA7C0',
     ACTION_ICON_GREY: '#676b75',
     AVATAR_STYLE_WHITE_BACKGROUND: '#ffffff66',
-    GROUP_AVATAR_STYLE_GRADIENT: 'linear-gradient(0deg, #CB427B 0%, #CB427B 100%), #65B5C0',
-    PROFILE_AVATAR_STYLE_GRADIENT: 'linear-gradient(93deg, #23c5b1 5.11%, #30d572 112.87%), #65b5c0',
+    GROUP_AVATAR_STYLE_GRADIENT: 'linear-gradient(0deg, #705EE4 0%, #533FD1 100%), #4C39BE',
+    PROFILE_AVATAR_STYLE_GRADIENT: 'linear-gradient(93deg, #705EE4 5.11%, #533FD1 112.87%), #4C39BE',
     SIDE_BAR_BORDER_RIGHT: '#e8e8e8',
     DARK_PURPLE: '#6C6B88',
     LINK_GREY: '#586287',
@@ -172,6 +176,10 @@ export const EMPTY_MESSAGES = {
         title: 'No product yet',
         description: 'Group related entities based on shared characteristics by adding them to a Data Product.',
     },
+    application: {
+        title: 'No application yet',
+        description: 'Associate entities with applications to track ownership and lifecycle.',
+    },
     contains: {
         title: 'Does not Contain any Glossary Terms',
         description: 'Terms can contain other terms to represent a "Has A" style relationship.',
@@ -193,16 +201,6 @@ export const EMPTY_MESSAGES = {
     },
 };
 
-export const ELASTIC_MAX_COUNT = 10000;
-
-export const getElasticCappedTotalValueText = (count: number) => {
-    if (count === ELASTIC_MAX_COUNT) {
-        return `${ELASTIC_MAX_COUNT}+`;
-    }
-
-    return `${count}`;
-};
-
 export const ENTITY_TYPES_WITH_MANUAL_LINEAGE = new Set([
     EntityType.Dashboard,
     EntityType.Chart,
@@ -211,8 +209,6 @@ export const ENTITY_TYPES_WITH_MANUAL_LINEAGE = new Set([
 ]);
 
 export const GLOSSARY_ENTITY_TYPES = [EntityType.GlossaryTerm, EntityType.GlossaryNode];
-
-export const DEFAULT_SYSTEM_ACTOR_URNS = ['urn:li:corpuser:__datahub_system', 'urn:li:corpuser:unknown'];
 
 export const VIEW_ENTITY_PAGE = 'VIEW_ENTITY_PAGE';
 
@@ -228,6 +224,13 @@ export const EDITING_DOCUMENTATION_URL_PARAM = 'editing';
 
 export const UNKNOWN_DATA_PLATFORM = 'urn:li:dataPlatform:unknown';
 
-export const SMART_ASSERTION_STALE_IN_DAYS = 3;
+export const RECOMMENDATION_MODULE_ID_RECENTLY_VIEWED_ENTITIES = 'RecentlyViewedEntities';
+export const RECOMMENDATION_MODULE_ID_RECENTLY_EDITED_ENTITIES = 'RecentlyEditedEntities';
+export const RECOMMENDATION_MODULE_ID_RECENT_SEARCHES = 'RecentSearches';
 
-export const TITLE_CASE_EXCEPTION_WORDS = ['of', 'the', 'in', 'on', 'and', 'a', 'an', 'to', 'for', 'at', 'by'];
+export const ENTITY_TYPES_WITH_NEW_SUMMARY_TAB = [
+    EntityType.GlossaryNode,
+    EntityType.GlossaryTerm,
+    EntityType.DataProduct,
+    EntityType.Domain,
+];

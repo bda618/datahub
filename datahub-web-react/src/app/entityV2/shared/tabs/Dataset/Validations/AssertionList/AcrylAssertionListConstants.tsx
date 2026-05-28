@@ -1,8 +1,10 @@
+import { CheckOutlined, CloseOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import React from 'react';
 import styled from 'styled-components';
-import { CheckOutlined, CloseOutlined, InfoCircleOutlined } from '@ant-design/icons';
-import { AssertionResultType } from '@src/types.generated';
-import { NO_RUNNING_STATE } from './constant';
+
+import { NO_RUNNING_STATE } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/constant';
+import ColorTheme from '@conf/theme/colorThemes/types';
+import { AssertionResultType, AssertionType } from '@src/types.generated';
 
 const StyledCardTitle = styled.div<{ background: string; color: string }>`
     background: ${({ background }) => background};
@@ -16,53 +18,63 @@ const StyledCardTitle = styled.div<{ background: string; color: string }>`
     font-size: 12px;
 `;
 
-export const ASSERTION_SUMMARY_CARD_HEADER_BY_STATUS = {
+export const ASSERTION_TYPE_TO_HEADER_SUBTITLE: Record<AssertionType, string> = {
+    [AssertionType.Freshness]: 'Verifies when this dataset should be updated.',
+    [AssertionType.Volume]: 'Verifies the row count of this dataset.',
+    [AssertionType.Field]: 'Verifies the validity of a column.',
+    [AssertionType.DataSchema]: 'Verifies the schema of this dataset.',
+    [AssertionType.Custom]: 'A custom externally reported assertion.',
+    [AssertionType.Sql]: 'Verifies using custom SQL rules.',
+    [AssertionType.Dataset]: 'An external assertion.',
+};
+
+export const getAssertionSummaryCardHeaderByStatus = (colors: ColorTheme) => ({
     passing: {
-        color: '#548239',
-        backgroundColor: '#F1F8EE',
+        color: colors.textSuccess,
+        backgroundColor: colors.bgSurfaceSuccess,
         resultType: AssertionResultType.Success,
         icon: <CheckOutlined />,
         text: 'Passing',
         headerComponent: (
-            <StyledCardTitle background="#F1F8EE" color="#548239">
+            <StyledCardTitle background={colors.bgSurfaceSuccess} color={colors.textSuccess}>
                 <CheckOutlined /> Passing
             </StyledCardTitle>
         ),
     },
     failing: {
-        color: '#D23939',
-        backgroundColor: '#FCF2F2',
+        color: colors.textError,
+        backgroundColor: colors.bgSurfaceError,
         resultType: AssertionResultType.Failure,
         icon: <CloseOutlined />,
         text: 'Failing',
         headerComponent: (
-            <StyledCardTitle background="#FCF2F2" color="#D23939">
+            <StyledCardTitle background={colors.bgSurfaceError} color={colors.textError}>
                 <CloseOutlined /> Failing
             </StyledCardTitle>
         ),
     },
     erroring: {
-        color: '#EEAE09',
-        backgroundColor: '#FEF9ED',
+        color: colors.textWarning,
+        backgroundColor: colors.bgSurfaceWarning,
         resultType: AssertionResultType.Error,
         icon: <InfoCircleOutlined />,
         text: 'Errors',
         headerComponent: (
-            <StyledCardTitle background="#FEF9ED" color="#EEAE09">
+            <StyledCardTitle background={colors.bgSurfaceWarning} color={colors.textWarning}>
                 <InfoCircleOutlined /> Error
             </StyledCardTitle>
         ),
     },
     [NO_RUNNING_STATE]: {
-        color: '#8D95B1',
-        backgroundColor: '#e0e0e0',
+        color: colors.textTertiary,
+        backgroundColor: colors.bgSurface,
         resultType: null,
         icon: <InfoCircleOutlined />,
         text: '0 Running',
         headerComponent: (
-            <StyledCardTitle background="#F6F6F6" color="#8D95B1">
+            <StyledCardTitle background={colors.bgSurface} color={colors.textTertiary}>
                 <InfoCircleOutlined /> No runs
             </StyledCardTitle>
         ),
     },
-};
+});

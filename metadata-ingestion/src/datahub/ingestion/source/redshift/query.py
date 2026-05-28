@@ -11,6 +11,16 @@ _QUERY_SEQUENCE_LIMIT = 290
 
 _MAX_COPY_ENTRIES_PER_TABLE = 20
 
+_PROVISIONED_SEGMENT_SIZE = 200  # STL_QUERYTEXT, SVL_STATEMENTTEXT
+_SERVERLESS_SEGMENT_SIZE = 4000  # SYS_QUERY_TEXT
+
+# TODO: Boundary detection uses LEN(RTRIM(text)) < segment_size to decide whether to
+# add a space when stitching segments. This approach can't distinguish between padding
+# and tokens that exactly fill a segment. Edge case: a 199-char token followed by a
+# segment boundary gets a spurious space. Future: implement keyword-aware fallback
+# with CHR(1) markers (SQL marks boundaries, Python detects keywords) to preserve
+# identifiers split mid-word while correctly separating keywords at boundaries.
+
 
 class RedshiftCommonQuery:
     CREATE_TEMP_TABLE_CLAUSE = "create temp table"
@@ -31,41 +41,82 @@ class RedshiftCommonQuery:
         AND (datname <> ('template1')::name)
         """
 
-    list_schemas: str = """SELECT distinct n.nspname AS "schema_name",
-        'local' as schema_type,
-        null as schema_owner_name,
-        '' as schema_option,
-        null as external_database
-        FROM pg_catalog.pg_class c
-        LEFT JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
-        JOIN pg_catalog.pg_user u ON u.usesysid = c.relowner
-        WHERE c.relkind IN ('r','v','m','S','f')
-        AND   n.nspname !~ '^pg_'
-        AND   n.nspname != 'information_schema'
-UNION ALL
-SELECT  schemaname as schema_name,
-        CASE s.eskind
-            WHEN '1' THEN 'GLUE'
-            WHEN '2' THEN 'HIVE'
-            WHEN '3' THEN 'POSTGRES'
-            WHEN '4' THEN 'REDSHIFT'
-            ELSE 'OTHER'
-        END as schema_type,
-        -- setting user_name to null as we don't use it now now and it breaks backward compatibility due to additional permission need
-        -- usename as schema_owner_name,
-        null as schema_owner_name,
-        esoptions as schema_option,
-        databasename as external_database
+    # NOTE: schema_owner IDs are resolved via pg_user (pg_user_info is superuser-only).
+    # NOTE: Need union here instead of using svv_all_schemas, in order to get
+    # external platform related lineage
+    # NOTE: Using database_name filter for svv_redshift_schemas, as  otherwise
+    # schemas from other shared databases also show up.
+    @staticmethod
+    def list_schemas(database: str, extract_ownership: bool = False) -> str:
+        if extract_ownership:
+            owner_col = "u.usename as schema_owner_name,"
+            owner_join = "LEFT JOIN pg_catalog.pg_user u ON u.usesysid = s.schema_owner"
+            from_clause = "FROM svv_redshift_schemas s"
+        else:
+            owner_col = "NULL as schema_owner_name,"
+            owner_join = ""
+            from_clause = "FROM svv_redshift_schemas s"
+        return f"""
+        SELECT 
+            schema_name,
+            schema_type,
+            {owner_col}
+            cast(null as varchar(1024)) as schema_option,
+            cast(null as varchar(256)) as external_platform,
+            cast(null as varchar(256)) as external_database
+        {from_clause}
+        {owner_join}
+        WHERE database_name = '{database}'
+          AND schema_name != 'pg_catalog' and schema_name != 'information_schema'
+    UNION ALL
+        SELECT 
+            schemaname as schema_name,
+            'external' as schema_type,
+            NULL as schema_owner_name,
+            esoptions as schema_option,
+            CASE s.eskind
+                WHEN '1' THEN 'GLUE'
+                WHEN '2' THEN 'HIVE'
+                WHEN '3' THEN 'POSTGRES'
+                WHEN '4' THEN 'REDSHIFT'
+                ELSE 'OTHER'
+            END as external_platform,
+            databasename as external_database
         FROM SVV_EXTERNAL_SCHEMAS as s
-        -- inner join pg_catalog.pg_user_info as i on i.usesysid = s.esowner
         ORDER BY SCHEMA_NAME;
         """
 
     @staticmethod
+    def get_database_details(database):
+        return f"""\
+            select 
+                database_name,
+                database_type, 
+                database_options 
+            from svv_redshift_databases 
+            where database_name='{database}';"""
+
+    # NOTE: Owner names from pg_user (LEFT JOIN keeps rows if owner is missing).
+    # NOTE: Tables from shared database are not available in pg_catalog.pg_class
+    @staticmethod
     def list_tables(
+        database: str,
         skip_external_tables: bool = False,
+        is_shared_database: bool = False,
+        extract_ownership: bool = False,
     ) -> str:
-        tables_query = """
+        if extract_ownership:
+            owner_col = 'u.usename as "owner_name",'
+            owner_join = "LEFT JOIN pg_catalog.pg_user u ON u.usesysid = c.relowner"
+            shared_owner_col = 'table_owner AS "owner_name",'
+        else:
+            owner_col = 'NULL as "owner_name",'
+            owner_join = ""
+            shared_owner_col = 'NULL AS "owner_name",'
+
+        # NOTE: it looks like description is available only in pg_description
+        # So this remains preferrred way
+        tables_query = f"""
  SELECT  CASE c.relkind
                 WHEN 'r' THEN 'TABLE'
                 WHEN 'v' THEN 'VIEW'
@@ -83,9 +134,7 @@ SELECT  schemaname as schema_name,
                 WHEN 8 THEN 'ALL'
             END AS "diststyle",
             c.relowner AS "owner_id",
-            -- setting user_name to null as we don't use it now now and it breaks backward compatibility due to additional permission need
-            -- u.usename AS "owner_name",
-            null as "owner_name",
+            {owner_col}
             TRIM(TRAILING ';' FROM pg_catalog.pg_get_viewdef (c.oid,TRUE)) AS "view_definition",
             pg_catalog.array_to_string(c.relacl,'\n') AS "privileges",
             NULL as "location",
@@ -98,40 +147,97 @@ SELECT  schemaname as schema_name,
         LEFT JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
         LEFT JOIN pg_class_info as ci on c.oid = ci.reloid
         LEFT JOIN pg_catalog.pg_description pgd ON pgd.objsubid = 0 AND pgd.objoid = c.oid
-        -- JOIN pg_catalog.pg_user u ON u.usesysid = c.relowner
+        {owner_join}
+        JOIN svv_redshift_schemas rs ON rs.schema_name = n.nspname AND rs.database_name = '{database}'
         WHERE c.relkind IN ('r','v','m','S','f')
         AND   n.nspname !~ '^pg_'
         AND   n.nspname != 'information_schema'
 """
-        external_tables_query = """
+
+        external_tables_query = f"""
         SELECT 'EXTERNAL_TABLE' as tabletype,
             NULL AS "schema_oid",
-            schemaname AS "schema",
+            t.schemaname AS "schema",
             NULL AS "rel_oid",
-            tablename AS "relname",
+            t.tablename AS "relname",
             NULL as "creation_time",
             NULL AS "diststyle",
             NULL AS "owner_id",
             NULL AS "owner_name",
             NULL AS "view_definition",
             NULL AS "privileges",
-            "location",
-            parameters,
-            input_format,
-            output_format,
-            serde_parameters,
+            t."location",
+            t.parameters,
+            t.input_format,
+            t.output_format,
+            t.serde_parameters,
             NULL as table_description
-        FROM pg_catalog.svv_external_tables
+        FROM pg_catalog.svv_external_tables t
+        JOIN SVV_EXTERNAL_SCHEMAS s ON t.schemaname = s.schemaname
+        WHERE t.redshift_database_name='{database}'
         ORDER BY "schema",
                 "relname"
 """
-        if skip_external_tables:
+        shared_database_tables_query = f"""
+        SELECT table_type as tabletype,
+            NULL AS "schema_oid",
+            schema_name AS "schema",
+            NULL AS "rel_oid",
+            table_name AS "relname",
+            NULL as "creation_time",
+            NULL AS "diststyle",
+            table_owner AS "owner_id",
+            {shared_owner_col}
+            NULL AS "view_definition",
+            table_acl AS "privileges",
+            NULL as "location",
+            NULL as parameters,
+            NULL as input_format,
+            NULL As output_format,
+            NULL as serde_parameters,
+            NULL as table_description
+        FROM svv_redshift_tables
+        WHERE database_name='{database}'
+        ORDER BY "schema",
+                "relname"
+"""
+        if is_shared_database:
+            return shared_database_tables_query
+        elif skip_external_tables:
             return tables_query
         else:
             return f"{tables_query} UNION {external_tables_query}"
 
-    # Why is this unused. Is this a bug?
-    list_columns: str = """
+    @staticmethod
+    def list_columns(
+        database_name: str, schema_name: str, is_shared_database: bool = False
+    ) -> str:
+        if is_shared_database:
+            return f"""
+            SELECT
+              schema_name as "schema",
+              table_name as "table_name",
+              column_name as "name",
+              encoding as "encode",
+              -- Spectrum represents data types differently.
+              -- Standardize, so we can infer types.
+              data_type AS "type",
+              distkey as "distkey",
+              sortkey as "sortkey",
+              (case when is_nullable = 'no' then TRUE else FALSE end)  as "notnull",
+              null as "comment",
+              null as "adsrc",
+              ordinal_position as "attnum",
+              data_type AS "format_type",
+              column_default as "default",
+              null as "schema_oid",
+              null as "table_oid"
+            FROM SVV_REDSHIFT_COLUMNS
+            WHERE 1 and schema = '{schema_name}'
+            AND database_name = '{database_name}'
+            ORDER BY "schema", "table_name", "attnum"
+"""
+        return f"""
             SELECT
               n.nspname as "schema",
               c.relname as "table_name",
@@ -156,11 +262,12 @@ SELECT  schemaname as schema_name,
               ON att.attrelid = c.oid
             LEFT JOIN pg_catalog.pg_attrdef ad
               ON (att.attrelid, att.attnum) = (ad.adrelid, ad.adnum)
+            JOIN svv_redshift_schemas rs ON rs.schema_name = n.nspname AND rs.database_name = '{database_name}'
             WHERE n.nspname !~ '^pg_'
               AND   n.nspname != 'information_schema'
               AND att.attnum > 0
               AND NOT att.attisdropped
-              and schema = '{schema_name}'
+              and n.nspname = '{schema_name}'
             UNION
             SELECT
               view_schema as "schema",
@@ -184,28 +291,30 @@ SELECT  schemaname as schema_name,
               col_name name,
               col_type varchar,
               col_num int)
-            WHERE 1 and schema = '{schema_name}'
+            WHERE 1 and view_schema = '{schema_name}'
             UNION
             SELECT
-              schemaname as "schema",
-              tablename as "table_name",
-              columnname as "name",
+              c.schemaname as "schema",
+              c.tablename as "table_name",
+              c.columnname as "name",
               null as "encode",
               -- Spectrum represents data types differently.
               -- Standardize, so we can infer types.
-              external_type AS "type",
+              c.external_type AS "type",
               null as "distkey",
               0 as "sortkey",
               null as "notnull",
               null as "comment",
               null as "adsrc",
               null as "attnum",
-              external_type AS "format_type",
+              c.external_type AS "format_type",
               null as "default",
               null as "schema_oid",
               null as "table_oid"
-            FROM SVV_EXTERNAL_COLUMNS
-            WHERE 1 and schema = '{schema_name}'
+            FROM SVV_EXTERNAL_COLUMNS c
+            JOIN SVV_EXTERNAL_SCHEMAS s ON c.schemaname = s.schemaname
+            WHERE c.schemaname = '{schema_name}'
+            AND c.redshift_database_name = '{database_name}'
             ORDER BY "schema", "table_name", "attnum"
 """
 
@@ -362,6 +471,29 @@ ORDER BY target_schema, target_table, filename
     ) -> str:
         raise NotImplementedError
 
+    @staticmethod
+    def list_outbound_datashares() -> str:
+        return """SELECT \
+            share_type, \
+            share_name, \
+            trim(producer_namespace) as producer_namespace, \
+            source_database \
+        FROM svv_datashares
+        WHERE share_type='OUTBOUND'\
+        """
+
+    @staticmethod
+    def get_inbound_datashare(database: str) -> str:
+        return f"""SELECT \
+            share_type, \
+            share_name, \
+            trim(producer_namespace) as producer_namespace, \
+            consumer_database \
+        FROM svv_datashares
+        WHERE share_type='INBOUND'
+        AND consumer_database= '{database}'\
+        """
+
 
 class RedshiftProvisionedQuery(RedshiftCommonQuery):
     @staticmethod
@@ -403,6 +535,16 @@ class RedshiftProvisionedQuery(RedshiftCommonQuery):
         db_name: str, start_time: datetime, end_time: datetime
     ) -> str:
         return """
+                    WITH query_txt AS (
+                        SELECT
+                            query,
+                            userid,
+                            RTRIM(LISTAGG(RTRIM(text) || CASE WHEN LEN(RTRIM(text)) < {_PROVISIONED_SEGMENT_SIZE} THEN ' ' ELSE '' END, '')
+                                WITHIN GROUP (ORDER BY sequence)) AS querytxt
+                        FROM STL_QUERYTEXT
+                        WHERE sequence < {_QUERY_SEQUENCE_LIMIT}
+                        GROUP BY query, userid
+                    )
                         select
                             distinct cluster,
                             target_schema,
@@ -410,7 +552,7 @@ class RedshiftProvisionedQuery(RedshiftCommonQuery):
                             username as username,
                             source_schema,
                             source_table,
-                            querytxt as ddl,  -- TODO: this querytxt is truncated to 4000 characters
+                            querytxt as ddl,
                             starttime as timestamp
                         from
                                 (
@@ -450,7 +592,7 @@ class RedshiftProvisionedQuery(RedshiftCommonQuery):
                             ) ss
                             join SVV_TABLE_INFO sti on
                                 sti.table_id = ss.tbl
-                            left join stl_query sq on
+                            left join query_txt sq on
                                 ss.query = sq.query
                             left join svl_user_info sui on
                                 sq.userid = sui.usesysid
@@ -462,6 +604,8 @@ class RedshiftProvisionedQuery(RedshiftCommonQuery):
                             scan_type in (1, 2, 3)
                         order by cluster, target_schema, target_table, starttime asc
                     """.format(
+            _QUERY_SEQUENCE_LIMIT=_QUERY_SEQUENCE_LIMIT,
+            _PROVISIONED_SEGMENT_SIZE=_PROVISIONED_SEGMENT_SIZE,
             # We need the original database name for filtering
             db_name=db_name,
             start_time=start_time.strftime(redshift_datetime_format),
@@ -509,12 +653,8 @@ with query_txt as (
     select
         query,
         pid,
-        LISTAGG(case
-            when LEN(RTRIM(text)) = 0 then text
-            else RTRIM(text)
-        end) within group (
-            order by sequence
-        ) as ddl
+        RTRIM(LISTAGG(RTRIM(text) || CASE WHEN LEN(RTRIM(text)) < {_PROVISIONED_SEGMENT_SIZE} THEN ' ' ELSE '' END, '')
+            WITHIN GROUP (ORDER BY sequence)) as ddl
     from (
         select
             query,
@@ -568,6 +708,7 @@ group by
     sq.query
         """.format(
             _QUERY_SEQUENCE_LIMIT=_QUERY_SEQUENCE_LIMIT,
+            _PROVISIONED_SEGMENT_SIZE=_PROVISIONED_SEGMENT_SIZE,
             # We need the original database name for filtering
             db_name=db_name,
             start_time=start_time.strftime(redshift_datetime_format),
@@ -610,13 +751,8 @@ from (
                 xid,
                 type,
                 userid,
-                LISTAGG(case
-                    when LEN(RTRIM(text)) = 0 then text
-                    else RTRIM(text)
-                end,
-                '') within group (
-                    order by sequence
-                ) as query_text
+                RTRIM(LISTAGG(RTRIM(text) || CASE WHEN LEN(RTRIM(text)) < {_PROVISIONED_SEGMENT_SIZE} THEN ' ' ELSE '' END, '')
+                    WITHIN GROUP (ORDER BY sequence)) as query_text
             from
                 SVL_STATEMENTTEXT
             where
@@ -845,7 +981,8 @@ class RedshiftServerlessQuery(RedshiftCommonQuery):
                     table_id as source_table_id,
                     queries.query_id as query_id,
                     username,
-                    LISTAGG(qt."text") WITHIN GROUP (ORDER BY sequence) AS query_text
+                    RTRIM(LISTAGG(RTRIM(qt."text") || CASE WHEN LEN(RTRIM(qt."text")) < {_SERVERLESS_SEGMENT_SIZE} THEN ' ' ELSE '' END, '')
+                        WITHIN GROUP (ORDER BY sequence)) AS query_text
                 FROM
                     "queries" LEFT JOIN
                     unique_query_text qt ON qt.query_id = queries.query_id
@@ -883,6 +1020,7 @@ class RedshiftServerlessQuery(RedshiftCommonQuery):
             WHERE source_table_id <> target_table_id
             ORDER BY cluster, target_schema, target_table, "timestamp" ASC;
                     """.format(
+            _SERVERLESS_SEGMENT_SIZE=_SERVERLESS_SEGMENT_SIZE,
             # We need the original database name for filtering
             db_name=db_name,
             start_time=start_time.strftime(redshift_datetime_format),
@@ -933,7 +1071,8 @@ class RedshiftServerlessQuery(RedshiftCommonQuery):
                 target_table,
                 username,
                 query_id,
-                LISTAGG(CASE WHEN LEN(RTRIM(querytxt)) = 0 THEN querytxt ELSE RTRIM(querytxt) END) WITHIN GROUP (ORDER BY sequence) AS ddl,
+                RTRIM(LISTAGG(RTRIM(querytxt) || CASE WHEN LEN(RTRIM(querytxt)) < {_SERVERLESS_SEGMENT_SIZE} THEN ' ' ELSE '' END, '')
+                    WITHIN GROUP (ORDER BY sequence)) AS ddl,
                 ANY_VALUE(session_id) AS session_id,
                 starttime AS timestamp
             FROM
@@ -970,6 +1109,7 @@ class RedshiftServerlessQuery(RedshiftCommonQuery):
             ORDER BY cluster, query_id, target_schema, target_table, starttime ASC
             ;
                 """.format(
+            _SERVERLESS_SEGMENT_SIZE=_SERVERLESS_SEGMENT_SIZE,
             # We need the original database name for filtering
             db_name=db_name,
             start_time=start_time.strftime(redshift_datetime_format),
@@ -1014,7 +1154,8 @@ class RedshiftServerlessQuery(RedshiftCommonQuery):
                                             qh.transaction_id AS transaction_id,
                                             qh.start_time AS start_time,
                                             qh.user_id AS userid,
-                                            LISTAGG(qt."text") WITHIN GROUP (ORDER BY sequence) AS query_text
+                                            RTRIM(LISTAGG(RTRIM(qt."text") || CASE WHEN LEN(RTRIM(qt."text")) < {_SERVERLESS_SEGMENT_SIZE} THEN ' ' ELSE '' END, '')
+                                                WITHIN GROUP (ORDER BY sequence)) AS query_text
                                     FROM
                                             SYS_QUERY_HISTORY qh
                                             LEFT JOIN SYS_QUERY_TEXT qt on qt.query_id = qh.query_id

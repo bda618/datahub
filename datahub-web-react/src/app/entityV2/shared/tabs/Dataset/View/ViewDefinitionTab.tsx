@@ -1,17 +1,18 @@
 import { Radio, Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
-import { ANTD_GRAY } from '../../../constants';
-import { useBaseEntity } from '../../../../../entity/shared/EntityContext';
-import { InfoItem } from '../../../components/styled/InfoItem';
-import { StyledSyntaxHighlighter } from '../../../StyledSyntaxHighlighter';
-import { DBT_URN } from '../../../../../ingest/source/builder/constants';
-import CopyQuery from '../Queries/CopyQuery';
-import { ViewHeader } from '../../../containers/profile/sidebar/SidebarLogicSection';
+
+import { useBaseEntity } from '@app/entity/shared/EntityContext';
+import { StyledSyntaxHighlighter } from '@app/entityV2/shared/StyledSyntaxHighlighter';
+import { InfoItem } from '@app/entityV2/shared/components/styled/InfoItem';
+import { ViewHeader } from '@app/entityV2/shared/containers/profile/sidebar/SidebarLogicSection';
+import CopyQuery from '@app/entityV2/shared/tabs/Dataset/Queries/CopyQuery';
+import { DBT_URN } from '@app/ingest/source/builder/constants';
+
+import { GetDatasetQuery } from '@graphql/dataset.generated';
 
 const InfoSection = styled.div`
-    border-bottom: 1px solid ${ANTD_GRAY[4.5]};
+    border-bottom: 1px solid ${(props) => props.theme.colors.border};
     padding: 16px 20px;
 `;
 
@@ -34,7 +35,7 @@ const FormattingSelector = styled.div``;
  */
 const QueryText = styled(Typography.Paragraph)`
     margin-top: 20px;
-    background-color: ${ANTD_GRAY[2]};
+    background-color: ${(props) => props.theme.colors.bgSurface};
     span {
         font-family: 'Roboto Mono', monospace !important;
     }
@@ -108,7 +109,9 @@ export default function ViewDefinitionTab() {
                     <CopyQuery query={showFormatted ? formattedLogic || '' : logic} showCopyText />
                 </ViewHeader>
                 <QueryText>
-                    <NestedSyntax language="sql">{showFormatted ? formattedLogic : logic}</NestedSyntax>
+                    <NestedSyntax language={language?.toLowerCase() ?? 'sql'}>
+                        {showFormatted ? formattedLogic : logic}
+                    </NestedSyntax>
                 </QueryText>
             </InfoSection>
         </>

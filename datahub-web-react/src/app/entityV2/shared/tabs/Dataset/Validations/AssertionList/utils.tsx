@@ -1,7 +1,32 @@
-import React from 'react';
-import Fuse from 'fuse.js';
-import styled from 'styled-components';
 import { Typography } from 'antd';
+import Fuse from 'fuse.js';
+import React from 'react';
+import styled from 'styled-components';
+
+import { AssertionGroupHeader } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/AssertionGroupHeader';
+import {
+    ASSERTION_DEFAULT_RAW_DATA,
+    ASSERTION_SOURCES,
+} from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/constant';
+import {
+    AssertionColumnGroup,
+    AssertionFilterOptions,
+    AssertionListFilter,
+    AssertionListTableRow,
+    AssertionRecommendedFilter,
+    AssertionStatusGroup,
+    AssertionTable,
+    AssertionWithDescription,
+} from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/types';
+import {
+    ASSERTION_INFO,
+    createAssertionGroups,
+    getAssertionGroupName,
+    getAssertionType,
+} from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
+import { isExternalAssertion } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/shared/isExternalAssertion';
+import { getPlainTextDescriptionFromAssertion } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/utils';
+import { AssertionGroup } from '@src/app/entity/shared/tabs/Dataset/Validations/acrylTypes';
 import {
     Assertion,
     AssertionInfo,
@@ -12,27 +37,7 @@ import {
     AssertionType,
     AuditStamp,
     TagAssociation,
-    EntityType,
 } from '@src/types.generated';
-import { AssertionGroup } from '@src/app/entity/shared/tabs/Dataset/Validations/acrylTypes';
-import { GenericEntityProperties } from '@src/app/entity/shared/types';
-import { getPlatformName } from '@src/app/entityV2/shared/utils';
-import { ASSERTION_INFO, createAssertionGroups, getAssertionGroupName, getAssertionType } from '../acrylUtils';
-import { isExternalAssertion } from '../assertion/profile/shared/isExternalAssertion';
-import { AssertionGroupHeader } from './AssertionGroupHeader';
-import {
-    AssertionStatusGroup,
-    AssertionTable,
-    AssertionListFilter,
-    AssertionListTableRow,
-    AssertionFilterOptions,
-    AssertionRecommendedFilter,
-    AssertionWithDescription,
-    AssertionColumnGroup,
-    AssertionBuilderSiblingOptions,
-} from './types';
-import { ASSERTION_DEFAULT_RAW_DATA, ASSERTION_SOURCES } from './constant';
-import { getPlainTextDescriptionFromAssertion } from '../assertion/profile/summary/utils';
 
 const ASSERTION_TYPE_NAME_MAP = {
     VOLUME: 'Volume',
@@ -49,6 +54,7 @@ const ASSERTION_STATUS_NAME_MAP = {
     FAILURE: 'Failing',
     SUCCESS: 'Passing',
     ERROR: 'Error',
+    INIT: 'Initializing',
     [NO_STATUS]: 'No Status',
 };
 
@@ -97,54 +103,6 @@ const getGroupNameBySummary = (record) => {
             <Message type="secondary">{list.join(', ')}</Message>
         </TextContainer>
     );
-};
-
-/**
- * Gets sibling options that a user can author assertions with
- * This includes direct links that will open the respective siblings' assertion builder UI
- * @param entityData
- * @param urn
- * @param entityType
- * @returns {AssertionBuilderSiblingOptions[]}
- */
-export const useSiblingOptionsForAssertionBuilder = (
-    entityData: GenericEntityProperties | null,
-    urn: string,
-    entityType: EntityType,
-): AssertionBuilderSiblingOptions[] => {
-    const optionsToAuthorOn: AssertionBuilderSiblingOptions[] = [];
-    // push main entity data
-    optionsToAuthorOn.push({
-        title:
-            entityData?.platform?.properties?.displayName ??
-            entityData?.platform?.name ??
-            entityData?.dataPlatformInstance?.platform.name ??
-            entityData?.platform?.urn ??
-            urn,
-        disabled: true,
-        urn,
-        platform: entityData?.platform ?? entityData?.dataPlatformInstance?.platform,
-        entityType,
-    });
-    // push siblings data
-    const siblings: GenericEntityProperties[] = entityData?.siblingsSearch?.searchResults?.map((r) => r.entity) || [];
-    siblings.forEach((sibling) => {
-        if (sibling.urn === urn || !sibling.urn) {
-            return;
-        }
-        optionsToAuthorOn.push({
-            urn: sibling.urn,
-            title:
-                getPlatformName(sibling) ??
-                sibling?.dataPlatformInstance?.platform?.name ??
-                sibling?.platform?.urn ??
-                sibling.urn,
-            disabled: true,
-            platform: sibling?.platform ?? sibling?.dataPlatformInstance?.platform,
-            entityType: sibling.type,
-        });
-    });
-    return optionsToAuthorOn;
 };
 
 // transform assertions into table data

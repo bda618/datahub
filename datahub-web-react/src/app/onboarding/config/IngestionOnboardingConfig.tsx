@@ -1,9 +1,11 @@
+import { Text } from '@components';
 import React from 'react';
-import { Typography } from 'antd';
-import { OnboardingStep } from '../OnboardingStep';
+
+import { OnboardingStep } from '@app/onboarding/OnboardingStep';
 
 export const INGESTION_CREATE_SOURCE_ID = 'ingestion-create-source';
 export const INGESTION_REFRESH_SOURCES_ID = 'ingestion-refresh-sources';
+export const INGESTION_SELECT_SOURCE_ID = 'ingestion-select-source';
 
 export const IngestionOnboardingConfig: OnboardingStep[] = [
     {
@@ -11,7 +13,7 @@ export const IngestionOnboardingConfig: OnboardingStep[] = [
         selector: `#${INGESTION_CREATE_SOURCE_ID}`,
         title: 'Create a new Ingestion Source',
         content: (
-            <Typography.Paragraph>
+            <Text type="div" size="md">
                 <p>
                     Configure new Integrations from DataHub to your <strong>Data Platforms</strong>, including
                     Transactional Databases like <strong>MySQL</strong>, Data Warehouses such as{' '}
@@ -22,13 +24,13 @@ export const IngestionOnboardingConfig: OnboardingStep[] = [
                     <a
                         target="_blank"
                         rel="noreferrer noopener"
-                        href="https://datahubproject.io/docs/metadata-ingestion"
+                        href="https://docs.datahub.com/docs/metadata-ingestion"
                     >
                         {' '}
                         here.
                     </a>
                 </p>
-            </Typography.Paragraph>
+            </Text>
         ),
     },
     {
@@ -36,9 +38,13 @@ export const IngestionOnboardingConfig: OnboardingStep[] = [
         selector: `#${INGESTION_REFRESH_SOURCES_ID}`,
         title: 'Refresh Ingestion Sources',
         content: (
-            <Typography.Paragraph>
+            <Text type="div" size="md">
                 <p>Click to force a refresh of running ingestion sources.</p>
-            </Typography.Paragraph>
+            </Text>
         ),
+    },
+    {
+        id: INGESTION_SELECT_SOURCE_ID,
+        selector: `#${INGESTION_SELECT_SOURCE_ID}`,
     },
 ];

@@ -1,18 +1,19 @@
+import { ClockCircleOutlined } from '@ant-design/icons';
+import { Divider } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { Divider } from 'antd';
-import { ClockCircleOutlined } from '@ant-design/icons';
-import { FreshnessContract } from '../../../../../../../types.generated';
-import { ANTD_GRAY } from '../../../../constants';
-import { DataContractSummaryFooter } from './DataContractSummaryFooter';
-import { FreshnessScheduleSummary } from './FreshnessScheduleSummary';
+
+import { DataContractSummaryFooter } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/DataContractSummaryFooter';
+import { FreshnessScheduleSummary } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/FreshnessScheduleSummary';
+
+import { FreshnessContract } from '@types';
 
 const Container = styled.div`
     padding: 28px;
 `;
 
 const TitleText = styled.div`
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
     margin-bottom: 20px;
     letter-spacing: 1px;
 `;
@@ -25,11 +26,11 @@ const ThinDivider = styled(Divider)`
 `;
 
 const Header = styled.div`
-    color: ${ANTD_GRAY[8]};
+    color: ${(props) => props.theme.colors.textSecondary};
     letter-spacing; 4px;
     padding-top: 8px;
     padding: 12px;
-    background-color: ${ANTD_GRAY[2]};
+    background-color: ${(props) => props.theme.colors.bgSurface};
 `;
 
 const Body = styled.div`
@@ -39,13 +40,13 @@ const Body = styled.div`
 const Footer = styled.div`
     padding-top: 8px;
     padding: 12px;
-    background-color: ${ANTD_GRAY[2]};
+    background-color: ${(props) => props.theme.colors.bgSurface};
 `;
 
 const SummaryContainer = styled.div`
     width: 100%;
     border-radius: 8px;
-    box-shadow: 0px 0px 4px rgba(0, 0, 0, 0.1);
+    box-shadow: ${(props) => props.theme.colors.shadowXs};
 `;
 
 type Props = {
@@ -66,7 +67,7 @@ export const FreshnessContractSummary = ({ contracts, showAction = false }: Prop
             <SummaryContainer>
                 <Header>
                     <ClockCircleOutlined style={{ marginRight: 8 }} />
-                    UPDATE FREQUENCY
+                    Update Frequency
                 </Header>
                 <Body>
                     {!assertionDefinition && <>No contract found :(</>}

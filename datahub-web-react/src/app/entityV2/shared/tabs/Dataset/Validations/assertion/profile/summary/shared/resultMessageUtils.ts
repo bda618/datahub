@@ -1,11 +1,14 @@
+import { getResultErrorMessage } from '@app/entityV2/shared/tabs/Dataset/Validations/assertionUtils';
+
 import {
     Assertion,
+    AssertionInfo,
     AssertionResult,
     AssertionResultType,
     AssertionRunEvent,
     AssertionType,
-} from '../../../../../../../../../../types.generated';
-import { getResultErrorMessage } from '../../../../assertionUtils';
+    Maybe,
+} from '@types';
 
 export const getFormattedResultText = (result?: AssertionResultType) => {
     if (result === undefined) {
@@ -80,7 +83,10 @@ export const getFormattedReasonText = (assertion: Assertion, run: AssertionRunEv
     }
 };
 
-export const getFormattedExpectedResultText = (): string | undefined => {
+export const getFormattedExpectedResultText = (
+    _assertion?: Maybe<AssertionInfo>,
+    _run?: AssertionRunEvent,
+): string | undefined => {
     return undefined;
 };
 

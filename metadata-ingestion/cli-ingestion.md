@@ -1,3 +1,7 @@
+---
+description: "Run scheduled batch metadata ingestion from the CLI using DataHub recipes to extract metadata from source systems in bulk."
+---
+
 # CLI Ingestion
 
 Batch ingestion involves extracting metadata from a source system in bulk. Typically, this happens on a predefined schedule using the [Metadata Ingestion](../docs/components.md#ingestion-framework) framework.
@@ -5,13 +9,20 @@ The metadata that is extracted includes point-in-time instances of dataset, char
 
 ## Installing DataHub CLI
 
+On macOS or Linux, the simplest install is via Homebrew:
+
+```bash
+brew install datahub-project/tap/datahub
+datahub version
+```
+
+Or via pip on any platform:
+
 :::note Required Python Version
-Installing DataHub CLI requires Python 3.6+.
+Installing DataHub CLI via pip requires Python 3.10+.
 :::
 
-Run the following commands in your terminal:
-
-```
+```bash
 python3 -m pip install --upgrade pip wheel setuptools
 python3 -m pip install --upgrade acryl-datahub
 python3 -m datahub version
@@ -19,13 +30,11 @@ python3 -m datahub version
 
 Your command line should return the proper version of DataHub upon executing these commands successfully.
 
-
 Check out the [CLI Installation Guide](../docs/cli.md#installation) for more installation options and troubleshooting tips.
 
+## Installing Connector Plugins
 
-## Installing Connector Plugins 
-
-Our CLI follows a plugin architecture. You must install connectors for different data sources individually. 
+Our CLI follows a plugin architecture. You must install connectors for different data sources individually.
 For a list of all supported data sources, see [the open source docs](../docs/cli.md#sources).
 Once you've found the connectors you care about, simply install them using `pip install`.
 For example, to install the `mysql` connector, you can run
@@ -33,7 +42,16 @@ For example, to install the `mysql` connector, you can run
 ```shell
 pip install --upgrade 'acryl-datahub[mysql]'
 ```
+
 Check out the [alternative installation options](../docs/cli.md#alternate-installation-options) for more reference.
+
+:::tip Building a new connector?
+
+If you need a connector that doesn't exist yet, [datahub-skills](./datahub-skills.md) is a
+Claude Code plugin that accelerates connector development — from planning and scaffolding to
+standards review and community testing.
+
+:::
 
 ## Configuring a Recipe
 
@@ -57,6 +75,7 @@ sink:
     server: "https://<your domain name>.acryl.io/gms"
     token: <Your API key>
 ```
+
 The **source** configuration block defines where to extract metadata from. This can be an OLTP database system, a data warehouse, or something as simple as a file. Each source has custom configuration depending on what is required to access metadata from the source. To see configurations required for each supported source, refer to the [Sources](source_overview.md) documentation.
 
 The **sink** configuration block defines where to push metadata into. Each sink type requires specific configurations, the details of which are detailed in the [Sinks](sink_overview.md) documentation.
@@ -66,8 +85,8 @@ A complete example of a DataHub recipe file, which reads from MySQL and writes i
 
 For more information and examples on configuring recipes, please refer to [Recipes](recipe_overview.md).
 
-
 ### Using Recipes with Authentication
+
 In DataHub Cloud deployments, only the `datahub-rest` sink is supported, which simply means that metadata will be pushed to the REST endpoints exposed by your DataHub instance. The required configurations for this sink are
 
 1. **server**: the location of the REST API exposed by your instance of DataHub
@@ -84,14 +103,15 @@ The token can be retrieved by logging in as admin. You can go to Settings page a
 </p>
 
 :::info Secure Your API Key
-Please keep Your API key secure & avoid sharing it. 
-If you are on DataHub Cloud and your key is compromised for any reason, please reach out to the Acryl team at support@acryl.io.
+Please keep Your API key secure & avoid sharing it.
+If you are on DataHub Cloud and your key is compromised for any reason, please reach out to the DataHub team at support@acryl.io.
 :::
 
-
 ## Ingesting Metadata
+
 The final step requires invoking the DataHub CLI to ingest metadata based on your recipe configuration file.
 To do so, simply run `datahub ingest` with a pointer to your YAML recipe file:
+
 ```shell
 datahub ingest -c <path/to/recipe.yml>
 ```
@@ -117,4 +137,3 @@ We do this because we do CLI releases at a much higher frequency than server rel
 
 For ingestion sources, any breaking changes will be highlighted in the [release notes](../docs/how/updating-datahub.md). When fields are deprecated or otherwise changed, we will try to maintain backwards compatibility for two server releases, which is about 4-6 weeks. The CLI will also print warnings whenever deprecated options are used.
 :::
-

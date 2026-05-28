@@ -1,15 +1,19 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled, { CSSObject } from 'styled-components';
-import HealthIcon from '@src/app/previewV2/HealthIcon';
-import { useEmbeddedProfileLinkProps } from '@src/app/shared/useEmbeddedProfileLinkProps';
+
+import { GenericEntityProperties } from '@app/entity/shared/types';
+import { GlossaryPreviewCardDecoration } from '@app/entityV2/shared/containers/profile/header/GlossaryPreviewCardDecoration';
+import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+import { IconStyleType } from '@src/app/entityV2/Entity';
+import { DeprecationIcon } from '@src/app/entityV2/shared/components/styled/DeprecationIcon';
 import PlatformHeaderIcons from '@src/app/entityV2/shared/containers/profile/header/PlatformContent/PlatformHeaderIcons';
 import { getEntityPlatforms } from '@src/app/entityV2/shared/containers/profile/header/utils';
-import { Entity, EntityType } from '../../../../types.generated';
-import { GenericEntityProperties } from '../../../entity/shared/types';
-import { HoverEntityTooltip } from '../../../recommendations/renderer/component/HoverEntityTooltip';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { GlossaryPreviewCardDecoration } from '../../../entityV2/shared/containers/profile/header/GlossaryPreviewCardDecoration';
+import HealthIcon from '@src/app/previewV2/HealthIcon';
+import { useEmbeddedProfileLinkProps } from '@src/app/shared/useEmbeddedProfileLinkProps';
+
+import { Entity, EntityType } from '@types';
 
 const Container = styled.div<{ showHover: boolean; entity: GenericEntityProperties }>`
     display: flex;
@@ -20,10 +24,11 @@ const Container = styled.div<{ showHover: boolean; entity: GenericEntityProperti
     border-radius: 8px;
     cursor: pointer;
     width: ${(props) => props.entity.type === EntityType.GlossaryTerm && 'fit-content'};
-    border: ${(props) => (props.entity.type === EntityType.GlossaryTerm ? '1px solid #C1C4D0' : 'none')};
+    border: ${(props) =>
+        props.entity.type === EntityType.GlossaryTerm ? `1px solid ${props.theme.colors.border}` : 'none'};
 
     :hover {
-        ${(props) => props.showHover && 'background-color: #f5f7fa;'}
+        ${(props) => props.showHover && `background-color: ${props.theme.colors.bgHover};`}
     }
 
     > a {
@@ -32,11 +37,14 @@ const Container = styled.div<{ showHover: boolean; entity: GenericEntityProperti
 `;
 
 const IconWrapper = styled.div`
-    padding-right: 4px;
+    padding: 0px 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 `;
 
-const LinkButton = styled(Link)<{ includePadding: boolean }>`
-    padding: ${(props) => (props.includePadding ? '2px 4px' : '0px')};
+const LinkButton = styled(Link)<{ $includePadding: boolean }>`
+    padding: ${(props) => (props.$includePadding ? '2px 4px' : '0px')};
     height: auto;
     margin: 4px 0px 4px 0px;
     max-width: 100%; /* Ensure the grid container does not exceed its parent's width */
@@ -51,7 +59,7 @@ const LinkButton = styled(Link)<{ includePadding: boolean }>`
 `;
 
 const DisplayNameText = styled.span<{ entity: GenericEntityProperties }>`
-    color: #52596c;
+    color: ${(props) => props.theme.colors.textSecondary};
     font-family: Mulish;
     font-size: 12px;
     font-style: normal;
@@ -82,9 +90,18 @@ type Props = {
     render?: (entity: GenericEntityProperties) => React.ReactNode;
     onClick?: (e) => void;
     showHealthIcon?: boolean;
+    showDeprecatedIcon?: boolean;
 };
 
-export const EntityLink = ({ entity, styles, render, displayTextStyle, onClick, showHealthIcon = false }: Props) => {
+export const EntityLink = ({
+    entity,
+    styles,
+    render,
+    displayTextStyle,
+    onClick,
+    showHealthIcon = false,
+    showDeprecatedIcon = true,
+}: Props) => {
     const entityRegistry = useEntityRegistry();
     const linkProps = useEmbeddedProfileLinkProps();
 
@@ -112,7 +129,9 @@ export const EntityLink = ({ entity, styles, render, displayTextStyle, onClick, 
                     ...styles,
                 }}
             />
-        ) : null;
+        ) : (
+            <IconWrapper>{entityRegistry.getIcon(entity.type as EntityType, 18, IconStyleType.ACCENT)}</IconWrapper>
+        );
     };
 
     return (
@@ -123,7 +142,7 @@ export const EntityLink = ({ entity, styles, render, displayTextStyle, onClick, 
                 <>
                     <HoverEntityTooltip entity={entity as Entity} showArrow={false} placement="bottom">
                         <LinkButton
-                            includePadding={entity.type !== EntityType.GlossaryTerm}
+                            $includePadding={entity.type !== EntityType.GlossaryTerm}
                             to={!onClick ? entityRegistry.getEntityUrl(entity.type, entity.urn) : undefined}
                             onClick={onClick}
                             {...linkProps}
@@ -134,7 +153,17 @@ export const EntityLink = ({ entity, styles, render, displayTextStyle, onClick, 
                             </DisplayNameText>
                         </LinkButton>
                     </HoverEntityTooltip>
-                    {entity?.health && showHealthIcon && (
+                    {entity?.deprecation?.deprecated && showDeprecatedIcon ? (
+                        <IconWrapper>
+                            <DeprecationIcon
+                                urn={entity?.urn}
+                                deprecation={entity?.deprecation}
+                                showUndeprecate={false}
+                                showText={false}
+                            />
+                        </IconWrapper>
+                    ) : null}
+                    {entity?.health && showHealthIcon ? (
                         <IconWrapper>
                             <HealthIcon
                                 urn={entity?.urn}
@@ -142,7 +171,7 @@ export const EntityLink = ({ entity, styles, render, displayTextStyle, onClick, 
                                 baseUrl={entityRegistry.getEntityUrl(entity.type, entity.urn)}
                             />
                         </IconWrapper>
-                    )}
+                    ) : null}
                 </>
             )}
         </Container>

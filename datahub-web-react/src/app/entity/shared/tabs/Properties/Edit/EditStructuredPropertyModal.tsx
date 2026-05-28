@@ -1,13 +1,16 @@
-import analytics, { EventType } from '@src/app/analytics';
-import { Button, Modal, message } from 'antd';
+import { message } from 'antd';
 import React, { useEffect, useMemo } from 'react';
 import styled from 'styled-components';
-import { useUpsertStructuredPropertiesMutation } from '../../../../../../graphql/structuredProperties.generated';
-import { EntityType, PropertyValueInput, StructuredPropertyEntity } from '../../../../../../types.generated';
-import handleGraphQLError from '../../../../../shared/handleGraphQLError';
-import StructuredPropertyInput from '../../../components/styled/StructuredProperty/StructuredPropertyInput';
-import { useEditStructuredProperty } from '../../../components/styled/StructuredProperty/useEditStructuredProperty';
-import { useEntityContext, useEntityData, useMutationUrn } from '../../../EntityContext';
+
+import { useEntityContext, useEntityData, useMutationUrn } from '@app/entity/shared/EntityContext';
+import StructuredPropertyInput from '@app/entity/shared/components/styled/StructuredProperty/StructuredPropertyInput';
+import { useEditStructuredProperty } from '@app/entity/shared/components/styled/StructuredProperty/useEditStructuredProperty';
+import handleGraphQLError from '@app/shared/handleGraphQLError';
+import { Modal } from '@src/alchemy-components';
+import analytics, { EventType } from '@src/app/analytics';
+
+import { useUpsertStructuredPropertiesMutation } from '@graphql/structuredProperties.generated';
+import { EntityType, PropertyValueInput, StdDataType, StructuredPropertyEntity } from '@types';
 
 const Description = styled.div`
     font-size: 14px;
@@ -24,6 +27,9 @@ interface Props {
     refetch?: () => void;
     isAddMode?: boolean;
 }
+
+const SEARCH_SELECT_MODAL_WIDTH = 1400;
+const DEFAULT_MODAL_WIDTH = 650;
 
 export default function EditStructuredPropertyModal({
     isOpen,
@@ -42,6 +48,7 @@ export default function EditStructuredPropertyModal({
     const { selectedValues, selectSingleValue, toggleSelectedValue, updateSelectedValues, setSelectedValues } =
         useEditStructuredProperty(initialValues);
     const [upsertStructuredProperties] = useUpsertStructuredPropertiesMutation();
+    const { allowedValues } = structuredProperty.definition;
 
     useEffect(() => {
         setSelectedValues(initialValues);
@@ -97,33 +104,35 @@ export default function EditStructuredPropertyModal({
             });
     }
 
+    const isUrnInput = structuredProperty.definition.valueType.info.type === StdDataType.Urn && !allowedValues;
+
     return (
         <Modal
             title={`${isAddMode ? 'Add property' : 'Edit property'} ${structuredProperty?.definition?.displayName}`}
             onCancel={closeModal}
             open={isOpen}
-            width={650}
-            footer={
-                <>
-                    <Button onClick={closeModal} type="text">
-                        Cancel
-                    </Button>
-                    <Button
-                        type="primary"
-                        onClick={upsertProperties}
-                        disabled={!selectedValues.length}
-                        data-testid="add-update-structured-prop-on-entity-button"
-                    >
-                        {isAddMode ? 'Add' : 'Update'}
-                    </Button>
-                </>
-            }
+            buttons={[
+                {
+                    text: 'Cancel',
+                    onClick: closeModal,
+                    variant: 'text',
+                },
+                {
+                    text: isAddMode ? 'Add' : 'Update',
+                    onClick: upsertProperties,
+                    disabled: !selectedValues.length,
+                    buttonDataTestId: 'add-update-structured-prop-on-entity-button',
+                },
+            ]}
+            // Urn input is a special case that requires a wider modal since it employs a search select component
+            width={isUrnInput ? SEARCH_SELECT_MODAL_WIDTH : DEFAULT_MODAL_WIDTH}
             destroyOnClose
         >
             {structuredProperty?.definition?.description && (
                 <Description>{structuredProperty.definition.description}</Description>
             )}
             <StructuredPropertyInput
+                canUseSearchSelectUrnInput
                 structuredProperty={structuredProperty}
                 selectedValues={selectedValues}
                 selectSingleValue={selectSingleValue}

@@ -1,3 +1,7 @@
+---
+description: "Step-by-step tutorial for managing CorpUser, CorpGroup, and ownership assignments in DataHub via the GraphQL API and Python SDK."
+---
+
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
@@ -21,7 +25,7 @@ This guide will show you how to
 ## Pre-requisites
 
 For this tutorial, you need to deploy DataHub Quickstart and ingest sample data.
-For detailed information, please refer to [Datahub Quickstart Guide](/docs/quickstart.md).
+For detailed information, please refer to [DataHub Quickstart Guide](/docs/quickstart.md).
 
 :::note
 In this guide, ingesting sample data is optional.
@@ -41,12 +45,14 @@ Save this `user.yaml` as a local file.
   email: bar@acryl.io
   slack: "@the_bar_raiser"
   description: "I like raising the bar higher"
+  title: "Analytics Engineer"
   groups:
     - foogroup@acryl.io
 - id: datahub
   slack: "@datahubproject"
   phone: "1-800-GOT-META"
   description: "The DataHub Project"
+  title: "Data Engineer"
   picture_link: "https://raw.githubusercontent.com/datahub-project/datahub/master/datahub-web-react/src/images/datahub-logo-color-stable.svg"
 ```
 
@@ -81,7 +87,6 @@ You can see the user `The bar` has been created and the user `Datahub` has been 
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/user-upserted.png"/>
 </p>
-
 
 ## Upsert Group
 
@@ -133,7 +138,6 @@ You can see the group `Foo Group` has been created under `Settings > Access > Us
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/group-upserted.png"/>
 </p>
-
 
 ## Read Owners
 
@@ -280,11 +284,9 @@ curl --location --request POST 'http://localhost:8080/api/graphql' \
 
 You can now see `bfoo` has been added as an owner to the `fct_users_created` dataset.
 
-
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/owner-added.png"/>
 </p>
-
 
 ## Remove Owners
 
@@ -352,8 +354,6 @@ curl --location --request POST 'http://localhost:8080/api/graphql' \
 
 You can now see `John Doe` has been removed as an owner from the `fct_users_created` dataset.
 
-
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/owner-removed.png"/>
 </p>
-

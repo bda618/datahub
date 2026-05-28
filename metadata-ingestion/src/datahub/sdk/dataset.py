@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import logging
 import warnings
 from datetime import datetime
-from typing import Dict, List, Optional, Tuple, Type, Union
+from typing import Dict, List, Optional, Sequence, Set, Tuple, Type, Union
 
 from typing_extensions import Self, TypeAlias, assert_never
 
@@ -18,19 +19,22 @@ from datahub.errors import (
 from datahub.ingestion.source.sql.sql_types import resolve_sql_type
 from datahub.metadata.urns import DatasetUrn, SchemaFieldUrn, Urn
 from datahub.sdk._attribution import is_ingestion_attribution
-from datahub.sdk._entity import Entity
 from datahub.sdk._shared import (
     DatasetUrnOrStr,
     DomainInputType,
     HasContainer,
     HasDomain,
+    HasInstitutionalMemory,
     HasOwnership,
     HasPlatformInstance,
+    HasStructuredProperties,
     HasSubtype,
     HasTags,
     HasTerms,
+    LinksInputType,
     OwnersInputType,
     ParentContainerInputType,
+    StructuredPropertyInputType,
     TagInputType,
     TagsInputType,
     TermInputType,
@@ -39,15 +43,22 @@ from datahub.sdk._shared import (
     parse_time_stamp,
 )
 from datahub.sdk._utils import add_list_unique, remove_list_unique
+from datahub.sdk.entity import Entity, ExtraAspectsType
 from datahub.utilities.sentinels import Unset, unset
 
+logger = logging.getLogger(__name__)
+
 SchemaFieldInputType: TypeAlias = Union[
+    # There is no Enum variant for schema field types because that would force users to do a mapping
+    # to our enum from the raw source type, so additional complexity on their side.
+    # To avoid that, the raw source native type can be provided as a string,
+    # and we will do the mapping internally (in sql_types.py)
     Tuple[str, str],  # (name, type)
     Tuple[str, str, str],  # (name, type, description)
     models.SchemaFieldClass,
 ]
 SchemaFieldsInputType: TypeAlias = Union[
-    List[SchemaFieldInputType],
+    Sequence[SchemaFieldInputType],
     models.SchemaMetadataClass,
 ]
 
@@ -68,13 +79,18 @@ UpstreamLineageInputType: TypeAlias = Union[
     Dict[DatasetUrnOrStr, ColumnLineageMapping],
 ]
 
+ViewDefinitionInputType: TypeAlias = Union[
+    str,
+    models.ViewPropertiesClass,
+]
+
 
 def _parse_upstream_input(
     upstream_input: UpstreamInputType,
 ) -> Union[models.UpstreamClass, models.FineGrainedLineageClass]:
-    if isinstance(upstream_input, models.UpstreamClass):
-        return upstream_input
-    elif isinstance(upstream_input, models.FineGrainedLineageClass):
+    if isinstance(
+        upstream_input, (models.UpstreamClass, models.FineGrainedLineageClass)
+    ):
         return upstream_input
     elif isinstance(upstream_input, (str, DatasetUrn)):
         return models.UpstreamClass(
@@ -85,7 +101,7 @@ def _parse_upstream_input(
         assert_never(upstream_input)
 
 
-def _parse_cll_mapping(
+def parse_cll_mapping(
     *,
     upstream: DatasetUrnOrStr,
     downstream: DatasetUrnOrStr,
@@ -140,7 +156,7 @@ def _parse_upstream_lineage_input(
                 )
             )
             cll.extend(
-                _parse_cll_mapping(
+                parse_cll_mapping(
                     upstream=dataset_urn,
                     downstream=downstream_urn,
                     cll_mapping=column_lineage,
@@ -422,15 +438,73 @@ class Dataset(
     HasSubtype,
     HasContainer,
     HasOwnership,
+    HasInstitutionalMemory,
     HasTags,
     HasTerms,
     HasDomain,
+    HasStructuredProperties,
     Entity,
 ):
+    """Represents a dataset in DataHub.
+
+    A dataset represents a collection of data, such as a table, view, or file.
+    This class provides methods for managing dataset metadata including schema,
+    lineage, and various aspects like ownership, tags, and terms.
+
+    **Automatic View Lineage Parsing**
+
+    When a `view_definition` SQL string is provided, the SDK can automatically
+    parse it to extract upstream table references using sqlglot. This behavior
+    is controlled by the `parse_view_lineage` parameter:
+
+    - None (default): Auto-parse in SDK mode, skip in ingestion framework
+      (where SqlParsingAggregator handles lineage more accurately)
+    - True: Force parsing (even within the ingestion framework)
+    - False: Never parse automatically
+
+    **Features:**
+
+    - Supports all major SQL dialects (Snowflake, BigQuery, Postgres, etc.)
+    - Filters out CTEs (Common Table Expressions) from upstream tables
+    - Gracefully handles parse errors without raising exceptions
+
+    **Limitations:**
+
+    - Table-level lineage only (no column-level lineage)
+    - No schema resolution: table names are taken as-is from the SQL.
+      For fully-qualified references, ensure your view definition includes
+      the database and schema (e.g., db.schema.table)
+    - Best-effort extraction; for production-grade lineage with schema resolution
+      and additional context (e.g., temporary tables), use SqlParsingAggregator
+
+    Example::
+
+        # Auto-parsing enabled by default
+        view = Dataset(
+            platform="snowflake",
+            name="analytics.reporting.sales_summary",
+            view_definition="SELECT * FROM analytics.raw.sales WHERE year = 2024",
+        )
+        # view.upstreams now contains analytics.raw.sales
+
+        # Disable auto-parsing
+        view = Dataset(
+            platform="snowflake",
+            name="analytics.reporting.sales_summary",
+            view_definition="SELECT * FROM analytics.raw.sales",
+            parse_view_lineage=False,  # Must set upstreams manually
+        )
+    """
+
     __slots__ = ()
 
     @classmethod
     def get_urn_type(cls) -> Type[DatasetUrn]:
+        """Get the URN type for datasets.
+
+        Returns:
+            The DatasetUrn class.
+        """
         return DatasetUrn
 
     def __init__(
@@ -449,18 +523,53 @@ class Dataset(
         custom_properties: Optional[Dict[str, str]] = None,
         created: Optional[datetime] = None,
         last_modified: Optional[datetime] = None,
+        view_definition: Optional[ViewDefinitionInputType] = None,
         # Standard aspects.
         parent_container: ParentContainerInputType | Unset = unset,
         subtype: Optional[str] = None,
         owners: Optional[OwnersInputType] = None,
+        links: Optional[LinksInputType] = None,
         tags: Optional[TagsInputType] = None,
         terms: Optional[TermsInputType] = None,
-        # TODO structured_properties
         domain: Optional[DomainInputType] = None,
         # Dataset-specific aspects.
         schema: Optional[SchemaFieldsInputType] = None,
         upstreams: Optional[models.UpstreamLineageClass] = None,
+        structured_properties: Optional[StructuredPropertyInputType] = None,
+        extra_aspects: ExtraAspectsType = None,
+        # View lineage parsing option.
+        parse_view_lineage: Optional[bool] = None,
     ):
+        """Initialize a new Dataset instance.
+
+        Args:
+            platform: The platform this dataset belongs to (e.g. "mysql", "snowflake").
+            name: The name of the dataset.
+            platform_instance: Optional platform instance identifier.
+            env: The environment this dataset belongs to (default: DEFAULT_ENV).
+            description: Optional description of the dataset.
+            display_name: Optional display name for the dataset.
+            qualified_name: Optional qualified name for the dataset.
+            external_url: Optional URL to external documentation or source.
+            custom_properties: Optional dictionary of custom properties.
+            created: Optional creation timestamp.
+            last_modified: Optional last modification timestamp.
+            view_definition: Optional view definition for the dataset.
+            parent_container: Optional parent container for this dataset.
+            subtype: Optional subtype of the dataset.
+            owners: Optional list of owners.
+            links: Optional list of links.
+            tags: Optional list of tags.
+            terms: Optional list of glossary terms.
+            domain: Optional domain this dataset belongs to.
+            extra_aspects: Optional list of additional aspects.
+            schema: Optional schema definition for the dataset.
+            upstreams: Optional upstream lineage information.
+            parse_view_lineage: Whether to auto-parse lineage from view_definition SQL.
+                None (default): auto-parse in SDK mode, skip in ingestion framework.
+                True: force parsing (even in ingestion framework).
+                False: never parse.
+        """
         urn = DatasetUrn.create_from_ids(
             platform_id=platform,
             table_name=name,
@@ -468,6 +577,7 @@ class Dataset(
             env=env,
         )
         super().__init__(urn)
+        self._set_extra_aspects(extra_aspects)
 
         self._set_platform_instance(urn.platform, platform_instance)
 
@@ -490,6 +600,8 @@ class Dataset(
             self.set_created(created)
         if last_modified is not None:
             self.set_last_modified(last_modified)
+        if view_definition is not None:
+            self.set_view_definition(view_definition, parse=parse_view_lineage)
 
         if parent_container is not unset:
             self._set_container(parent_container)
@@ -497,12 +609,17 @@ class Dataset(
             self.set_subtype(subtype)
         if owners is not None:
             self.set_owners(owners)
+        if links is not None:
+            self.set_links(links)
         if tags is not None:
             self.set_tags(tags)
         if terms is not None:
             self.set_terms(terms)
         if domain is not None:
             self.set_domain(domain)
+        if structured_properties is not None:
+            for key, value in structured_properties.items():
+                self.set_structured_property(property_urn=key, values=value)
 
     @classmethod
     def _new_from_graph(cls, urn: Urn, current_aspects: models.AspectBag) -> Self:
@@ -531,6 +648,11 @@ class Dataset(
 
     @property
     def description(self) -> Optional[str]:
+        """Get the description of the dataset.
+
+        Returns:
+            The description if set, None otherwise.
+        """
         editable_props = self._get_editable_props()
         return first_non_null(
             [
@@ -540,6 +662,15 @@ class Dataset(
         )
 
     def set_description(self, description: str) -> None:
+        """Set the description of the dataset.
+
+        Args:
+            description: The description to set.
+
+        Note:
+            If called during ingestion, this will warn if overwriting
+            a non-ingestion description.
+        """
         if is_ingestion_attribution():
             editable_props = self._get_editable_props()
             if editable_props is not None and editable_props.description is not None:
@@ -557,45 +688,312 @@ class Dataset(
 
     @property
     def display_name(self) -> Optional[str]:
+        """Get the display name of the dataset.
+
+        Returns:
+            The display name if set, None otherwise.
+        """
         return self._ensure_dataset_props().name
 
     def set_display_name(self, display_name: str) -> None:
+        """Set the display name of the dataset.
+
+        Args:
+            display_name: The display name to set.
+        """
         self._ensure_dataset_props().name = display_name
 
     @property
     def qualified_name(self) -> Optional[str]:
+        """Get the qualified name of the dataset.
+
+        Returns:
+            The qualified name if set, None otherwise.
+        """
         return self._ensure_dataset_props().qualifiedName
 
     def set_qualified_name(self, qualified_name: str) -> None:
+        """Set the qualified name of the dataset.
+
+        Args:
+            qualified_name: The qualified name to set.
+        """
         self._ensure_dataset_props().qualifiedName = qualified_name
 
     @property
     def external_url(self) -> Optional[str]:
+        """Get the external URL of the dataset.
+
+        Returns:
+            The external URL if set, None otherwise.
+        """
         return self._ensure_dataset_props().externalUrl
 
     def set_external_url(self, external_url: str) -> None:
+        """Set the external URL of the dataset.
+
+        Args:
+            external_url: The external URL to set.
+        """
         self._ensure_dataset_props().externalUrl = external_url
 
     @property
     def custom_properties(self) -> Dict[str, str]:
+        """Get the custom properties of the dataset.
+
+        Returns:
+            Dictionary of custom properties.
+        """
         return self._ensure_dataset_props().customProperties
 
     def set_custom_properties(self, custom_properties: Dict[str, str]) -> None:
+        """Set the custom properties of the dataset.
+
+        Args:
+            custom_properties: Dictionary of custom properties to set.
+        """
         self._ensure_dataset_props().customProperties = custom_properties
 
     @property
     def created(self) -> Optional[datetime]:
+        """Get the creation timestamp of the dataset.
+
+        Returns:
+            The creation timestamp if set, None otherwise.
+        """
         return parse_time_stamp(self._ensure_dataset_props().created)
 
     def set_created(self, created: datetime) -> None:
+        """Set the creation timestamp of the dataset.
+
+        Args:
+            created: The creation timestamp to set.
+        """
         self._ensure_dataset_props().created = make_time_stamp(created)
 
     @property
     def last_modified(self) -> Optional[datetime]:
+        """Get the last modification timestamp of the dataset.
+
+        Returns:
+            The last modification timestamp if set, None otherwise.
+        """
         return parse_time_stamp(self._ensure_dataset_props().lastModified)
 
     def set_last_modified(self, last_modified: datetime) -> None:
         self._ensure_dataset_props().lastModified = make_time_stamp(last_modified)
+
+    @property
+    def view_definition(self) -> Optional[models.ViewPropertiesClass]:
+        """Get the view definition of the dataset.
+
+        Under typical usage, this will be present if the subtype is "View".
+
+        Returns:
+            The view definition if set, None otherwise.
+        """
+        return self._get_aspect(models.ViewPropertiesClass)
+
+    def set_view_definition(
+        self,
+        view_definition: ViewDefinitionInputType,
+        parse: Optional[bool] = None,
+    ) -> None:
+        """Set the view definition of the dataset.
+
+        If you're setting a view definition, subtype should typically be set to "view".
+
+        If a string is provided, it will be treated as a SQL view definition. To set
+        a custom language or other properties, provide a ViewPropertiesClass object.
+
+        By default (parse=None), the SQL will be automatically parsed to extract upstream
+        lineage, unless running inside the ingestion framework (which uses SqlParsingAggregator).
+
+        Args:
+            view_definition: The view definition to set.
+            parse: Whether to parse the SQL and extract upstream lineage.
+                None (default): auto-parse in SDK mode, skip in ingestion framework.
+                True: force parsing (even in ingestion framework).
+                False: never parse.
+        """
+        sql_to_parse: Optional[str] = None
+
+        if isinstance(view_definition, models.ViewPropertiesClass):
+            self._set_aspect(view_definition)
+            # Only parse if it's SQL
+            if view_definition.viewLanguage == "SQL" and view_definition.viewLogic:
+                sql_to_parse = view_definition.viewLogic
+        elif isinstance(view_definition, str):
+            self._set_aspect(
+                models.ViewPropertiesClass(
+                    materialized=False,
+                    viewLogic=view_definition,
+                    viewLanguage="SQL",
+                )
+            )
+            sql_to_parse = view_definition
+        else:
+            assert_never(view_definition)
+
+        should_parse = not is_ingestion_attribution() if parse is None else parse
+
+        # Parse lineage if enabled and upstreams not already set
+        if should_parse and sql_to_parse and self.upstreams is None:
+            self._parse_and_set_view_lineage(sql_to_parse)
+
+    def _parse_and_set_view_lineage(self, sql: str) -> None:
+        """Parse SQL view definition and extract upstream table-level lineage.
+
+        Uses sqlglot to parse SQL and identify referenced tables, creating upstream
+        lineage relationships automatically.
+
+        Why schema resolution is safe to skip for views:
+        - View definitions typically contain fully-qualified table names because views
+          are persistent database objects (references must be unambiguous)
+        - Views cannot reference session-scoped temporary tables (they're persistent)
+
+        Features:
+        - Supports all major SQL dialects (Snowflake, BigQuery, Postgres, etc.)
+        - Filters out CTEs (Common Table Expressions) from upstream tables
+        - Gracefully handles parse errors without raising exceptions
+
+        Limitations:
+        - Table-level lineage only (no column-level lineage)
+        - Best-effort extraction; for production-grade lineage use SqlParsingAggregator
+
+        Args:
+            sql: The SQL view definition to parse.
+        """
+        # Import shared dialect mapping from sql_parsing_common (lightweight module)
+        from datahub.sql_parsing.sql_parsing_common import get_dialect_str
+
+        # Lazy import sqlglot - it's an optional dependency
+        try:
+            import sqlglot
+            import sqlglot.errors
+        except ImportError:
+            logger.warning(
+                "sqlglot is not installed. View lineage auto-extraction is disabled. "
+                "Install with: pip install 'acryl-datahub[sql-parser]'"
+            )
+            return
+
+        if not sql or not sql.strip():
+            return
+
+        platform = self.urn.get_data_platform_urn().platform_name
+        env = self.urn.env
+
+        dialect_str = get_dialect_str(platform)
+
+        # Parse the SQL (returns sqlglot.Expression)
+        try:
+            dialect = sqlglot.Dialect.get_or_raise(dialect_str)
+            # Type annotation uses string literal since sqlglot is lazily imported
+            parsed: "sqlglot.exp.Expression" = sqlglot.maybe_parse(
+                sql, dialect=dialect, error_level=sqlglot.ErrorLevel.RAISE
+            )
+        except sqlglot.errors.ParseError as e:
+            # Expected: invalid/unsupported SQL syntax
+            logger.debug("Could not parse SQL for lineage extraction: %s", e)
+            return
+        except sqlglot.errors.SqlglotError as e:
+            # Unexpected sqlglot error - log at warning level with stack trace
+            logger.warning(
+                "Unexpected sqlglot error parsing view definition for %s: %s: %s",
+                self.urn,
+                type(e).__name__,
+                e,
+                exc_info=True,
+            )
+            return
+        except Exception as e:
+            # Programming error or unknown issue - log with full stack trace
+            logger.error(
+                "Failed to parse view definition for %s: %s: %s. "
+                "This may be a bug - please report it.",
+                self.urn,
+                type(e).__name__,
+                e,
+                exc_info=True,
+            )
+            return
+
+        # Get CTE names to filter them out (they're query-defined, not real tables)
+        cte_names = {
+            cte.alias_or_name.lower()
+            for cte in parsed.find_all(sqlglot.exp.CTE)
+            if cte.alias_or_name
+        }
+
+        # Extract all table references from the SQL
+        tables = list(parsed.find_all(sqlglot.exp.Table))
+        if not tables:
+            return
+
+        upstreams = []
+        seen_urns: Set[str] = set()
+
+        for table in tables:
+            # Build the fully-qualified table name from parts
+            parts = []
+            if table.catalog:
+                parts.append(table.catalog)
+            if table.db:
+                parts.append(table.db)
+            if table.name:
+                parts.append(table.name)
+
+            if not parts:
+                continue
+
+            table_name = ".".join(parts)
+
+            # Skip CTEs - they're defined within the query, not upstream tables
+            if table_name.lower() in cte_names:
+                continue
+
+            # Create upstream URN with same platform and environment
+            try:
+                upstream_urn = DatasetUrn.create_from_ids(
+                    platform_id=platform,
+                    table_name=table_name,
+                    env=env,
+                )
+            except (ValueError, TypeError) as e:
+                # Expected: invalid table name format
+                logger.debug(
+                    "Could not create URN for table '%s' (platform=%s, env=%s): %s",
+                    table_name,
+                    platform,
+                    env,
+                    e,
+                )
+                continue
+
+            # Deduplicate multiple references to the same table
+            urn_str = str(upstream_urn)
+            if urn_str in seen_urns:
+                continue
+            seen_urns.add(urn_str)
+
+            upstreams.append(
+                models.UpstreamClass(
+                    dataset=urn_str,
+                    type=models.DatasetLineageTypeClass.VIEW,
+                )
+            )
+
+        if upstreams:
+            self._set_aspect(
+                models.UpstreamLineageClass(
+                    upstreams=upstreams,
+                    fineGrainedLineages=None,
+                )
+            )
+            logger.debug(
+                f"Auto-extracted {len(upstreams)} upstream(s) from view definition for {self.urn}"
+            )
 
     def _schema_dict(self) -> Dict[str, models.SchemaFieldClass]:
         schema_metadata = self._get_aspect(models.SchemaMetadataClass)
@@ -606,6 +1004,11 @@ class Dataset(
     @property
     def schema(self) -> List[SchemaField]:
         # TODO: Add some caching here to avoid iterating over the schema every time.
+        """Get the schema fields of the dataset.
+
+        Returns:
+            List of SchemaField objects representing the dataset's schema.
+        """
         schema_dict = self._schema_dict()
         return [SchemaField(self, field_path) for field_path in schema_dict]
 
@@ -661,6 +1064,17 @@ class Dataset(
 
     def __getitem__(self, field_path: str) -> SchemaField:
         # TODO: Automatically deal with field path v2?
+        """Get a schema field by its path.
+
+        Args:
+            field_path: The path of the field to retrieve.
+
+        Returns:
+            A SchemaField instance.
+
+        Raises:
+            SchemaFieldKeyError: If the field is not found.
+        """
         schema_dict = self._schema_dict()
         if field_path not in schema_dict:
             raise SchemaFieldKeyError(f"Field {field_path} not found in schema")

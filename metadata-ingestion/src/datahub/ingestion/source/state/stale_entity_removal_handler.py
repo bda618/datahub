@@ -1,4 +1,5 @@
 import logging
+from collections import Counter
 from dataclasses import dataclass, field
 from functools import partial
 from typing import Dict, Iterable, Optional, Set, Type, cast
@@ -45,14 +46,23 @@ class StatefulStaleMetadataRemovalConfig(StatefulIngestionConfig):
         description="Prevents large amount of soft deletes & the state from committing from accidental changes to the source configuration if the relative change percent in entities compared to the previous state is above the 'fail_safe_threshold'.",
         le=100.0,
         ge=0.0,
-        hidden_from_docs=True,
     )
+
+
+@dataclass
+class EntityTypeDeletionSummary:
+    previous_checkpoint_count: int = 0
+    current_checkpoint_count: int = 0
+    soft_deleted_count: int = 0
 
 
 @dataclass
 class StaleEntityRemovalSourceReport(StatefulIngestionReport):
     soft_deleted_stale_entities: LossyList[str] = field(default_factory=LossyList)
     last_state_non_deletable_entities: LossyList[str] = field(default_factory=LossyList)
+    entity_type_deletion_summary: Dict[str, EntityTypeDeletionSummary] = field(
+        default_factory=dict
+    )
 
     def report_stale_entity_soft_deleted(self, urn: str) -> None:
         self.soft_deleted_stale_entities.append(urn)
@@ -114,14 +124,10 @@ class StaleEntityRemovalHandler(
         self.stateful_ingestion_config: Optional[StatefulStaleMetadataRemovalConfig] = (
             config.stateful_ingestion
         )
-        self.checkpointing_enabled: bool = (
-            True
-            if (
-                self.state_provider.is_stateful_ingestion_configured()
-                and self.stateful_ingestion_config
-                and self.stateful_ingestion_config.remove_stale_metadata
-            )
-            else False
+        self.checkpointing_enabled: bool = bool(
+            self.state_provider.is_stateful_ingestion_configured()
+            and self.stateful_ingestion_config
+            and self.stateful_ingestion_config.remove_stale_metadata
         )
         self._job_id = self._init_job_id()
         self._urns_to_skip: Set[str] = set()
@@ -242,6 +248,28 @@ class StaleEntityRemovalHandler(
 
         self._urns_to_skip.add(urn)
 
+    @staticmethod
+    def _build_checkpoint_comparison(
+        last_checkpoint_state: GenericCheckpointState,
+        cur_checkpoint_state: GenericCheckpointState,
+    ) -> Dict[str, "EntityTypeDeletionSummary"]:
+        previous_counts = Counter(
+            guess_entity_type(urn) for urn in last_checkpoint_state.urns
+        )
+        current_counts = Counter(
+            guess_entity_type(urn) for urn in cur_checkpoint_state.urns
+        )
+
+        return {
+            entity_type: EntityTypeDeletionSummary(
+                previous_checkpoint_count=previous_counts[entity_type],
+                current_checkpoint_count=current_counts[entity_type],
+            )
+            for entity_type in sorted(
+                set(previous_counts.keys()) | set(current_counts.keys())
+            )
+        }
+
     def gen_removed_entity_workunits(self) -> Iterable[MetadataWorkUnit]:
         if not self.is_checkpointing_enabled() or self._ignore_old_state():
             return
@@ -259,6 +287,13 @@ class StaleEntityRemovalHandler(
 
         assert self.stateful_ingestion_config
 
+        # Compute per-entity-type summary before any early-exit checks
+        # so the summary is always available in the report.
+        report = self.source.get_report()
+        assert isinstance(report, StaleEntityRemovalSourceReport)
+        report.entity_type_deletion_summary = self._build_checkpoint_comparison(
+            last_checkpoint_state, cur_checkpoint_state
+        )
         copy_previous_state_and_exit = False
 
         # If the source already had a failure, skip soft-deletion.
@@ -318,9 +353,6 @@ stateful_ingestion:\
                 self.add_entity_to_state("", urn)
             return
 
-        report = self.source.get_report()
-        assert isinstance(report, StaleEntityRemovalSourceReport)
-
         # Everything looks good, emit the soft-deletion workunits
         for urn in last_checkpoint_state.get_urns_not_in(
             type="*", other_checkpoint_state=cur_checkpoint_state
@@ -339,6 +371,7 @@ stateful_ingestion:\
                     f"Not soft-deleting entity {urn} since it is in urns_to_skip"
                 )
                 continue
+            report.entity_type_deletion_summary[entity_type].soft_deleted_count += 1
             yield self._create_soft_delete_workunit(urn)
 
     def add_entity_to_state(self, type: str, urn: str) -> None:

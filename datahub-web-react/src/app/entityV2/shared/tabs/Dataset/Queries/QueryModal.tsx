@@ -1,10 +1,10 @@
+import { Typography } from 'antd';
 import React from 'react';
-import { Button, Modal, Typography } from 'antd';
 import styled from 'styled-components';
-import CopyQuery from './CopyQuery';
-import { ANTD_GRAY } from '../../../constants';
-import { Editor as MarkdownEditor } from '../../Documentation/components/editor/Editor';
-import { StyledSyntaxHighlighter } from '../../../StyledSyntaxHighlighter';
+
+import { StyledSyntaxHighlighter } from '@app/entityV2/shared/StyledSyntaxHighlighter';
+import CopyQuery from '@app/entityV2/shared/tabs/Dataset/Queries/CopyQuery';
+import { Editor, Modal } from '@src/alchemy-components';
 
 const StyledModal = styled(Modal)`
     top: 4vh;
@@ -35,14 +35,14 @@ const QueryDetails = styled.div`
 const QueryTitle = styled(Typography.Title)<{ secondary?: boolean }>`
     && {
         margin-bottom: 16px;
-        color: ${(props) => (props.secondary && ANTD_GRAY[6]) || undefined};
+        color: ${(props) => (props.secondary && props.theme.colors.textSecondary) || undefined};
     }
 `;
 
-const StyledViewer = styled(MarkdownEditor)<{ secondary?: boolean }>`
+const StyledViewer = styled(Editor)<{ secondary?: boolean }>`
     .remirror-editor.ProseMirror {
         padding: 0;
-        color: ${(props) => (props.secondary && ANTD_GRAY[6]) || undefined};
+        color: ${(props) => (props.secondary && props.theme.colors.textSecondary) || undefined};
     }
 `;
 
@@ -50,7 +50,7 @@ const QueryContainer = styled.div`
     min-height: 50vh;
     max-height: 80vh;
     overflow-y: scroll;
-    background-color: ${ANTD_GRAY[2]};
+    background-color: ${(props) => props.theme.colors.bgSurface};
     border-radius: 4px;
 `;
 
@@ -66,25 +66,28 @@ type Props = {
     query: string;
     title?: string;
     description?: string;
-    onClose?: () => void;
+    onClose: () => void;
     showDetails?: boolean;
 };
 
 export default function QueryModal({ query, title, description, showDetails = true, onClose }: Props) {
     return (
         <StyledModal
-            visible
+            open
             width={MODAL_WIDTH}
-            title={null}
+            title="Query"
             closable={false}
-            onCancel={onClose}
+            onCancel={() => onClose?.()}
             bodyStyle={MODAL_BODY_STYLE}
-            data-testid="query-modal"
-            footer={
-                <Button onClick={onClose} type="text" data-testid="query-modal-close-button">
-                    Close
-                </Button>
-            }
+            dataTestId="query-modal"
+            buttons={[
+                {
+                    text: 'Close',
+                    onClick: onClose,
+                    variant: 'text',
+                    buttonDataTestId: 'query-modal-close-button',
+                },
+            ]}
         >
             <QueryActions>
                 <CopyQuery query={query} showCopyText />

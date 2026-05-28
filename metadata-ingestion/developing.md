@@ -9,7 +9,7 @@ Also take a look at the guide to [adding a source](./adding-source.md).
 
 ### Requirements
 
-1. Python 3.8+ must be installed in your host environment.
+1. Python 3.9+ must be installed in your host environment.
 2. Java 17 (gradle won't work with newer or older versions)
 3. On Debian/Ubuntu: `sudo apt install python3-dev python3-venv`
 4. On Fedora (if using LDAP source integration): `sudo yum install openldap-devel`
@@ -106,6 +106,22 @@ datahub version  # should print "DataHub CLI version: unavailable (installed in 
 Common issues (click to expand):
 
 <details>
+  <summary>Virtual environment creation fails with symlink errors (Nix, immutable filesystems, Windows)</summary>
+
+If you're using Nix, an immutable Python installation, Windows with certain filesystem configurations, or working in container environments where symlinks don't work correctly, you may encounter errors during virtual environment creation.
+
+You can enable the `--copies` flag for Python's venv by setting an environment variable before running the gradle commands:
+
+```shell
+export DATAHUB_VENV_USE_COPIES=true
+../gradlew :metadata-ingestion:installDev
+```
+
+This copies the Python binary instead of creating a symlink. Note that this increases disk usage and setup time, so only enable it if you're experiencing issues with the default symlink-based approach.
+
+</details>
+
+<details>
   <summary>datahub command not found with PyPI install</summary>
 
 If you've already run the pip install, but running `datahub` in your command line doesn't work, then there is likely an issue with your PATH setup and Python.
@@ -155,8 +171,8 @@ Instead, we recommend using UI-based ingestion or isolating the ingestion pipeli
 The syntax for installing plugins is slightly different in development. For example:
 
 ```diff
-- pip install 'acryl-datahub[bigquery,datahub-rest]'
-+ pip install -e '.[bigquery,datahub-rest]'
+- uv pip install 'acryl-datahub[bigquery,datahub-rest]'
++ uv pip install -e '.[bigquery,datahub-rest]'
 ```
 
 ## Architecture
@@ -180,7 +196,7 @@ The architecture of this metadata ingestion framework is heavily inspired by [Ap
 We use ruff, and mypy to ensure consistent code style and quality.
 
 ```shell
-# Assumes: pip install -e '.[dev]' and venv is activated
+# Assumes: ../gradlew :metadata-ingestion:installDev and venv is activated
 ruff check src/ tests/
 mypy src/ tests/
 ```
@@ -213,6 +229,33 @@ The vast majority of our dependencies are not required by the "core" package but
 Where possible, we should avoid pinning version dependencies. The `acryl-datahub` package is frequently used as a library and hence installed alongside other tools. If you need to restrict the version of a dependency, use a range like `>=1.2.3,<2.0.0` or a negative constraint like `>=1.2.3, !=1.2.7` instead. Every upper bound and negative constraint should be accompanied by a comment explaining why it's necessary.
 
 Caveat: Some packages like Great Expectations and Airflow frequently make breaking changes. For such packages, it's ok to add a "defensive" upper bound with the current latest version, accompanied by a comment. It's critical that we revisit these upper bounds at least once a month and broaden them if possible.
+
+### Updating the Lock File
+
+After changing dependencies in `setup.py`, regenerate all generated files:
+
+```shell
+../gradlew :metadata-ingestion:updateLockFile
+```
+
+This runs the full chain: `setup.py` → `pyproject.toml` → `uv.lock` → `constraints.txt`.
+
+To validate that all generated files are up to date without modifying them:
+
+```shell
+../gradlew :metadata-ingestion:checkLockFile
+```
+
+This runs automatically in CI as part of `check`, so PRs with stale generated files will fail.
+
+You can also run the steps manually:
+
+```shell
+python scripts/generate_pyproject_deps.py   # setup.py → pyproject.toml
+python scripts/verify_pyproject_equivalence.py  # verify equivalence
+uv lock                                      # update uv.lock
+uv export --format requirements-txt --no-hashes --all-extras --no-emit-project -o constraints.txt
+```
 
 ## Guidelines for Ingestion Configs
 
@@ -247,11 +290,8 @@ In order to ensure that the configs are consistent and easy to use, we have a fe
 ```shell
 # Follow standard install from source procedure - see above.
 
-# Install, including all dev requirements.
-pip install -e '.[dev]'
-
-# For running integration tests, you can use
-pip install -e '.[integration-tests]'
+# Install all dev and test requirements.
+../gradlew :metadata-ingestion:installDevTest
 
 # Run the full testing suite
 pytest -vv

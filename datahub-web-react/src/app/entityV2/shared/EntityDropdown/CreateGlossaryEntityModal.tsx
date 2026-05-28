@@ -1,21 +1,21 @@
-import React, { useState } from 'react';
-import styled from 'styled-components/macro';
 import { EditOutlined } from '@ant-design/icons';
-import { message, Button, Input, Modal, Typography, Form, Collapse } from 'antd';
+import { Collapse, Form, Input, Typography, message } from 'antd';
 import DOMPurify from 'dompurify';
-import {
-    useCreateGlossaryTermMutation,
-    useCreateGlossaryNodeMutation,
-} from '../../../../graphql/glossaryTerm.generated';
-import { EntityType } from '../../../../types.generated';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import NodeParentSelect from './NodeParentSelect';
-import { useEntityData, useRefetch } from '../../../entity/shared/EntityContext';
-import analytics, { EventType } from '../../../analytics';
-import DescriptionModal from '../components/legacy/DescriptionModal';
-import { validateCustomUrnId } from '../../../shared/textUtil';
-import { useGlossaryEntityData } from '../GlossaryEntityContext';
-import { getGlossaryRootToUpdate, updateGlossarySidebar } from '../../../glossary/utils';
+import React, { useEffect, useState } from 'react';
+import styled from 'styled-components/macro';
+
+import analytics, { EventType } from '@app/analytics';
+import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
+import NodeParentSelect from '@app/entityV2/shared/EntityDropdown/NodeParentSelect';
+import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
+import DescriptionModal from '@app/entityV2/shared/components/legacy/DescriptionModal';
+import { getGlossaryRootToUpdate, updateGlossarySidebar } from '@app/glossary/utils';
+import { validateCustomUrnId } from '@app/shared/textUtil';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+import { Button, Modal } from '@src/alchemy-components';
+
+import { useCreateGlossaryNodeMutation, useCreateGlossaryTermMutation } from '@graphql/glossaryTerm.generated';
+import { EntityType } from '@types';
 
 const StyledItem = styled(Form.Item)`
     margin-bottom: 0;
@@ -25,10 +25,6 @@ const OptionalWrapper = styled.span`
     font-weight: normal;
 `;
 
-const StyledButton = styled(Button)`
-    padding: 0;
-`;
-
 interface Props {
     entityType: EntityType;
     onClose: () => void;
@@ -36,17 +32,18 @@ interface Props {
     // acryl-main only prop
     canCreateGlossaryEntity: boolean;
     canSelectParentUrn?: boolean;
+    isCloning?: boolean;
 }
 
 function CreateGlossaryEntityModal(props: Props) {
     const { entityType, onClose, refetchData, canCreateGlossaryEntity, canSelectParentUrn = true } = props;
     const entityData = useEntityData();
-    const { isInGlossaryContext, urnsToUpdate, setUrnsToUpdate } = useGlossaryEntityData();
+    const { isInGlossaryContext, urnsToUpdate, setUrnsToUpdate, setNodeToNewEntity } = useGlossaryEntityData();
     const [form] = Form.useForm();
     const entityRegistry = useEntityRegistry();
     const [stagedId, setStagedId] = useState<string | undefined>(undefined);
     const [stagedName, setStagedName] = useState('');
-    const [selectedParentUrn, setSelectedParentUrn] = useState(entityData.urn);
+    const [selectedParentUrn, setSelectedParentUrn] = useState(props.isCloning ? '' : entityData.urn);
     const [documentation, setDocumentation] = useState('');
     const [isDocumentationModalVisible, setIsDocumentationModalVisible] = useState(false);
     const [createButtonDisabled, setCreateButtonDisabled] = useState(true);
@@ -54,6 +51,21 @@ function CreateGlossaryEntityModal(props: Props) {
 
     const [createGlossaryTermMutation] = useCreateGlossaryTermMutation();
     const [createGlossaryNodeMutation] = useCreateGlossaryNodeMutation();
+
+    useEffect(() => {
+        if (props.isCloning && entityData.entityData) {
+            const { properties } = entityData.entityData;
+
+            if (properties?.name) {
+                setStagedName(`${properties.name} (copy)`);
+                form.setFieldValue('name', `${properties.name} (copy)`);
+            }
+
+            if (properties?.description) {
+                setDocumentation(properties.description);
+            }
+        }
+    }, [props.isCloning, entityData.entityData, form]);
 
     function createGlossaryEntity() {
         const mutation =
@@ -70,7 +82,7 @@ function CreateGlossaryEntityModal(props: Props) {
                 },
             },
         })
-            .then(() => {
+            .then((result) => {
                 message.loading({ content: 'Updating...', duration: 2 });
                 setTimeout(() => {
                     analytics.event({
@@ -85,8 +97,24 @@ function CreateGlossaryEntityModal(props: Props) {
                     refetch();
                     if (isInGlossaryContext) {
                         // either refresh this current glossary node or the root nodes or root terms
-                        const nodeToUpdate = entityData?.urn || getGlossaryRootToUpdate(entityType);
+                        const nodeToUpdate = selectedParentUrn || getGlossaryRootToUpdate(entityType);
                         updateGlossarySidebar([nodeToUpdate], urnsToUpdate, setUrnsToUpdate);
+                        if (selectedParentUrn) {
+                            const dataKey =
+                                entityType === EntityType.GlossaryTerm ? 'createGlossaryTerm' : 'createGlossaryNode';
+                            const newEntityUrn = result.data[dataKey];
+                            setNodeToNewEntity((currData) => ({
+                                ...currData,
+                                [selectedParentUrn]: {
+                                    urn: newEntityUrn,
+                                    type: entityType,
+                                    properties: {
+                                        name: stagedName,
+                                        description: sanitizedDescription || null,
+                                    },
+                                },
+                            }));
+                        }
                     }
                     if (refetchData) {
                         refetchData();
@@ -112,23 +140,21 @@ function CreateGlossaryEntityModal(props: Props) {
                     ? 'Glossary'
                     : entityRegistry.getEntityName(entityType)
             }`}
-            visible
+            buttons={[
+                {
+                    text: 'Cancel',
+                    variant: 'text',
+                    onClick: onClose,
+                },
+                {
+                    text: 'Create',
+                    onClick: createGlossaryEntity,
+                    variant: 'filled',
+                    disabled: createButtonDisabled || !canCreateGlossaryEntity,
+                    buttonDataTestId: 'glossary-entity-modal-create-button',
+                },
+            ]}
             onCancel={onClose}
-            footer={
-                <>
-                    <Button onClick={onClose} type="text">
-                        Cancel
-                    </Button>
-                    <Button
-                        type="primary"
-                        data-testid="glossary-entity-modal-create-button"
-                        onClick={createGlossaryEntity}
-                        disabled={createButtonDisabled || !canCreateGlossaryEntity}
-                    >
-                        Create
-                    </Button>
-                </>
-            }
         >
             <Form
                 form={form}
@@ -186,10 +212,10 @@ function CreateGlossaryEntityModal(props: Props) {
                         </Typography.Text>
                     }
                 >
-                    <StyledButton type="link" onClick={() => setIsDocumentationModalVisible(true)}>
+                    <Button variant="text" onClick={() => setIsDocumentationModalVisible(true)}>
                         <EditOutlined />
                         {documentation ? 'Edit' : 'Add'} Documentation
-                    </StyledButton>
+                    </Button>
                     {isDocumentationModalVisible && (
                         <DescriptionModal
                             title="Add Documentation"

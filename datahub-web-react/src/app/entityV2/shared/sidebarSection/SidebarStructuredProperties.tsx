@@ -1,6 +1,18 @@
-import AddRoundedIcon from '@mui/icons-material/AddRounded';
-import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
-import { useUserContext } from '@src/app/context/useUserContext';
+import { PencilSimple } from '@phosphor-icons/react/dist/csr/PencilSimple';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
+import React, { useState } from 'react';
+
+import { EMPTY_MESSAGES } from '@app/entityV2/shared/constants';
+import EmptySectionText from '@app/entityV2/shared/containers/profile/sidebar/EmptySectionText';
+import SectionActionButton from '@app/entityV2/shared/containers/profile/sidebar/SectionActionButton';
+import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
+import { StyledDivider } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/components';
+import StructuredPropertyValue from '@app/entityV2/shared/tabs/Properties/StructuredPropertyValue';
+import { PropertyRow } from '@app/entityV2/shared/tabs/Properties/types';
+import { useHydratedEntityMap } from '@app/entityV2/shared/tabs/Properties/useHydratedEntityMap';
+import { useReloadableQuery } from '@app/sharedV2/reloadableContext/hooks/useReloadableQuery';
+import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';
+import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
 import EditStructuredPropertyModal from '@src/app/entity/shared/tabs/Properties/Edit/EditStructuredPropertyModal';
 import {
@@ -23,15 +35,6 @@ import {
     StdDataType,
     StructuredPropertyEntity,
 } from '@src/types.generated';
-import React, { useState } from 'react';
-import { EMPTY_MESSAGES } from '../constants';
-import EmptySectionText from '../containers/profile/sidebar/EmptySectionText';
-import SectionActionButton from '../containers/profile/sidebar/SectionActionButton';
-import { SidebarSection } from '../containers/profile/sidebar/SidebarSection';
-import { StyledDivider } from '../tabs/Dataset/Schema/components/SchemaFieldDrawer/components';
-import StructuredPropertyValue from '../tabs/Properties/StructuredPropertyValue';
-import { PropertyRow } from '../tabs/Properties/types';
-import { useHydratedEntityMap } from '../tabs/Properties/useHydratedEntityMap';
 
 interface FieldProperties {
     isSchemaSidebar?: boolean;
@@ -43,11 +46,12 @@ interface Props {
     properties?: FieldProperties;
 }
 
+const MAX_STRUCTURED_PROPERTIES_TO_FETCH = 100;
+
 const SidebarStructuredProperties = ({ properties }: Props) => {
     const { entityData, entityType } = useEntityData();
-    const me = useUserContext();
     const entityRegistry = useEntityRegistryV2();
-    const canEditProps = me.platformPrivileges?.manageStructuredProperties;
+    const canEditProps = entityData?.parent?.privileges?.canEditProperties || entityData?.privileges?.canEditProperties;
     const [isPropModalVisible, setIsPropModalVisible] = useState(false);
     const [selectedProperty, setSelectedProperty] = useState<SearchResult | undefined>();
     const isSchemaSidebar = properties?.isSchemaSidebar || false;
@@ -56,7 +60,7 @@ const SidebarStructuredProperties = ({ properties }: Props) => {
         types: [EntityType.StructuredProperty],
         query: '',
         start: 0,
-        count: 50,
+        count: MAX_STRUCTURED_PROPERTIES_TO_FETCH,
         searchFlags: { skipCache: true },
         orFilters: [
             {
@@ -75,12 +79,20 @@ const SidebarStructuredProperties = ({ properties }: Props) => {
     };
 
     // Execute search
-    const { data } = useGetSearchResultsForMultipleQuery({
-        variables: {
-            input: inputs,
+
+    const { data } = useReloadableQuery(
+        useGetSearchResultsForMultipleQuery,
+        {
+            type: getReloadableKeyType(ReloadableKeyTypeNamespace.STRUCTURED_PROPERTY, 'EntitySummaryTabSidebar'),
+            id: `${entityType}-${isSchemaSidebar ? 'schema' : 'entity'}-sidebar`,
         },
-        fetchPolicy: 'cache-first',
-    });
+        {
+            variables: {
+                input: inputs,
+            },
+            fetchPolicy: 'cache-first',
+        },
+    );
 
     const entityTypeProperties = data?.searchAcrossEntities?.searchResults;
 
@@ -103,10 +115,16 @@ const SidebarStructuredProperties = ({ properties }: Props) => {
     return (
         <>
             {entityTypeProperties?.map((property) => {
+                const structuredProperty = property.entity as StructuredPropertyEntity;
                 const propertyRow: PropertyRow | undefined = getPropertyRowFromSearchResult(property, allProperties);
                 const isRichText = propertyRow?.dataType?.info?.type === StdDataType.RichText;
                 const values = propertyRow?.values;
-                const propertyName = getDisplayName(property.entity as StructuredPropertyEntity);
+                const propertyName = getDisplayName(structuredProperty);
+                const shouldHideIfPropertyIsEmpty = structuredProperty.settings?.hideInAssetSummaryWhenEmpty;
+
+                if (!isSchemaSidebar && shouldHideIfPropertyIsEmpty && !values) {
+                    return null;
+                }
 
                 return (
                     <>
@@ -122,6 +140,8 @@ const SidebarStructuredProperties = ({ properties }: Props) => {
                                                     value={val}
                                                     isRichText={isRichText}
                                                     hydratedEntityMap={hydratedEntityMap}
+                                                    attribution={propertyRow.attribution}
+                                                    dataTestId={`property-${propertyName}-value-${val.value}`}
                                                 />
                                             ))}
                                         </>
@@ -133,13 +153,13 @@ const SidebarStructuredProperties = ({ properties }: Props) => {
                             extra={
                                 <>
                                     <SectionActionButton
-                                        button={values ? <EditOutlinedIcon /> : <AddRoundedIcon />}
+                                        icon={values ? PencilSimple : Plus}
                                         onClick={(event) => {
                                             setSelectedProperty(property);
                                             setIsPropModalVisible(true);
                                             event.stopPropagation();
                                         }}
-                                        actionPrivilege={canEditProps}
+                                        actionPrivilege={!!canEditProps}
                                         dataTestId={`${propertyName}-add-or-edit-button`}
                                     />
                                 </>

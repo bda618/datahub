@@ -2,10 +2,12 @@ import copy
 import html
 import json
 import logging
+import re
 from dataclasses import dataclass
 from functools import lru_cache
 from typing import Any, Dict, List, Optional, Tuple
 
+from pydantic import BaseModel
 from pydantic.fields import Field
 from tableauserverclient import Server
 
@@ -17,6 +19,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     FineGrainedLineage,
     FineGrainedLineageDownstreamType,
     FineGrainedLineageUpstreamType,
+    Upstream,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     ArrayTypeClass,
@@ -37,8 +40,26 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.sql_parsing.sqlglot_lineage import ColumnLineageInfo, SqlParsingResult
 from datahub.utilities.ordered_set import OrderedSet
+from datahub.utilities.str_enum import StrEnum
 
 logger = logging.getLogger(__name__)
+
+
+class DatasourceType(StrEnum):
+    """Enum for Tableau datasource types used in Virtual Connection processing."""
+
+    EMBEDDED = "embedded"
+    PUBLISHED = "published"
+
+
+class LineageResult(BaseModel):
+    """Result of lineage processing with upstream tables and fine-grained lineage."""
+
+    upstream_tables: List[Upstream]
+    fine_grained_lineages: List[FineGrainedLineage]
+
+    class Config:
+        arbitrary_types_allowed = True
 
 
 class TableauLineageOverrides(ConfigModel):
@@ -65,6 +86,7 @@ workbook_graphql_query = """
       projectName
       owner {
         username
+        email
       }
       description
       uri
@@ -107,6 +129,7 @@ sheet_graphql_query = """
         luid
         owner {
           username
+          email
         }
     }
     datasourceFields {
@@ -185,6 +208,7 @@ dashboard_graphql_query = """
         luid
         owner {
           username
+          email
         }
     }
 }
@@ -225,19 +249,22 @@ embedded_datasource_graphql_query = """
         description
         isHidden
         folderName
-        # upstreamFields {
-        #     name
-        #     datasource {
-        #         id
-        #     }
-        # }
-        # upstreamColumns {
-        #     name
-        #     table {
-        #         __typename
-        #         id
-        #     }
-        # }
+        upstreamColumns {
+            name
+            table {
+                __typename
+                id
+                name
+                ... on VirtualConnectionTable {
+                    virtualConnection {
+                        id
+                        name
+                        luid
+                        projectName
+                    }
+                }
+            }
+        }
         ... on ColumnField {
             dataCategory
             role
@@ -268,6 +295,7 @@ embedded_datasource_graphql_query = """
         luid
         owner {
           username
+          email
         }
     }
 }
@@ -390,19 +418,22 @@ published_datasource_graphql_query = """
         description
         isHidden
         folderName
-        # upstreamFields {
-        #     name
-        #     datasource {
-        #         id
-        #     }
-        # }
-        # upstreamColumns {
-        #     name
-        #     table {
-        #         __typename
-        #         id
-        #     }
-        # }
+        upstreamColumns {
+            name
+            table {
+                __typename
+                id
+                name
+                ... on VirtualConnectionTable {
+                    virtualConnection {
+                        id
+                        name
+                        luid
+                        projectName
+                    }
+                }
+            }
+        }
         ... on ColumnField {
             dataCategory
             role
@@ -424,6 +455,7 @@ published_datasource_graphql_query = """
     }
     owner {
       username
+      email
     }
     description
     uri
@@ -432,15 +464,25 @@ published_datasource_graphql_query = """
         name
     }
 }
-        """
+"""
 
 database_tables_graphql_query = """
 {
     id
+    name
+    fullName
+    schema
     isEmbedded
+    database {
+        name
+        id
+        connectionType
+    }
     columns {
-      remoteType
-      name
+        id
+        name
+        remoteType
+        description
     }
 }
 """
@@ -452,6 +494,26 @@ database_servers_graphql_query = """
     connectionType
     extendedConnectionType
     hostName
+}
+"""
+
+virtual_connection_graphql_query = """
+{
+    id
+    name
+    luid
+    projectName
+    description
+    tables {
+        id
+        name
+        columns {
+            id
+            name
+            remoteType
+            description
+        }
+    }
 }
 """
 
@@ -514,7 +576,8 @@ FIELD_TYPE_MAPPING = {
 }
 
 
-def get_tags_from_params(params: List[str] = []) -> GlobalTagsClass:
+def get_tags_from_params(params: Optional[List[str]] = None) -> GlobalTagsClass:
+    params = params or []
     tags = [
         TagAssociationClass(tag=builder.make_tag_urn(tag.upper()))
         for tag in params
@@ -578,10 +641,12 @@ def get_platform(connection_type: str) -> str:
         platform = "oracle"
     elif connection_type in ("tbio", "teradata"):
         platform = "teradata"
-    elif connection_type in ("sqlserver"):
+    elif connection_type in ("sqlserver",):
         platform = "mssql"
-    elif connection_type in ("athena"):
+    elif connection_type in ("athena",):
         platform = "athena"
+    elif connection_type in ("googlebigquery",):
+        platform = "bigquery"
     elif connection_type.endswith("_jdbc"):
         # e.g. convert trino_jdbc -> trino
         platform = connection_type[: -len("_jdbc")]
@@ -773,7 +838,7 @@ def get_overridden_info(
     if (
         lineage_overrides is not None
         and lineage_overrides.platform_override_map is not None
-        and original_platform in lineage_overrides.platform_override_map.keys()
+        and original_platform in lineage_overrides.platform_override_map
     ):
         platform = lineage_overrides.platform_override_map[original_platform]
 
@@ -781,7 +846,7 @@ def get_overridden_info(
         lineage_overrides is not None
         and lineage_overrides.database_override_map is not None
         and upstream_db is not None
-        and upstream_db in lineage_overrides.database_override_map.keys()
+        and upstream_db in lineage_overrides.database_override_map
     ):
         upstream_db = lineage_overrides.database_override_map[upstream_db]
 
@@ -901,7 +966,7 @@ def get_unique_custom_sql(custom_sql_list: List[dict]) -> List[dict]:
             "name": custom_sql.get("name"),
             # We assume that this is unsupported custom sql if "actual tables that this query references"
             # are missing from api result.
-            "isUnsupportedCustomSql": True if not custom_sql.get("tables") else False,
+            "isUnsupportedCustomSql": not custom_sql.get("tables"),
             "query": custom_sql.get("query"),
             "connectionType": custom_sql.get("connectionType"),
             "columns": custom_sql.get("columns"),
@@ -1021,3 +1086,56 @@ def optimize_query_filter(query_filter: dict) -> dict:
             OrderedSet(query_filter[c.PROJECT_NAME_WITH_IN])
         )
     return optimized_query
+
+
+# Translation table for removing special characters (created once, reused)
+# Characters to remove: [ ] " ` ' \" \
+_CLEAN_TABLE_NAME_TRANSLATION = str.maketrans("", "", '[]"`\'\\"\\')
+
+
+def clean_table_name(name: str) -> str:
+    """Clean table name by removing brackets, quotes, and other special characters"""
+    if not name:
+        return name
+
+    # Use translate() for efficient character removal in a single pass
+    return name.translate(_CLEAN_TABLE_NAME_TRANSLATION).strip()
+
+
+def is_table_name_field(field_name: str, field_type: str = "") -> bool:
+    """
+    Determine if a field is actually a table name reference rather than a column field.
+
+    Common patterns:
+    - "TABLE_NAME (SCHEMA.TABLE_NAME)"
+    - Field name matches table name exactly
+    - Field has no proper column mapping
+
+    Args:
+        field_name: The field name to check
+        field_type: The field type (optional)
+
+    Returns:
+        True if this appears to be a table name field, False otherwise
+    """
+    if not field_name:
+        return False
+
+    # Pattern for "TABLE_NAME (SCHEMA.TABLE_NAME)" format
+    # Allow alphanumeric characters, underscores, and numbers in table/schema names
+    table_pattern = (
+        r"^([A-Z0-9_]+)\s*\([A-Z0-9_]+\.[A-Z0-9_]+\)(\s*\([^)]+\))*(\s*\(\d+\))?$"
+    )
+
+    if re.match(table_pattern, field_name):
+        return True
+
+    # Additional checks for other table-like patterns
+    # If field name is all uppercase and contains schema-like patterns
+    if field_name.isupper() and ("." in field_name or "_" in field_name):
+        # Check if it looks like a fully qualified table name
+        parts = field_name.split(".")
+        if len(parts) >= 2 and all(part.replace("_", "").isalnum() for part in parts):
+            return True
+
+    return False

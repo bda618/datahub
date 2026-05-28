@@ -1,16 +1,18 @@
 /* eslint-disable import/no-cycle */
 import { CloseOutlined } from '@ant-design/icons';
-import { Button, DatePicker } from 'antd';
-import moment from 'moment';
+import { Button } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
-import { SEARCH_COLORS } from '../../entityV2/shared/constants';
-import OperatorSelector from './OperatorSelector';
-import { operatorRequiresValues } from './operator/operator';
-import { FilterOperatorType, FilterPredicate, FilterValue } from './types';
-import ValueSelector from './value/ValueSelector';
-import ValueName from './value/ValueName';
-import { getIsDateRangeFilter, useFilterDisplayName } from './utils';
+
+import { SEARCH_COLORS } from '@app/entityV2/shared/constants';
+import OperatorSelector from '@app/searchV2/filters/OperatorSelector';
+import { operatorRequiresValues } from '@app/searchV2/filters/operator/operator';
+import { FilterOperatorType, FilterPredicate, FilterValue } from '@app/searchV2/filters/types';
+import { getIsDateRangeFilter, useFilterDisplayName } from '@app/searchV2/filters/utils';
+import ValueName from '@app/searchV2/filters/value/ValueName';
+import ValueSelector from '@app/searchV2/filters/value/ValueSelector';
+import DatePicker from '@utils/DayjsDatePicker';
+import dayjs from '@utils/dayjs';
 
 const Values = styled.div`
     border: 1.5px solid transparent;
@@ -19,9 +21,9 @@ const Values = styled.div`
 
     :hover {
         cursor: pointer;
-        border: 1.5px solid ${SEARCH_COLORS.TITLE_PURPLE};
-        background-color: ${SEARCH_COLORS.TITLE_PURPLE};
-        color: #fff;
+        border: 1.5px solid ${(p) => p.theme.styles['primary-color']};
+        background-color: ${(p) => p.theme.styles['primary-color']};
+        color: ${(p) => p.theme.colors.textOnFillBrand};
     }
 `;
 
@@ -81,7 +83,6 @@ export default function SelectedFilter({
     onRemoveFilter,
     isCompact,
 }: SelectedFilterProps) {
-    moment.tz.setDefault('GMT');
     const { field, operator, values, defaultValueOptions } = predicate;
     const showValueSelector = operatorRequiresValues(predicate.operator) || false;
     const displayName = useFilterDisplayName(predicate.field);
@@ -102,8 +103,8 @@ export default function SelectedFilter({
             <OperatorSelector predicate={predicate} onChangeOperator={onChangeOperator} />
             {showValueSelector && useDatePicker && (
                 <DatePicker
-                    defaultValue={moment(Number(values[0].value))}
-                    disabledDate={isDateRangeFilter ? undefined : (current) => current > moment().startOf('day')}
+                    defaultValue={dayjs(Number(values[0].value))}
+                    disabledDate={isDateRangeFilter ? undefined : (current) => current > dayjs().startOf('day')}
                     format="ll"
                     showToday={false}
                     allowClear={false}

@@ -1,6 +1,3 @@
-import React, { useMemo, useState } from 'react';
-import styled from 'styled-components';
-import { Typography } from 'antd';
 import {
     BoldOutlined,
     DisconnectOutlined,
@@ -10,12 +7,14 @@ import {
     UnderlineOutlined,
 } from '@ant-design/icons';
 import { FloatingWrapper, useActive, useAttrs, useCommands } from '@remirror/react';
+import { Typography } from 'antd';
+import React, { useMemo, useState } from 'react';
 import { createMarkPositioner } from 'remirror/extensions';
-import { ANTD_GRAY } from '@src/app/entityV2/shared/constants';
+import styled from 'styled-components';
 
-import { CommandButton } from './CommandButton';
-import { LinkModal } from './LinkModal';
-import { CodeIcon } from './Icons';
+import { CommandButton } from '@components/components/Editor/toolbar/CommandButton';
+import { CodeIcon } from '@components/components/Editor/toolbar/Icons';
+import { LinkModal } from '@components/components/Editor/toolbar/LinkModal';
 
 const { Text } = Typography;
 
@@ -23,9 +22,9 @@ export const ToolbarContainer = styled.span`
     display: flex;
     align-items: center;
     padding: 2px;
-    background-color: ${ANTD_GRAY[1]};
+    background-color: ${(props) => props.theme.colors.bg};
     border-radius: 4px;
-    box-shadow: 0 3px 6px -4px #0000001f, 0 6px 16px #00000014, 0 9px 28px 8px #0000000d;
+    box-shadow: ${(props) => props.theme.colors.shadowLg};
     overflow: hidden;
     z-index: 300;
 `;

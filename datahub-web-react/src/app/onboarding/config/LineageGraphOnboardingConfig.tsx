@@ -1,6 +1,7 @@
+import { Text } from '@components';
 import React from 'react';
-import { Typography } from 'antd';
-import { OnboardingStep } from '../OnboardingStep';
+
+import { OnboardingStep } from '@app/onboarding/OnboardingStep';
 
 export const LINEAGE_GRAPH_INTRO_ID = 'lineage-graph-intro';
 export const LINEAGE_GRAPH_TIME_FILTER_ID = 'lineage-graph-time-filter';
@@ -10,7 +11,7 @@ export const LineageGraphOnboardingConfig: OnboardingStep[] = [
         id: LINEAGE_GRAPH_INTRO_ID,
         title: 'Lineage Graph',
         content: (
-            <Typography.Paragraph>
+            <Text type="div" size="md">
                 <p>
                     You can view the <strong>Lineage Graph</strong> for an entity on this page.
                 </p>
@@ -23,12 +24,12 @@ export const LineageGraphOnboardingConfig: OnboardingStep[] = [
                     <a
                         target="_blank"
                         rel="noreferrer noopener"
-                        href="https://datahubproject.io/docs/generated/lineage/lineage-feature-guide/"
+                        href="https://docs.datahub.com/docs/features/feature-guides/lineage/"
                     >
                         here.
                     </a>
                 </p>
-            </Typography.Paragraph>
+            </Text>
         ),
     },
     {
@@ -36,13 +37,13 @@ export const LineageGraphOnboardingConfig: OnboardingStep[] = [
         selector: `#${LINEAGE_GRAPH_TIME_FILTER_ID}`,
         title: 'Filter Lineage Edges by Date',
         content: (
-            <Typography.Paragraph>
+            <Text type="div" size="md">
                 <p>
                     You can click which dates you would like to see lineage edges for on this graph. By default, the
                     graph will show edges observed in the last 14 days. Note that manual lineage edges and edges without
                     time information will always be shown.
                 </p>
-            </Typography.Paragraph>
+            </Text>
         ),
     },
 ];

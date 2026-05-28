@@ -1,27 +1,145 @@
 import uuid
 from collections import namedtuple
+from datetime import datetime, timezone
 from unittest import mock
 from unittest.mock import patch
 
 import databricks
 import pytest
+import time_machine
 from databricks.sdk.service.catalog import (
     CatalogInfo,
     GetMetastoreSummaryResponse,
     SchemaInfo,
 )
 from databricks.sdk.service.iam import ServicePrincipal
-from freezegun import freeze_time
 
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.unity.hive_metastore_proxy import HiveMetastoreProxy
-from tests.test_helpers import mce_helpers
+from datahub.testing import mce_helpers
 
 FROZEN_TIME = "2021-12-07 07:00:00"
 SERVICE_PRINCIPAL_ID_1 = str(uuid.uuid4())
 SERVICE_PRINCIPAL_ID_2 = str(uuid.uuid4())
 
 pytestmark = pytest.mark.integration_batch_1
+
+
+def register_mock_ml_model_data(workspace_client):
+    """Register mock data for ML models with run details and signatures."""
+    from io import BytesIO
+
+    from databricks.sdk.service.catalog import (
+        ModelVersionInfo,
+        RegisteredModelInfo,
+    )
+    from databricks.sdk.service.ml import (
+        Metric,
+        Param,
+        Run,
+        RunData,
+        RunInfo,
+        RunInfoStatus,
+        RunTag,
+    )
+
+    # Mock registered models
+    workspace_client.registered_models.list.return_value = [
+        RegisteredModelInfo.from_dict(
+            {
+                "name": "test_model",
+                "full_name": "quickstart_catalog.quickstart_schema.test_model",
+                "catalog_name": "quickstart_catalog",
+                "schema_name": "quickstart_schema",
+                "comment": "Test model with MLflow integration",
+                "created_at": 1666185700000,
+                "updated_at": 1666186000000,
+                "created_by": "abc@acryl.io",
+                "updated_by": "abc@acryl.io",
+            }
+        )
+    ]
+
+    # Mock model version with run_id
+    model_version = ModelVersionInfo.from_dict(
+        {
+            "name": "test_model",
+            "version": 1,
+            "catalog_name": "quickstart_catalog",
+            "schema_name": "quickstart_schema",
+            "model_name": "test_model",
+            "comment": "Version 1 with signature",
+            "created_at": 1666185800000,
+            "updated_at": 1666186000000,
+            "created_by": "abc@acryl.io",
+            "run_id": "test_run_abc123",
+            "aliases": [
+                {"alias_name": "prod"},
+                {"alias_name": "champion"},
+            ],
+        }
+    )
+
+    workspace_client.model_versions.list.return_value = [model_version]
+    workspace_client.model_versions.get.return_value = model_version
+
+    # Mock MLflow run details
+    mock_run_info = RunInfo(
+        run_id="test_run_abc123",
+        experiment_id="exp_456",
+        status=RunInfoStatus.FINISHED,
+        start_time=1666185800000,
+        end_time=1666186000000,
+        user_id="abc@acryl.io",
+    )
+
+    mock_run_data = RunData(
+        metrics=[
+            Metric(key="accuracy", value=0.95),
+            Metric(key="f1_score", value=0.93),
+            Metric(key="precision", value=0.94),
+        ],
+        params=[
+            Param(key="learning_rate", value="0.001"),
+            Param(key="batch_size", value="32"),
+            Param(key="epochs", value="100"),
+        ],
+        tags=[
+            RunTag(key="mlflow.user", value="abc@acryl.io"),
+            RunTag(key="mlflow.source.type", value="NOTEBOOK"),
+            RunTag(key="model_type", value="classifier"),
+        ],
+    )
+
+    mock_run = Run(info=mock_run_info, data=mock_run_data)
+    mock_response = mock.MagicMock()
+    mock_response.run = mock_run
+
+    # Mock MLmodel file content with signature
+    mlmodel_yaml = """
+artifact_path: model
+flavors:
+  python_function:
+    env: conda.yaml
+    loader_module: mlflow.sklearn
+    model_path: model.pkl
+    python_version: 3.10.10
+  sklearn:
+    pickled_model: model.pkl
+    sklearn_version: 1.7.1
+    serialization_format: cloudpickle
+mlflow_version: 2.0.1
+model_uuid: abc123
+signature:
+  inputs: '[{"name": "feature1", "type": "double"}, {"name": "feature2", "type": "double"}, {"name": "feature3", "type": "long"}]'
+  outputs: '[{"name": "prediction", "type": "long"}]'
+  params: '[{"name": "temperature", "type": "float", "default": 0.7}]'
+"""
+
+    mock_download_response = mock.MagicMock()
+    mock_download_response.contents = BytesIO(mlmodel_yaml.encode("utf-8"))
+
+    return mock_response, mock_download_response
 
 
 def register_mock_api(request_mock):
@@ -33,7 +151,7 @@ def register_mock_api(request_mock):
         },
     }
 
-    for url in api_vs_response.keys():
+    for url in api_vs_response:
         request_mock.register_uri(
             api_vs_response[url]["method"],
             url,
@@ -427,7 +545,9 @@ def mock_hive_sql(query):
     return []
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(
+    datetime.fromisoformat(FROZEN_TIME).replace(tzinfo=timezone.utc), tick=False
+)
 def test_ingestion(pytestconfig, tmp_path, requests_mock):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/unity"
 
@@ -435,11 +555,13 @@ def test_ingestion(pytestconfig, tmp_path, requests_mock):
 
     output_file_name = "unity_catalog_mcps.json"
 
-    with patch(
-        "datahub.ingestion.source.unity.proxy.WorkspaceClient"
-    ) as mock_client, patch.object(
-        HiveMetastoreProxy, "get_inspector"
-    ) as get_inspector, patch.object(HiveMetastoreProxy, "_execute_sql") as execute_sql:
+    with (
+        patch(
+            "datahub.ingestion.source.unity.connection.WorkspaceClient"
+        ) as mock_client,
+        patch.object(HiveMetastoreProxy, "get_inspector") as get_inspector,
+        patch.object(HiveMetastoreProxy, "_execute_sql") as execute_sql,
+    ):
         workspace_client: mock.MagicMock = mock.MagicMock()
         mock_client.return_value = workspace_client
         register_mock_data(workspace_client)
@@ -491,3 +613,825 @@ def test_ingestion(pytestconfig, tmp_path, requests_mock):
             output_path=f"/{tmp_path}/{output_file_name}",
             golden_path=f"{test_resources_dir}/{mce_golden_file}",
         )
+
+
+@time_machine.travel(
+    datetime.fromisoformat(FROZEN_TIME).replace(tzinfo=timezone.utc), tick=False
+)
+def test_ml_model_with_signature_and_run_details(pytestconfig, tmp_path, requests_mock):
+    """Test that ML model ingestion correctly captures signature and run details from MLflow."""
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/unity"
+
+    register_mock_api(request_mock=requests_mock)
+
+    output_file_name = "unity_catalog_ml_model_mcps.json"
+
+    with (
+        patch(
+            "datahub.ingestion.source.unity.connection.WorkspaceClient"
+        ) as mock_client,
+        patch.object(HiveMetastoreProxy, "get_inspector") as get_inspector,
+        patch.object(HiveMetastoreProxy, "_execute_sql") as execute_sql,
+    ):
+        workspace_client: mock.MagicMock = mock.MagicMock()
+        mock_client.return_value = workspace_client
+        register_mock_data(workspace_client)
+
+        # Register ML model mock data
+        mock_run_response, mock_download_response = register_mock_ml_model_data(
+            workspace_client
+        )
+
+        # Mock the MLflow APIs
+        with (
+            patch(
+                "datahub.ingestion.source.unity.proxy.ExperimentsAPI"
+            ) as mock_experiments_api,
+            patch("datahub.ingestion.source.unity.proxy.FilesAPI") as mock_files_api,
+        ):
+            # Setup ExperimentsAPI mock
+            experiments_instance = mock.MagicMock()
+            experiments_instance.get_run.return_value = mock_run_response
+            mock_experiments_api.return_value = experiments_instance
+
+            # Setup FilesAPI mock
+            files_instance = mock.MagicMock()
+            files_instance.download.return_value = mock_download_response
+            mock_files_api.return_value = files_instance
+
+            inspector = mock.MagicMock()
+            inspector.get_schema_names.return_value = ["bronze_kambi"]
+            get_inspector.return_value = inspector
+
+            execute_sql.side_effect = mock_hive_sql
+
+            config_dict: dict = {
+                "run_id": "unity-catalog-ml-model-test",
+                "pipeline_name": "unity-catalog-ml-model-test-pipeline",
+                "source": {
+                    "type": "unity-catalog",
+                    "config": {
+                        "workspace_url": "https://dummy.cloud.databricks.com",
+                        "token": "fake",
+                        "include_ownership": True,
+                        "include_hive_metastore": True,
+                        "warehouse_id": "test",
+                        "include_ml_model_aliases": True,
+                    },
+                },
+                "sink": {
+                    "type": "file",
+                    "config": {
+                        "filename": f"/{tmp_path}/{output_file_name}",
+                    },
+                },
+            }
+            pipeline = Pipeline.create(config_dict)
+            pipeline.run()
+            pipeline.raise_from_status()
+
+            mce_golden_file: str = "unity_catalog_ml_model_mces_golden.json"
+
+            mce_helpers.check_golden_file(
+                pytestconfig,
+                output_path=f"/{tmp_path}/{output_file_name}",
+                golden_path=f"{test_resources_dir}/{mce_golden_file}",
+            )
+
+
+def register_metric_view_mock_data(workspace_client):
+    """Distinct metastore/catalog so this mock can be used without colliding with register_mock_data."""
+    metric_view_metastore_id = "11111111-1111-1111-1111-111111111111"
+    workspace_client.metastores.summary.return_value = (
+        GetMetastoreSummaryResponse.from_dict(
+            {
+                "name": "metric_view_metastore",
+                "metastore_id": metric_view_metastore_id,
+                "global_metastore_id": (f"aws:us-east-1:{metric_view_metastore_id}"),
+                "region": "us-east-1",
+                "cloud": "aws",
+                "owner": "abc@acryl.io",
+            }
+        )
+    )
+
+    catalog_dict = {
+        "name": "metric_catalog",
+        "owner": "abc@acryl.io",
+        "comment": "",
+        "metastore_id": metric_view_metastore_id,
+        "catalog_type": "MANAGED_CATALOG",
+        "created_at": 1700000000000,
+        "created_by": "abc@acryl.io",
+        "updated_at": 1700000010000,
+        "updated_by": "abc@acryl.io",
+    }
+    workspace_client.catalogs.list.return_value = [CatalogInfo.from_dict(catalog_dict)]
+    workspace_client.catalogs.get.return_value = CatalogInfo.from_dict(catalog_dict)
+
+    workspace_client.schemas.list.return_value = [
+        SchemaInfo.from_dict(
+            {
+                "name": "analytics",
+                "catalog_name": "metric_catalog",
+                "owner": "abc@acryl.io",
+                "comment": "",
+                "metastore_id": metric_view_metastore_id,
+                "full_name": "metric_catalog.analytics",
+                "created_at": 1700000000000,
+                "created_by": "abc@acryl.io",
+                "updated_at": 1700000010000,
+                "updated_by": "abc@acryl.io",
+                "catalog_type": "MANAGED_CATALOG",
+            }
+        )
+    ]
+
+    metric_view_yaml = (
+        "version: 1.1\n"
+        "source: metric_catalog.analytics.orders\n"
+        "filter: \"o_orderstatus = 'F'\"\n"
+        "joins:\n"
+        "  - name: customer\n"
+        "    source: metric_catalog.analytics.customer\n"
+        "    on: o_custkey = c_custkey\n"
+        "materialization:\n"
+        "  schedule: every 6 hours\n"
+        "  mode: relaxed\n"
+        "dimensions:\n"
+        "  - name: order_date\n"
+        "    expr: o_orderdate\n"
+        "    comment: Calendar date the order was placed.\n"
+        "    display_name: Order Date\n"
+        "    synonyms: [date, day]\n"
+        "measures:\n"
+        "  - name: total_revenue\n"
+        "    expr: SUM(o_totalprice)\n"
+        "    comment: Sum of order totals in USD.\n"
+        "    synonyms: [revenue, sales]\n"
+        "    format:\n"
+        "      type: currency\n"
+        "      currency_code: USD\n"
+        "  - name: order_count\n"
+        "    expr: COUNT(1)\n"
+        "    comment: Number of orders placed.\n"
+        "  - name: aov\n"
+        "    expr: MEASURE(total_revenue) / MEASURE(order_count)\n"
+        "    comment: Average order value.\n"
+        "    format:\n"
+        "      type: currency\n"
+        "      currency_code: USD\n"
+        "  - name: rolling_7d\n"
+        "    expr: COUNT(DISTINCT o_orderkey)\n"
+        "    comment: Rolling 7-day distinct order count.\n"
+        "    window:\n"
+        "      - order: order_date\n"
+        "        range: trailing 7 day\n"
+        "        semiadditive: last\n"
+    )
+
+    orders_dict = {
+        "name": "orders",
+        "catalog_name": "metric_catalog",
+        "schema_name": "analytics",
+        "table_type": "MANAGED",
+        "data_source_format": "DELTA",
+        "columns": [
+            {
+                "name": "o_orderdate",
+                "type_text": "date",
+                "type_json": (
+                    '{"name":"o_orderdate","type":"date","nullable":true,"metadata":{}}'
+                ),
+                "type_name": "DATE",
+                "type_precision": 0,
+                "type_scale": 0,
+                "position": 0,
+                "nullable": True,
+            },
+            {
+                "name": "o_totalprice",
+                "type_text": "double",
+                "type_json": (
+                    '{"name":"o_totalprice","type":"double","nullable":true,'
+                    '"metadata":{}}'
+                ),
+                "type_name": "DOUBLE",
+                "type_precision": 0,
+                "type_scale": 0,
+                "position": 1,
+                "nullable": True,
+            },
+        ],
+        "owner": "abc@acryl.io",
+        "metastore_id": metric_view_metastore_id,
+        "full_name": "metric_catalog.analytics.orders",
+        "created_at": 1700000000000,
+        "created_by": "abc@acryl.io",
+        "updated_at": 1700000010000,
+        "updated_by": "abc@acryl.io",
+        "table_id": "orders-id",
+    }
+    revenue_metrics_dict = {
+        "name": "revenue_metrics",
+        "catalog_name": "metric_catalog",
+        "schema_name": "analytics",
+        "table_type": "METRIC_VIEW",
+        "data_source_format": "DELTA",
+        "columns": [
+            {
+                "name": "order_date",
+                "type_text": "date",
+                "type_json": (
+                    '{"name":"order_date","type":"date","nullable":true,"metadata":{}}'
+                ),
+                "type_name": "DATE",
+                "type_precision": 0,
+                "type_scale": 0,
+                "position": 0,
+                "nullable": True,
+            },
+            {
+                "name": "total_revenue",
+                "type_text": "double",
+                "type_json": (
+                    '{"name":"total_revenue","type":"double","nullable":true,'
+                    '"metadata":{}}'
+                ),
+                "type_name": "DOUBLE",
+                "type_precision": 0,
+                "type_scale": 0,
+                "position": 1,
+                "nullable": True,
+            },
+            {
+                "name": "order_count",
+                "type_text": "long",
+                "type_json": (
+                    '{"name":"order_count","type":"long","nullable":true,"metadata":{}}'
+                ),
+                "type_name": "LONG",
+                "type_precision": 0,
+                "type_scale": 0,
+                "position": 2,
+                "nullable": True,
+            },
+            {
+                "name": "aov",
+                "type_text": "double",
+                "type_json": (
+                    '{"name":"aov","type":"double","nullable":true,"metadata":{}}'
+                ),
+                "type_name": "DOUBLE",
+                "type_precision": 0,
+                "type_scale": 0,
+                "position": 3,
+                "nullable": True,
+            },
+            {
+                "name": "rolling_7d",
+                "type_text": "long",
+                "type_json": (
+                    '{"name":"rolling_7d","type":"long","nullable":true,"metadata":{}}'
+                ),
+                "type_name": "LONG",
+                "type_precision": 0,
+                "type_scale": 0,
+                "position": 4,
+                "nullable": True,
+            },
+        ],
+        "owner": "abc@acryl.io",
+        "metastore_id": metric_view_metastore_id,
+        "full_name": "metric_catalog.analytics.revenue_metrics",
+        "view_definition": metric_view_yaml,
+        "properties": {
+            "metric_view.from.name": "metric_catalog.analytics.orders",
+            "metric_view.from.type": "ASSET",
+            "metric_view.materialization.enabled": "true",
+            "view.sqlConfig.spark.sql.session.timeZone": "Etc/UTC",
+            "view.sqlConfig.spark.sql.ansi.enabled": "true",
+        },
+        "created_at": 1700000000000,
+        "created_by": "abc@acryl.io",
+        "updated_at": 1700000010000,
+        "updated_by": "abc@acryl.io",
+        "table_id": "metric-view-id",
+        "comment": "Aggregated revenue metric view.",
+    }
+
+    workspace_client.tables.list = lambda *args, **kwargs: [
+        databricks.sdk.service.catalog.TableInfo.from_dict(orders_dict),
+        databricks.sdk.service.catalog.TableInfo.from_dict(revenue_metrics_dict),
+    ]
+    workspace_client.tables.get = (
+        lambda *args, **kwargs: databricks.sdk.service.catalog.TableInfo.from_dict(
+            revenue_metrics_dict
+        )
+    )
+
+    workspace_client.service_principals.list.return_value = []
+    workspace_client.groups.list.return_value = []
+    workspace_client.workspace.list.return_value = []
+    workspace_client.registered_models.list.return_value = []
+    workspace_client.model_versions.list.return_value = []
+
+
+@time_machine.travel(
+    datetime.fromisoformat(FROZEN_TIME).replace(tzinfo=timezone.utc), tick=False
+)
+def test_metric_view_ingestion(pytestconfig, tmp_path, requests_mock):
+    from databricks.sdk.service.catalog import TableType
+
+    if not hasattr(TableType, "METRIC_VIEW"):
+        pytest.skip("Installed databricks-sdk lacks TableType.METRIC_VIEW")
+
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/unity"
+    register_mock_api(request_mock=requests_mock)
+    output_file_name = "unity_catalog_metric_view_mcps.json"
+
+    with patch(
+        "datahub.ingestion.source.unity.connection.WorkspaceClient"
+    ) as mock_client:
+        workspace_client: mock.MagicMock = mock.MagicMock()
+        mock_client.return_value = workspace_client
+        register_metric_view_mock_data(workspace_client)
+
+        config_dict: dict = {
+            "run_id": "unity-catalog-metric-view-test",
+            "pipeline_name": "unity-catalog-metric-view-test-pipeline",
+            "source": {
+                "type": "unity-catalog",
+                "config": {
+                    "workspace_url": "https://dummy.cloud.databricks.com",
+                    "token": "fake",
+                    "include_metric_views": True,
+                    "include_hive_metastore": False,
+                    "include_ownership": False,
+                    "include_notebooks": False,
+                    "include_usage_statistics": False,
+                    "include_tags": False,
+                    "include_table_lineage": False,
+                    "include_column_lineage": True,
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": f"/{tmp_path}/{output_file_name}",
+                },
+            },
+        }
+        pipeline = Pipeline.create(config_dict)
+        pipeline.run()
+        pipeline.raise_from_status()
+
+        mce_helpers.check_golden_file(
+            pytestconfig,
+            output_path=f"/{tmp_path}/{output_file_name}",
+            golden_path=f"{test_resources_dir}/metric_view_mces_golden.json",
+        )
+
+
+@time_machine.travel(
+    datetime.fromisoformat(FROZEN_TIME).replace(tzinfo=timezone.utc), tick=False
+)
+def test_metric_view_ingestion_flag_off(pytestconfig, tmp_path, requests_mock):
+    from databricks.sdk.service.catalog import TableType
+
+    if not hasattr(TableType, "METRIC_VIEW"):
+        pytest.skip("Installed databricks-sdk lacks TableType.METRIC_VIEW")
+
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/unity"
+    register_mock_api(request_mock=requests_mock)
+    output_file_name = "unity_catalog_metric_view_flag_off_mcps.json"
+
+    with patch(
+        "datahub.ingestion.source.unity.connection.WorkspaceClient"
+    ) as mock_client:
+        workspace_client: mock.MagicMock = mock.MagicMock()
+        mock_client.return_value = workspace_client
+        register_metric_view_mock_data(workspace_client)
+
+        config_dict: dict = {
+            "run_id": "unity-catalog-metric-view-flag-off-test",
+            "pipeline_name": "unity-catalog-metric-view-flag-off-test-pipeline",
+            "source": {
+                "type": "unity-catalog",
+                "config": {
+                    "workspace_url": "https://dummy.cloud.databricks.com",
+                    "token": "fake",
+                    "include_metric_views": False,
+                    "include_hive_metastore": False,
+                    "include_ownership": False,
+                    "include_notebooks": False,
+                    "include_usage_statistics": False,
+                    "include_tags": False,
+                    "include_table_lineage": False,
+                    "include_column_lineage": True,
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": f"/{tmp_path}/{output_file_name}",
+                },
+            },
+        }
+        pipeline = Pipeline.create(config_dict)
+        pipeline.run()
+        pipeline.raise_from_status()
+
+        mce_helpers.check_golden_file(
+            pytestconfig,
+            output_path=f"/{tmp_path}/{output_file_name}",
+            golden_path=f"{test_resources_dir}/metric_view_flag_off_mces_golden.json",
+        )
+
+
+def register_mock_data_with_constraints(workspace_client):
+    """Extend the standard mock data so that:
+    - tables.list() returns a column with partition_index (for isPartitioningKey)
+    - tables.get() returns PK + FK constraints (unavailable via list())
+    """
+
+    register_mock_data(workspace_client)
+
+    # Override tables.list so columnA carries partition_index
+    workspace_client.tables.list = lambda *args, **kwargs: [
+        databricks.sdk.service.catalog.TableInfo.from_dict(
+            {
+                "name": "quickstart_table",
+                "catalog_name": "quickstart_catalog",
+                "schema_name": "quickstart_schema",
+                "table_type": "MANAGED",
+                "data_source_format": "DELTA",
+                "columns": [
+                    {
+                        "name": "columnA",
+                        "type_text": "int",
+                        "type_json": '{"name":"columnA","type":"integer","nullable":true,"metadata":{}}',
+                        "type_name": "INT",
+                        "type_precision": 0,
+                        "type_scale": 0,
+                        "position": 0,
+                        "nullable": True,
+                        "partition_index": 0,
+                    },
+                    {
+                        "name": "columnB",
+                        "type_text": "string",
+                        "type_json": '{"name":"columnB","type":"string","nullable":true,"metadata":{}}',
+                        "type_name": "STRING",
+                        "type_precision": 0,
+                        "type_scale": 0,
+                        "position": 1,
+                        "nullable": True,
+                    },
+                ],
+                "storage_location": "s3://db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/tables/cff27aa1",
+                "owner": "account users",
+                "properties": {},
+                "generation": 2,
+                "metastore_id": "2c983545-d403-4f87-9063-5b7e3b6d3736",
+                "full_name": "quickstart_catalog.quickstart_schema.quickstart_table",
+                "created_at": 1666185698688,
+                "created_by": "abc@acryl.io",
+                "updated_at": 1666186049633,
+                "updated_by": "abc@acryl.io",
+                "table_id": "cff27aa1-1c6a-4d78-b713-562c660c2896",
+            }
+        ),
+    ]
+
+    # Override tables.get to return PK + FK table_constraints
+    workspace_client.tables.get = (
+        lambda *args, **kwargs: databricks.sdk.service.catalog.TableInfo.from_dict(
+            {
+                "name": "quickstart_table",
+                "catalog_name": "quickstart_catalog",
+                "schema_name": "quickstart_schema",
+                "table_type": "MANAGED",
+                "data_source_format": "DELTA",
+                "columns": [
+                    {
+                        "name": "columnA",
+                        "type_text": "int",
+                        "type_json": '{"name":"columnA","type":"integer","nullable":true,"metadata":{}}',
+                        "type_name": "INT",
+                        "type_precision": 0,
+                        "type_scale": 0,
+                        "position": 0,
+                        "nullable": True,
+                        "partition_index": 0,
+                    },
+                    {
+                        "name": "columnB",
+                        "type_text": "string",
+                        "type_json": '{"name":"columnB","type":"string","nullable":true,"metadata":{}}',
+                        "type_name": "STRING",
+                        "type_precision": 0,
+                        "type_scale": 0,
+                        "position": 1,
+                        "nullable": True,
+                    },
+                ],
+                "storage_location": "s3://db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/...",
+                "owner": "account users",
+                "properties": {},
+                "generation": 2,
+                "metastore_id": "2c983545-d403-4f87-9063-5b7e3b6d3736",
+                "full_name": "quickstart_catalog.quickstart_schema.quickstart_table",
+                "created_at": 1666185698688,
+                "created_by": "abc@acryl.io",
+                "updated_at": 1666186049633,
+                "updated_by": "abc@acryl.io",
+                "table_id": "cff27aa1-1c6a-4d78-b713-562c660c2896",
+                "table_constraints": [
+                    {
+                        "primary_key_constraint": {
+                            "name": "quickstart_table_pk",
+                            "child_columns": ["columnA"],
+                        }
+                    },
+                    {
+                        "foreign_key_constraint": {
+                            "name": "quickstart_table_fk",
+                            "child_columns": ["columnB"],
+                            "parent_table": "quickstart_catalog.quickstart_schema.quickstart_table_ref",
+                            "parent_columns": ["columnA"],
+                        }
+                    },
+                ],
+            }
+        )
+    )
+
+
+@time_machine.travel(
+    datetime.fromisoformat(FROZEN_TIME).replace(tzinfo=timezone.utc), tick=False
+)
+def test_ingestion_with_constraints(pytestconfig, tmp_path, requests_mock):
+    """Test that PK, FK, and partition key constraints are correctly ingested."""
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/unity"
+
+    register_mock_api(request_mock=requests_mock)
+
+    output_file_name = "unity_catalog_constraints_mcps.json"
+
+    with (
+        patch(
+            "datahub.ingestion.source.unity.connection.WorkspaceClient"
+        ) as mock_client,
+        patch.object(HiveMetastoreProxy, "get_inspector") as get_inspector,
+        patch.object(HiveMetastoreProxy, "_execute_sql") as execute_sql,
+    ):
+        workspace_client: mock.MagicMock = mock.MagicMock()
+        mock_client.return_value = workspace_client
+        register_mock_data_with_constraints(workspace_client)
+
+        inspector = mock.MagicMock()
+        inspector.get_schema_names.return_value = []
+        get_inspector.return_value = inspector
+        execute_sql.side_effect = mock_hive_sql
+
+        config_dict: dict = {
+            "run_id": "unity-catalog-constraints-test",
+            "pipeline_name": "unity-catalog-constraints-test-pipeline",
+            "source": {
+                "type": "unity-catalog",
+                "config": {
+                    "workspace_url": "https://dummy.cloud.databricks.com",
+                    "token": "fake",
+                    "include_ownership": False,
+                    "include_hive_metastore": False,
+                    "include_table_lineage": False,
+                    "include_column_lineage": False,
+                    "include_usage_statistics": False,
+                    "include_table_constraints": True,
+                    "include_partition_keys": True,
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": f"/{tmp_path}/{output_file_name}",
+                },
+            },
+        }
+        pipeline = Pipeline.create(config_dict)
+        pipeline.run()
+        pipeline.raise_from_status()
+
+        mce_golden_file = "unity_catalog_constraints_mces_golden.json"
+
+        mce_helpers.check_golden_file(
+            pytestconfig,
+            output_path=f"/{tmp_path}/{output_file_name}",
+            golden_path=f"{test_resources_dir}/{mce_golden_file}",
+        )
+
+
+def test_constraints_disabled_does_not_call_tables_get(requests_mock):
+    """When include_table_constraints=False, get_table_constraints() must not be called."""
+    from datahub.ingestion.source.unity.proxy import UnityCatalogApiProxy
+
+    register_mock_api(request_mock=requests_mock)
+
+    with (
+        patch(
+            "datahub.ingestion.source.unity.connection.WorkspaceClient"
+        ) as mock_client,
+        patch.object(HiveMetastoreProxy, "get_inspector") as get_inspector,
+        patch.object(HiveMetastoreProxy, "_execute_sql") as execute_sql,
+        patch.object(
+            UnityCatalogApiProxy, "get_table_constraints"
+        ) as mock_get_constraints,
+    ):
+        workspace_client: mock.MagicMock = mock.MagicMock()
+        mock_client.return_value = workspace_client
+        register_mock_data(workspace_client)
+
+        inspector = mock.MagicMock()
+        inspector.get_schema_names.return_value = []
+        get_inspector.return_value = inspector
+        execute_sql.side_effect = mock_hive_sql
+
+        config_dict: dict = {
+            "run_id": "unity-catalog-no-constraints-test",
+            "pipeline_name": "unity-catalog-no-constraints-test-pipeline",
+            "source": {
+                "type": "unity-catalog",
+                "config": {
+                    "workspace_url": "https://dummy.cloud.databricks.com",
+                    "token": "fake",
+                    "include_ownership": False,
+                    "include_hive_metastore": False,
+                    "include_table_lineage": False,
+                    "include_column_lineage": False,
+                    "include_usage_statistics": False,
+                    "include_table_constraints": False,
+                    "include_partition_keys": False,
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": "/dev/null",
+                },
+            },
+        }
+        pipeline = Pipeline.create(config_dict)
+        pipeline.run()
+        pipeline.raise_from_status()
+
+        mock_get_constraints.assert_not_called()
+
+
+@time_machine.travel(
+    datetime.fromisoformat(FROZEN_TIME).replace(tzinfo=timezone.utc), tick=False
+)
+def test_partition_keys_without_constraints(pytestconfig, tmp_path, requests_mock):
+    """When include_partition_keys=True but include_table_constraints=False,
+    isPartitioningKey is set while isPartOfKey stays None."""
+
+    register_mock_api(request_mock=requests_mock)
+
+    output_file_name = "unity_catalog_partition_only_mcps.json"
+
+    with (
+        patch(
+            "datahub.ingestion.source.unity.connection.WorkspaceClient"
+        ) as mock_client,
+        patch.object(HiveMetastoreProxy, "get_inspector") as get_inspector,
+        patch.object(HiveMetastoreProxy, "_execute_sql") as execute_sql,
+    ):
+        workspace_client: mock.MagicMock = mock.MagicMock()
+        mock_client.return_value = workspace_client
+        register_mock_data_with_constraints(workspace_client)
+
+        inspector = mock.MagicMock()
+        inspector.get_schema_names.return_value = []
+        get_inspector.return_value = inspector
+        execute_sql.side_effect = mock_hive_sql
+
+        config_dict: dict = {
+            "run_id": "unity-catalog-partition-only-test",
+            "pipeline_name": "unity-catalog-partition-only-test-pipeline",
+            "source": {
+                "type": "unity-catalog",
+                "config": {
+                    "workspace_url": "https://dummy.cloud.databricks.com",
+                    "token": "fake",
+                    "include_ownership": False,
+                    "include_hive_metastore": False,
+                    "include_table_lineage": False,
+                    "include_column_lineage": False,
+                    "include_usage_statistics": False,
+                    "include_table_constraints": False,
+                    "include_partition_keys": True,
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": f"/{tmp_path}/{output_file_name}",
+                },
+            },
+        }
+        pipeline = Pipeline.create(config_dict)
+        pipeline.run()
+        pipeline.raise_from_status()
+
+        # Verify isPartitioningKey is set but isPartOfKey is False (schema default)
+        # Note: isPartOfKey is a non-nullable boolean in the Avro schema and always
+        # defaults to False — it cannot be None in serialized output.
+        import json
+
+        output_path = f"/{tmp_path}/{output_file_name}"
+        with open(output_path) as f:
+            mcps = json.load(f)
+        schema_aspects = [
+            mcp
+            for mcp in mcps
+            if mcp.get("aspect", {}).get("json", {}).get("fields") is not None
+        ]
+        assert len(schema_aspects) > 0
+        for schema in schema_aspects:
+            fields = schema["aspect"]["json"]["fields"]
+            for field in fields:
+                # isPartOfKey defaults to False (non-nullable boolean in Avro schema)
+                assert field.get("isPartOfKey") is False, (
+                    f"Expected isPartOfKey=False for field {field['fieldPath']} "
+                    f"when include_table_constraints=False"
+                )
+            # columnA has partition_index=0, so it should have isPartitioningKey=True
+            partition_fields = [f for f in fields if f.get("isPartitioningKey") is True]
+            assert len(partition_fields) > 0, (
+                "Expected at least one field with isPartitioningKey=True"
+            )
+            # primaryKeys should be None (absent)
+            assert schema["aspect"]["json"].get("primaryKeys") is None
+
+
+@time_machine.travel(
+    datetime.fromisoformat(FROZEN_TIME).replace(tzinfo=timezone.utc), tick=False
+)
+def test_constraints_exception_path(requests_mock):
+    """When the tables.get() call inside get_table_constraints() raises an
+    exception, the pipeline continues gracefully (no PK/FK emitted, warning
+    reported)."""
+
+    register_mock_api(request_mock=requests_mock)
+
+    with (
+        patch(
+            "datahub.ingestion.source.unity.connection.WorkspaceClient"
+        ) as mock_client,
+        patch.object(HiveMetastoreProxy, "get_inspector") as get_inspector,
+        patch.object(HiveMetastoreProxy, "_execute_sql") as execute_sql,
+    ):
+        workspace_client: mock.MagicMock = mock.MagicMock()
+        mock_client.return_value = workspace_client
+        register_mock_data(workspace_client)
+
+        inspector = mock.MagicMock()
+        inspector.get_schema_names.return_value = []
+        get_inspector.return_value = inspector
+        execute_sql.side_effect = mock_hive_sql
+
+        # Simulate a rate-limit / permission error on tables.get()
+        workspace_client.tables.get = mock.MagicMock(
+            side_effect=Exception("403 Forbidden: insufficient privileges")
+        )
+
+        config_dict: dict = {
+            "run_id": "unity-catalog-constraint-error-test",
+            "pipeline_name": "unity-catalog-constraint-error-test-pipeline",
+            "source": {
+                "type": "unity-catalog",
+                "config": {
+                    "workspace_url": "https://dummy.cloud.databricks.com",
+                    "token": "fake",
+                    "include_ownership": False,
+                    "include_hive_metastore": False,
+                    "include_table_lineage": False,
+                    "include_column_lineage": False,
+                    "include_usage_statistics": False,
+                    "include_table_constraints": True,
+                    "include_partition_keys": False,
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": "/dev/null",
+                },
+            },
+        }
+        pipeline = Pipeline.create(config_dict)
+        pipeline.run()
+        pipeline.raise_from_status()
+
+        # The pipeline succeeded despite the exception — graceful degradation
+        workspace_client.tables.get.assert_called()

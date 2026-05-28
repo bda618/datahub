@@ -1,16 +1,13 @@
-import React from 'react';
-import { Tooltip } from 'antd';
 import { ClockCircleOutlined, EyeOutlined } from '@ant-design/icons';
-import dayjs from 'dayjs';
-import LocalizedFormat from 'dayjs/plugin/localizedFormat';
-import styled from 'styled-components';
-import { Group } from '@visx/group';
 import { curveBasis } from '@visx/curve';
+import { Group } from '@visx/group';
 import { LinePath } from '@visx/shape';
-import { VizEdge } from './types';
-import { ANTD_GRAY } from '../entity/shared/constants';
+import { Tooltip } from 'antd';
+import React from 'react';
+import styled, { useTheme } from 'styled-components';
 
-dayjs.extend(LocalizedFormat);
+import { VizEdge } from '@app/lineage/types';
+import dayjs from '@utils/dayjs';
 
 const EdgeTimestamp = styled.div``;
 
@@ -31,6 +28,7 @@ type Props = {
 };
 
 export default function LineageEntityEdge({ edge, edgeKey, isHighlighted }: Props) {
+    const theme = useTheme();
     const createdOnTimestamp = edge?.createdOn;
     const updatedOnTimestamp = edge?.updatedOn;
     const createdOn = createdOnTimestamp ? dayjs(createdOnTimestamp).format('ll') : undefined;
@@ -72,7 +70,7 @@ export default function LineageEntityEdge({ edge, edgeKey, isHighlighted }: Prop
                         }}
                         curve={curveBasis}
                         data={edge.curve}
-                        stroke={isHighlighted ? '#1890FF' : ANTD_GRAY[6]}
+                        stroke={isHighlighted ? theme.colors.hyperlinks : theme.colors.border}
                         strokeWidth="1"
                         markerEnd={`url(#triangle-downstream${isHighlighted ? '-highlighted' : ''})`}
                         markerStart={`url(#triangle-upstream${isHighlighted ? '-highlighted' : ''})`}

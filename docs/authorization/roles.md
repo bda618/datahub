@@ -1,3 +1,7 @@
+---
+description: "Use Roles in DataHub to grant common bundles of permissions like Admin, Editor, and Reader to users and groups."
+---
+
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 # Roles
@@ -6,7 +10,9 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 DataHub provides the ability to use **Roles** to manage permissions.
 
-:::tip **Roles** are the recommended way to manage permissions on DataHub. This should suffice for most use cases, but advanced users can use **Policies** if needed.
+:::tip
+**Roles** are the recommended way to manage permissions on DataHub. This should suffice for most use cases, but advanced users can use **Policies** if needed.
+:::
 
 ## Roles Setup, Prerequisites, and Permissions
 
@@ -18,7 +24,9 @@ The out-of-the-box Roles represent the most common types of DataHub users. Curre
 | Editor    | Can read and edit all metadata. Cannot take administrative actions.                     |
 | Reader    | Can read all metadata. Cannot edit anything by default, or take administrative actions. |
 
-:::note To manage roles, including viewing roles, or editing a user's role, you must either be an **Admin**, or have the **Manage Policies** privilege.
+:::note
+To manage roles, including viewing roles, or editing a user's role, you must either be an **Admin**, or have the **Manage Policies** privilege.
+:::
 
 ## Using Roles
 
@@ -50,7 +58,6 @@ You can simply assign a new Role to a user by clicking on the drop-down that app
  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/roles/user-list-select-role.png" />
 </p>
 
-
 #### Batch Assigning a Role
 
 When viewing the full list of roles at **Settings > Permissions > Roles**, you will notice that each role has an `Add Users` button next to it. Clicking this button will
@@ -80,7 +87,7 @@ These privileges are common to both Self-Hosted DataHub and DataHub Cloud.
 ##### Platform Privileges
 
 | Privilege                                 | Admin              | Editor             | Reader | Description                                                                                                                                                                |
-|-------------------------------------------|--------------------|--------------------|--------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| ----------------------------------------- | ------------------ | ------------------ | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Generate Personal Access Tokens           | :heavy_check_mark: | :heavy_check_mark: | :x:    | Generate personal access tokens for use with DataHub APIs.                                                                                                                 |
 | Manage Domains                            | :heavy_check_mark: | :heavy_check_mark: | :x:    | Create and remove Asset Domains.                                                                                                                                           |
 | Manage Home Page Posts                    | :heavy_check_mark: | :heavy_check_mark: | :x:    | Create and delete home page posts                                                                                                                                          |
@@ -110,7 +117,7 @@ These privileges are common to both Self-Hosted DataHub and DataHub Cloud.
 ##### Metadata Privileges
 
 | Privilege                          | Admin              | Editor             | Reader             | Description                                                                                      |
-|------------------------------------|--------------------|--------------------|--------------------|--------------------------------------------------------------------------------------------------|
+| ---------------------------------- | ------------------ | ------------------ | ------------------ | ------------------------------------------------------------------------------------------------ |
 | View Entity Page                   | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | The ability to view the entity page.                                                             |
 | View Dataset Usage                 | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | The ability to access dataset usage information (includes usage statistics and queries).         |
 | View Dataset Profile               | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | The ability to access dataset profile (snapshot statistics)                                      |
@@ -131,6 +138,7 @@ These privileges are common to both Self-Hosted DataHub and DataHub Cloud.
 | Edit Tag Color                     | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to change the color of a Tag.                                                        |
 | Edit Lineage                       | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to add and remove lineage edges for this entity.                                     |
 | Edit Dataset Queries               | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to edit the Queries for a Dataset.                                                   |
+| Execute Entity                     | :heavy_check_mark: | :x:                | :x:                | The ability to execute ingestion for an Entity.                                                  |
 | Manage Data Products               | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to create, edit, and delete Data Products within a Domain                            |
 | Edit Properties                    | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to edit the properties for an entity.                                                |
 | Edit Owners                        | :heavy_check_mark: | :x:                | :x:                | The ability to add and remove owners of an entity.                                               |
@@ -152,44 +160,44 @@ These privileges are only relevant to DataHub Cloud.
 
 ##### Platform Privileges
 
-| Privilege                   | Admin              | Editor             | Reader | Description                                                                                         |
-|-----------------------------|--------------------|--------------------|--------|-----------------------------------------------------------------------------------------------------|
-| Manage Tests                | :heavy_check_mark: | :heavy_check_mark: | :x:    | Create and remove Asset Tests.                                                                      |
-| View Metadata Proposals     | :heavy_check_mark: | :heavy_check_mark: | :x:    | View the requests tab for viewing metadata proposals.                                               |
+| Privilege                       | Admin              | Editor             | Reader | Description                                                                                         |
+| ------------------------------- | ------------------ | ------------------ | ------ | --------------------------------------------------------------------------------------------------- |
+| Manage Tests                    | :heavy_check_mark: | :heavy_check_mark: | :x:    | Create and remove Asset Tests.                                                                      |
+| View Metadata Proposals         | :heavy_check_mark: | :heavy_check_mark: | :x:    | View the requests tab for viewing metadata proposals.                                               |
 | Create metadata constraints[^1] | :heavy_check_mark: | :heavy_check_mark: | :x:    | Create metadata constraints.                                                                        |
-| Manage Platform Settings    | :heavy_check_mark: | :x:                | :x:    | View and change platform-level settings, like integrations & notifications.                         |
-| Manage Monitors             | :heavy_check_mark: | :x:                | :x:    | Create, update, and delete any data asset monitors, including Custom SQL monitors. Grant with care. |
+| Manage Platform Settings        | :heavy_check_mark: | :x:                | :x:    | View and change platform-level settings, like integrations & notifications.                         |
+| Manage Monitors                 | :heavy_check_mark: | :x:                | :x:    | Create, update, and delete any data asset monitors, including Custom SQL monitors. Grant with care. |
 
 [^1]: Deprecated feature
 
 ##### Metadata Privileges
 
-| Privilege                             | Admin              | Editor             | Reader             | Description                                                                                    |
-|---------------------------------------|--------------------|--------------------|--------------------|------------------------------------------------------------------------------------------------|
-| View Entity                           | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | The ability to view the entity in search results.                                              |
-| Propose Tags                          | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | The ability to propose adding a tag to an asset.                                               |
-| Propose Glossary Terms                | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | The ability to propose adding a glossary term to an asset.                                     |
-| Propose Documentation                 | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | The ability to propose updates to an asset's documentation.                                    |
-| Propose Dataset Column Glossary Terms | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | The ability to propose column (field) glossary terms associated with a dataset schema.         |
-| Propose Dataset Column Tags           | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | The ability to propose new column (field) tags associated with a dataset schema.               |
-| Manage Tag Proposals                  | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to manage a proposal to add a tag to an asset.                                     |
-| Manage Glossary Term Proposals        | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to manage a proposal to add a glossary term to an asset.                           |
-| Manage Dataset Column Glossary Terms  | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to manage column (field) glossary term proposals associated with a dataset schema. |
-| Manage Dataset Column Tag Proposals   | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to manage column (field) tag proposals associated with a dataset schema.           |
-| Manage Documentation Proposals        | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to manage a proposal update an asset's documentation                               |
-| Manage Group Notification Settings    | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to manage notification settings for a group.                                       |
-| Manage Group Subscriptions            | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to manage subscriptions for a group.                                               |
-| Manage User Subscriptions             | :heavy_check_mark: | :x:                | :x:                | The ability to manage subscriptions for another user.                                          |
-| Manage Data Contract Proposals        | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to manage a proposal for a Data Contract                                           |
-| Share Entity                          | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to share an entity with another DataHub Cloud instance.                                    |
+| Privilege                                     | Admin              | Editor             | Reader             | Description                                                                                    |
+| --------------------------------------------- | ------------------ | ------------------ | ------------------ | ---------------------------------------------------------------------------------------------- |
+| View Entity                                   | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | The ability to view the entity in search results.                                              |
+| Propose Tags                                  | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | The ability to propose adding a tag to an asset.                                               |
+| Propose Glossary Terms                        | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | The ability to propose adding a glossary term to an asset.                                     |
+| Propose Description                           | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | The ability to propose updates to an asset's description.                                      |
+| Propose Dataset Column Glossary Terms         | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | The ability to propose column (field) glossary terms associated with a dataset schema.         |
+| Propose Dataset Column Tags                   | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | The ability to propose new column (field) tags associated with a dataset schema.               |
+| Manage Tag Proposals                          | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to manage a proposal to add a tag to an asset.                                     |
+| Manage Glossary Term Proposals                | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to manage a proposal to add a glossary term to an asset.                           |
+| Manage Dataset Column Glossary Term Proposals | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to manage column (field) glossary term proposals associated with a dataset schema. |
+| Manage Dataset Column Tag Proposals           | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to manage column (field) tag proposals associated with a dataset schema.           |
+| Manage Description Proposals                  | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to manage a proposal to update an asset's description                              |
+| Manage Group Notification Settings            | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to manage notification settings for a group.                                       |
+| Manage Group Subscriptions                    | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to manage subscriptions for a group.                                               |
+| Manage User Subscriptions                     | :heavy_check_mark: | :x:                | :x:                | The ability to manage subscriptions for another user.                                          |
+| Manage Data Contract Proposals                | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to manage a proposal for a Data Contract                                           |
+| Share Entity                                  | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to share an entity with another DataHub Cloud instance.                            |
 
 ## Additional Resources
 
 ### GraphQL
 
-* [acceptRole](../../graphql/mutations.md#acceptrole)
-* [batchAssignRole](../../graphql/mutations.md#batchassignrole)
-* [listRoles](../../graphql/queries.md#listroles)
+- [acceptRole](../../graphql/mutations.md#acceptrole)
+- [batchAssignRole](../../graphql/mutations.md#batchassignrole)
+- [listRoles](../../graphql/queries.md#listroles)
 
 ## FAQ and Troubleshooting
 

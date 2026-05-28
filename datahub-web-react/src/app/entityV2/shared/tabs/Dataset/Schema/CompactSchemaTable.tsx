@@ -1,31 +1,26 @@
-import React, { useMemo, useState } from 'react';
-import { ColumnsType } from 'antd/es/table';
 import { Button, Table } from 'antd';
-import styled from 'styled-components';
-import { useDebounce } from 'react-use';
-
+import { ColumnsType } from 'antd/es/table';
 import { FixedType } from 'rc-table/lib/interface';
-import translateFieldPath from '@src/app/entityV2/dataset/profile/schema/utils/translateFieldPath';
-import {
-    EditableSchemaMetadata,
-    EntityType,
-    SchemaField,
-    SchemaMetadata,
-    UsageQueryResult,
-} from '../../../../../../types.generated';
-import useSchemaTitleRenderer from '../../../../dataset/profile/schema/utils/schemaTitleRenderer';
-import { ExtendedSchemaFields } from '../../../../dataset/profile/schema/utils/types';
-import useDescriptionRenderer from './utils/useDescriptionRenderer';
-import useUsageStatsRenderer from './utils/useUsageStatsRenderer';
-import { useEntityData } from '../../../../../entity/shared/EntityContext';
-import { useEntityRegistry } from '../../../../../useEntityRegistry';
-import { REDESIGN_COLORS } from '../../../constants';
-import ExpandIcon from './components/ExpandIcon';
-import SchemaFieldDrawer from './components/SchemaFieldDrawer/SchemaFieldDrawer';
-import useKeyboardControls from './useKeyboardControls';
-import useExtractFieldDescriptionInfo from './utils/useExtractFieldDescriptionInfo';
+import React, { useMemo, useState } from 'react';
+import { useDebounce } from 'react-use';
+import styled from 'styled-components';
 
-export type Props = {
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import useSchemaTitleRenderer from '@app/entityV2/dataset/profile/schema/utils/schemaTitleRenderer';
+import { ExtendedSchemaFields } from '@app/entityV2/dataset/profile/schema/utils/types';
+import ExpandIcon from '@app/entityV2/shared/tabs/Dataset/Schema/components/ExpandIcon';
+import SchemaFieldDrawer from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/SchemaFieldDrawer';
+import useKeyboardControls from '@app/entityV2/shared/tabs/Dataset/Schema/useKeyboardControls';
+import useDescriptionRenderer from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useDescriptionRenderer';
+import useExtractFieldDescriptionInfo from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useExtractFieldDescriptionInfo';
+import useUsageStatsRenderer from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useUsageStatsRenderer';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+import translateFieldPath from '@src/app/entityV2/dataset/profile/schema/utils/translateFieldPath';
+import { resolveRuntimePath } from '@utils/runtimeBasePath';
+
+import { EditableSchemaMetadata, EntityType, SchemaField, SchemaMetadata, UsageQueryResult } from '@types';
+
+type Props = {
     rows: Array<ExtendedSchemaFields>;
     schemaMetadata: SchemaMetadata | undefined | null;
     editableSchemaMetadata?: EditableSchemaMetadata | null;
@@ -46,7 +41,7 @@ const TableContainer = styled.div<{ fullHeight?: boolean }>`
     .ant-table-thead > tr > th {
         background-color: transparent;
         font-weight: 600;
-        color: ${REDESIGN_COLORS.DARK_GREY};
+        color: ${(props) => props.theme.colors.text};
         font-weight: 700;
     }
     &&& .ant-table-cell:first-of-type {
@@ -54,8 +49,8 @@ const TableContainer = styled.div<{ fullHeight?: boolean }>`
     }
 
     &&& .selected-row * {
-        color: white;
-        background-color: ${REDESIGN_COLORS.BACKGROUND_PURPLE};
+        color: ${(props) => props.theme.colors.textOnFillBrand};
+        background-color: ${(props) => props.theme.colors.bgSurfaceBrand};
     }
 
     &&& .field-column {
@@ -71,10 +66,10 @@ const TableContainer = styled.div<{ fullHeight?: boolean }>`
 `;
 
 const StyledButton = styled(Button)`
-    color: #b0a2c2;
+    color: ${(props) => props.theme.colors.textTertiary};
     font-weight: 500;
     :hover {
-        color: ${REDESIGN_COLORS.DARK_GREY};
+        color: ${(props) => props.theme.colors.text};
     }
 `;
 
@@ -217,7 +212,11 @@ export default function CompactSchemaTable({
                 }}
             />
             {hasSeeMore && (
-                <StyledButton type="text" size="small" href={entityRegistry.getEntityUrl(EntityType.Dataset, urn)}>
+                <StyledButton
+                    type="text"
+                    size="small"
+                    href={resolveRuntimePath(entityRegistry.getEntityUrl(EntityType.Dataset, urn))}
+                >
                     View {rows.length - numberOfRowsToShow} More
                 </StyledButton>
             )}

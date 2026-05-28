@@ -1,29 +1,32 @@
-import * as React from 'react';
+import { Avatar, Tooltip } from '@components';
+import { BookmarkSimple } from '@phosphor-icons/react/dist/csr/BookmarkSimple';
 import { Tag } from 'antd';
-import { Tooltip } from '@components';
+import * as React from 'react';
 import styled from 'styled-components';
-import { BookmarkSimple } from '@phosphor-icons/react';
+
+import { AvatarType } from '@components/components/AvatarStack/types';
+
+import { IconStyleType } from '@app/entity/Entity';
+import { StyledTag } from '@app/entityV2/shared/components/styled/StyledTag';
+import useGetBrowseV2LabelOverride from '@app/searchV2/filters/useGetBrowseV2LabelOverride';
+import { BROWSE_PATH_V2_FILTER_NAME, ENTITY_FILTER_NAME, MAX_COUNT_VAL } from '@app/searchV2/utils/constants';
+import { formatNumber } from '@app/shared/formatNumber';
+import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+import { DomainLink } from '@app/sharedV2/tags/DomainLink';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
 import {
-    Domain,
     Container,
+    CorpGroup,
+    CorpUser,
     DataPlatform,
+    DataPlatformInstance,
+    Domain,
+    Entity,
     EntityType,
     GlossaryTerm,
     Tag as TagType,
-    CorpUser,
-    CorpGroup,
-    DataPlatformInstance,
-    Entity,
-} from '../../types.generated';
-import { StyledTag } from '../entityV2/shared/components/styled/StyledTag';
-import { capitalizeFirstLetterOnly } from '../shared/textUtil';
-import { DomainLink } from '../sharedV2/tags/DomainLink';
-import { useEntityRegistry } from '../useEntityRegistry';
-import { BROWSE_PATH_V2_FILTER_NAME, ENTITY_FILTER_NAME, MAX_COUNT_VAL } from './utils/constants';
-import CustomAvatar from '../shared/avatar/CustomAvatar';
-import { IconStyleType } from '../entity/Entity';
-import { formatNumber } from '../shared/formatNumber';
-import useGetBrowseV2LabelOverride from './filters/useGetBrowseV2LabelOverride';
+} from '@types';
 
 type Props = {
     field: string;
@@ -74,17 +77,13 @@ export const SearchFilterLabel = ({ field, value, entity, count, hideCount }: Pr
     if (entity?.type === EntityType.CorpUser) {
         const user = entity as CorpUser;
         const displayName = entityRegistry.getDisplayName(EntityType.CorpUser, user);
-        const truncatedDisplayName = displayName.length > 25 ? `${displayName.slice(0, 25)}...` : displayName;
         return (
             <Tooltip title={displayName}>
-                <CustomAvatar
-                    size={18}
-                    name={truncatedDisplayName}
-                    photoUrl={user.editableProperties?.pictureLink || undefined}
-                    useDefaultAvatar={false}
-                    style={{
-                        marginRight: 8,
-                    }}
+                <Avatar
+                    name={displayName}
+                    imageUrl={user.editableProperties?.pictureLink || undefined}
+                    type={AvatarType.user}
+                    size="sm"
                 />
                 {displayName}
                 {countText}

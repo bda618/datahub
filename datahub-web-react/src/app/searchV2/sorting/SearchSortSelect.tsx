@@ -1,11 +1,11 @@
-import React from 'react';
 import { CaretDownFilled } from '@ant-design/icons';
-import { Select } from 'antd';
 import { Tooltip } from '@components';
+import { Select } from 'antd';
+import React from 'react';
 import styled from 'styled-components';
-import { ANTD_GRAY } from '../../entity/shared/constants';
-import { DEFAULT_SORT_OPTION } from '../context/constants';
-import useGetSortOptions from './useGetSortOptions';
+
+import { DEFAULT_SORT_OPTION } from '@app/searchV2/context/constants';
+import useGetSortOptions from '@app/searchV2/sorting/useGetSortOptions';
 
 const SelectWrapper = styled.span`
     display: inline-flex;
@@ -17,12 +17,12 @@ const SelectWrapper = styled.span`
     }
     .ant-select-selection-item {
         // !important is necessary because updating Select styles for antd is impossible
-        color: ${ANTD_GRAY[8]} !important;
+        color: ${(props) => props.theme.colors.textTertiary} !important;
         font-weight: 700;
     }
 
     .ant-select-selection-placeholder {
-        color: ${ANTD_GRAY[8]};
+        color: ${(props) => props.theme.colors.textTertiary};
         font-weight: 700;
     }
 `;

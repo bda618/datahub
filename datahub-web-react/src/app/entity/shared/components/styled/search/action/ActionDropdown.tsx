@@ -1,9 +1,10 @@
-import React from 'react';
-import { Button, Dropdown, Tooltip } from 'antd';
 import { CaretDownOutlined } from '@ant-design/icons';
+import { Button, Dropdown, Tooltip } from 'antd';
+import React from 'react';
 import styled from 'styled-components';
-import { ANTD_GRAY } from '../../../../constants';
-import { MenuItemStyle } from '../../../../../view/menu/item/styledComponent';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { MenuItemStyle } from '@app/entity/view/menu/item/styledComponent';
 
 const DownArrow = styled(CaretDownOutlined)`
     && {
@@ -29,7 +30,7 @@ const DropdownWrapper = styled.div<{
     margin-right: 12px;
 `;
 
-export type Action = {
+type Action = {
     title: React.ReactNode;
     onClick: () => void;
 };

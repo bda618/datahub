@@ -25,6 +25,7 @@ import com.linkedin.metadata.aspect.patch.builder.DatasetPropertiesPatchBuilder;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.hooks.MutationHook;
 import com.linkedin.metadata.entity.SearchRetriever;
+import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistryException;
@@ -35,7 +36,6 @@ import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeProposal;
-import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.structured.StructuredProperties;
 import com.linkedin.structured.StructuredPropertyValueAssignmentArray;
 import com.linkedin.util.Pair;
@@ -119,7 +119,7 @@ public class AspectsBatchImplTest {
                 .build(mockAspectRetriever));
 
     AspectsBatchImpl testBatch =
-        AspectsBatchImpl.builder().items(testItems).retrieverContext(retrieverContext).build();
+        AspectsBatchImpl.builder().items(testItems).retrieverContext(retrieverContext).build(null);
 
     assertEquals(
         testBatch.toUpsertBatchItems(
@@ -176,7 +176,7 @@ public class AspectsBatchImplTest {
                 .build(retrieverContext.getAspectRetriever().getEntityRegistry()));
 
     AspectsBatchImpl testBatch =
-        AspectsBatchImpl.builder().items(testItems).retrieverContext(retrieverContext).build();
+        AspectsBatchImpl.builder().items(testItems).retrieverContext(retrieverContext).build(null);
 
     assertEquals(
         testBatch.toUpsertBatchItems(
@@ -199,7 +199,7 @@ public class AspectsBatchImplTest {
                     .recordTemplate(
                         new StructuredProperties()
                             .setProperties(new StructuredPropertyValueAssignmentArray()))
-                    .systemMetadata(testItems.get(0).getSystemMetadata().setVersion("1"))
+                    .systemMetadata(testItems.get(0).getSystemMetadata())
                     .build(mockAspectRetriever),
                 ChangeItemImpl.builder()
                     .urn(
@@ -216,7 +216,7 @@ public class AspectsBatchImplTest {
                     .recordTemplate(
                         new StructuredProperties()
                             .setProperties(new StructuredPropertyValueAssignmentArray()))
-                    .systemMetadata(testItems.get(1).getSystemMetadata().setVersion("1"))
+                    .systemMetadata(testItems.get(1).getSystemMetadata())
                     .build(mockAspectRetriever))),
         "Expected patch items converted to upsert change items");
   }
@@ -227,13 +227,12 @@ public class AspectsBatchImplTest {
     List<ProposedItem> testItems =
         List.of(
             ProposedItem.builder()
-                .entitySpec(testRegistry.getEntitySpec(DATASET_ENTITY_NAME))
-                .metadataChangeProposal(
+                .build(
                     new MetadataChangeProposal()
                         .setEntityUrn(
                             UrnUtils.getUrn(
                                 "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)"))
-                        .setAspectName("my-custom-aspect")
+                        .setAspectName(STATUS_ASPECT_NAME)
                         .setEntityType(DATASET_ENTITY_NAME)
                         .setChangeType(ChangeType.UPSERT)
                         .setAspect(
@@ -241,18 +240,17 @@ public class AspectsBatchImplTest {
                                 .setContentType("application/json")
                                 .setValue(
                                     ByteString.copyString(
-                                        "{\"foo\":\"bar\"}", StandardCharsets.UTF_8)))
-                        .setSystemMetadata(new SystemMetadata()))
-                .auditStamp(auditStamp)
-                .build(),
+                                        "{\"foo\":\"bar\",\"removed\":false}",
+                                        StandardCharsets.UTF_8))),
+                    auditStamp,
+                    testRegistry),
             ProposedItem.builder()
-                .entitySpec(testRegistry.getEntitySpec(DATASET_ENTITY_NAME))
-                .metadataChangeProposal(
+                .build(
                     new MetadataChangeProposal()
                         .setEntityUrn(
                             UrnUtils.getUrn(
                                 "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD)"))
-                        .setAspectName("my-custom-aspect")
+                        .setAspectName(STATUS_ASPECT_NAME)
                         .setEntityType(DATASET_ENTITY_NAME)
                         .setChangeType(ChangeType.UPSERT)
                         .setAspect(
@@ -260,13 +258,13 @@ public class AspectsBatchImplTest {
                                 .setContentType("application/json")
                                 .setValue(
                                     ByteString.copyString(
-                                        "{\"foo\":\"bar\"}", StandardCharsets.UTF_8)))
-                        .setSystemMetadata(new SystemMetadata()))
-                .auditStamp(auditStamp)
-                .build());
+                                        "{\"foo\":\"bar\",\"removed\":false}",
+                                        StandardCharsets.UTF_8))),
+                    auditStamp,
+                    testRegistry));
 
     AspectsBatchImpl testBatch =
-        AspectsBatchImpl.builder().items(testItems).retrieverContext(retrieverContext).build();
+        AspectsBatchImpl.builder().items(testItems).retrieverContext(retrieverContext).build(null);
 
     assertEquals(
         testBatch.toUpsertBatchItems(
@@ -286,7 +284,7 @@ public class AspectsBatchImplTest {
                             .getEntitySpec(DATASET_ENTITY_NAME)
                             .getAspectSpec(STATUS_ASPECT_NAME))
                     .auditStamp(auditStamp)
-                    .systemMetadata(testItems.get(0).getSystemMetadata().setVersion("1"))
+                    .systemMetadata(testItems.get(0).getSystemMetadata())
                     .recordTemplate(new Status().setRemoved(false))
                     .build(mockAspectRetriever),
                 ChangeItemImpl.builder()
@@ -301,10 +299,31 @@ public class AspectsBatchImplTest {
                             .getEntitySpec(DATASET_ENTITY_NAME)
                             .getAspectSpec(STATUS_ASPECT_NAME))
                     .auditStamp(auditStamp)
-                    .systemMetadata(testItems.get(1).getSystemMetadata().setVersion("1"))
+                    .systemMetadata(testItems.get(1).getSystemMetadata())
                     .recordTemplate(new Status().setRemoved(false))
                     .build(mockAspectRetriever))),
         "Mutation to status aspect");
+  }
+
+  @Test(expectedExceptions = ValidationException.class)
+  public void toUpsertBatchItemsProposedItemInvalidAspectTest() {
+    AuditStamp auditStamp = AuditStampUtils.createDefaultAuditStamp();
+    ProposedItem.builder()
+        .build(
+            new MetadataChangeProposal()
+                .setEntityUrn(
+                    UrnUtils.getUrn(
+                        "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)"))
+                .setAspectName("my-custom-aspect")
+                .setEntityType(DATASET_ENTITY_NAME)
+                .setChangeType(ChangeType.UPSERT)
+                .setAspect(
+                    new GenericAspect()
+                        .setContentType("application/json")
+                        .setValue(
+                            ByteString.copyString("{\"foo\":\"bar\"}", StandardCharsets.UTF_8))),
+            auditStamp,
+            testRegistry);
   }
 
   @Test
@@ -331,7 +350,7 @@ public class AspectsBatchImplTest {
                 AuditStampUtils.createDefaultAuditStamp(),
                 retrieverContext)
             .retrieverContext(retrieverContext)
-            .build();
+            .build(null);
 
     assertEquals(
         testBatch

@@ -1,14 +1,15 @@
-import { GenericEntityProperties } from '@app/entity/shared/types';
 import React from 'react';
-import { Domain, EntityType, Owner, SearchInsight } from '../../../../types.generated';
-import DefaultPreviewCard from '../../../previewV2/DefaultPreviewCard';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import DomainEntitiesSnippet from './DomainEntitiesSnippet';
-import DomainIcon from '../../../domain/DomainIcon';
-import EntityCount from '../../shared/containers/profile/header/EntityCount';
-import { DomainColoredIcon } from '../../shared/links/DomainColoredIcon';
-import { EntityMenuItems } from '../../shared/EntityDropdown/EntityMenuActions';
-import { PreviewType } from '../../Entity';
+
+import { GenericEntityProperties } from '@app/entity/shared/types';
+import { IconStyleType, PreviewType } from '@app/entityV2/Entity';
+import DomainEntitiesSnippet from '@app/entityV2/domain/preview/DomainEntitiesSnippet';
+import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
+import EntityCount from '@app/entityV2/shared/containers/profile/header/EntityCount';
+import { DomainColoredIcon } from '@app/entityV2/shared/links/DomainColoredIcon';
+import DefaultPreviewCard from '@app/previewV2/DefaultPreviewCard';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { Domain, EntityType, Owner, SearchInsight } from '@types';
 
 export const Preview = ({
     domain,
@@ -33,7 +34,7 @@ export const Preview = ({
     logoComponent?: JSX.Element;
     entityCount?: number;
     headerDropdownItems?: Set<EntityMenuItems>;
-    previewType?: PreviewType;
+    previewType: PreviewType;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     return (
@@ -44,14 +45,7 @@ export const Preview = ({
             data={data}
             description={description || ''}
             entityType={EntityType.Domain}
-            typeIcon={
-                <DomainIcon
-                    style={{
-                        fontSize: 14,
-                        color: '#BFBFBF',
-                    }}
-                />
-            }
+            typeIcon={entityRegistry.getIcon(EntityType.Domain, 14, IconStyleType.ACCENT)}
             owners={owners}
             insights={insights}
             logoComponent={logoComponent}

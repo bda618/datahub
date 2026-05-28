@@ -1,19 +1,20 @@
+import { Form, Input, Typography, message } from 'antd';
 import React, { useEffect, useState } from 'react';
-import { Button, Form, Input, Modal, Typography, message } from 'antd';
 import styled from 'styled-components';
-import EditNoteIcon from '@mui/icons-material/EditNote';
-import { useCreatePostMutation, useUpdatePostMutation } from '../../../../graphql/mutations.generated';
-import { MediaType, PostContentType, PostType, SubResourceType } from '../../../../types.generated';
-import { PostEntry } from '../../../settings/posts/PostsListColumns';
+
+import { PostEntry } from '@app/settings/posts/PostsListColumns';
 import {
     CREATE_POST_BUTTON_ID,
     LINK_FIELD_NAME,
     LOCATION_FIELD_NAME,
     TYPE_FIELD_NAME,
-} from '../../../settings/posts/constants';
-import handleGraphQLError from '../../../shared/handleGraphQLError';
-import { useEnterKeyListener } from '../../../shared/useEnterKeyListener';
-import { Editor } from '../tabs/Documentation/components/editor/Editor';
+} from '@app/settings/posts/constants';
+import handleGraphQLError from '@app/shared/handleGraphQLError';
+import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
+import { Editor, Modal } from '@src/alchemy-components';
+
+import { useCreatePostMutation, useUpdatePostMutation } from '@graphql/mutations.generated';
+import { MediaType, PostContentType, PostType, SubResourceType } from '@types';
 
 const SubFormItem = styled(Form.Item)`
     margin-bottom: 24px;
@@ -30,7 +31,7 @@ type Props = {
 
 const EditorContainer = styled.div`
     flex: 1;
-    border: 1px solid #d9d9d9;
+    border: 1px solid ${(props) => props.theme.colors.border};
     border-radius: 8px;
     .remirror-editor.ProseMirror {
         padding: 10px;
@@ -40,36 +41,6 @@ const EditorContainer = styled.div`
         padding: 0;
         margin: 0;
     }
-`;
-
-const ModalHeaderContainer = styled.div`
-    height: 86px;
-    display: flex;
-    align-items: center;
-    font-size: 20px;
-    font-family: 'Mulish', sans-serif;
-    font-weight: lighter;
-`;
-
-const ModalTitle = styled.div`
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    max-height: 240px;
-`;
-
-const StyledModal = styled(Modal)`
-    width: 680px !important;
-    .ant-modal-header {
-        padding: 0px 32px;
-    }
-`;
-
-const StyledButton = styled(Button)`
-    background: #533fd1;
-    color: #f9fafc;
-    border-radius: 5px;
-    border: 1px;
 `;
 
 export default function CreateEntityAnnouncementModal({
@@ -199,32 +170,27 @@ export default function CreateEntityAnnouncementModal({
     };
 
     return (
-        <StyledModal
-            title={
-                <ModalHeaderContainer>
-                    <ModalTitle>
-                        <EditNoteIcon fontSize="medium" />
-                        {titleText}
-                    </ModalTitle>
-                </ModalHeaderContainer>
-            }
+        <Modal
+            title={titleText}
             open
             onCancel={onCloseModal}
-            footer={
-                <>
-                    <Button onClick={onCloseModal} type="text" id="createPostButton">
-                        Cancel
-                    </Button>
-                    <StyledButton
-                        id={CREATE_POST_BUTTON_ID}
-                        data-testid={!editData ? 'create-announcement-button' : 'update-announcement-button'}
-                        onClick={!editData ? onCreatePost : onUpdatePost}
-                        disabled={!createButtonEnabled}
-                    >
-                        {!editData ? 'Create' : 'Update'}
-                    </StyledButton>
-                </>
-            }
+            width={650}
+            buttons={[
+                {
+                    text: 'Cancel',
+                    variant: 'text',
+                    onClick: onClose,
+                    id: 'createPostButton',
+                },
+                {
+                    text: !editData ? 'Create' : 'Update',
+                    onClick: !editData ? onCreatePost : onUpdatePost,
+                    variant: 'filled',
+                    disabled: !createButtonEnabled,
+                    id: CREATE_POST_BUTTON_ID,
+                    buttonDataTestId: !editData ? 'create-announcement-button' : 'update-announcement-button',
+                },
+            ]}
         >
             <Form
                 form={form}
@@ -256,6 +222,6 @@ export default function CreateEntityAnnouncementModal({
                     </EditorContainer>
                 </SubFormItem>
             </Form>
-        </StyledModal>
+        </Modal>
     );
 }

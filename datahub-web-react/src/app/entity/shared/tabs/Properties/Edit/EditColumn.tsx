@@ -1,17 +1,19 @@
-import { colors, Icon, Text } from '@src/alchemy-components';
-import analytics, { EventType } from '@src/app/analytics';
-import { MenuItem } from '@src/app/govern/structuredProperties/styledComponents';
-import { ConfirmationModal } from '@src/app/sharedV2/modals/ConfirmationModal';
-import { showToastMessage, ToastType } from '@src/app/sharedV2/toastMessageUtils';
-import { useRemoveStructuredPropertiesMutation } from '@src/graphql/structuredProperties.generated';
-import { EntityType, StructuredPropertyEntity } from '@src/types.generated';
+import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
 import { Dropdown } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { useEntityContext, useEntityData, useMutationUrn } from '../../../EntityContext';
-import EditStructuredPropertyModal from './EditStructuredPropertyModal';
 
-export const MoreOptionsContainer = styled.div`
+import { useEntityContext, useEntityData, useMutationUrn } from '@app/entity/shared/EntityContext';
+import EditStructuredPropertyModal from '@app/entity/shared/tabs/Properties/Edit/EditStructuredPropertyModal';
+import { Icon, Text, colors } from '@src/alchemy-components';
+import analytics, { EventType } from '@src/app/analytics';
+import { MenuItem } from '@src/app/govern/structuredProperties/styledComponents';
+import { ConfirmationModal } from '@src/app/sharedV2/modals/ConfirmationModal';
+import { ToastType, showToastMessage } from '@src/app/sharedV2/toastMessageUtils';
+import { useRemoveStructuredPropertiesMutation } from '@src/graphql/structuredProperties.generated';
+import { EntityType, StructuredPropertyEntity } from '@src/types.generated';
+
+const MoreOptionsContainer = styled.div`
     display: flex;
     gap: 12px;
     justify-content: end;
@@ -120,7 +122,7 @@ export function EditColumn({ structuredProperty, associatedUrn, values, refetch,
         <>
             <MoreOptionsContainer>
                 <Dropdown menu={{ items }} trigger={['click']}>
-                    <Icon icon="MoreVert" size="md" data-testid="structured-prop-entity-more-icon" />
+                    <Icon icon={DotsThreeVertical} size="md" data-testid="structured-prop-entity-more-icon" />
                 </Dropdown>
             </MoreOptionsContainer>
             <EditStructuredPropertyModal

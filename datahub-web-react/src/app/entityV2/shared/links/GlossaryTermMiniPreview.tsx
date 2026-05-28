@@ -1,12 +1,13 @@
+import Book from '@mui/icons-material/Book';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-import * as Muicon from '@mui/icons-material';
 
-import { EntityType, GlossaryTerm } from '../../../../types.generated';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { HoverEntityTooltip } from '../../../recommendations/renderer/component/HoverEntityTooltip';
-import { generateColorFromPalette } from '../../../glossaryV2/colorUtils';
+import { useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
+import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { EntityType, GlossaryTerm } from '@types';
 
 const GlossaryTermMiniPreviewContainer = styled.div<{ color: string }>`
     display: inline-flex;
@@ -20,13 +21,12 @@ const GlossaryTermMiniPreviewContainer = styled.div<{ color: string }>`
     height: 34px;
     border-radius: 5px;
     justify-content: center;
-    border: 1px solid #ccd1dd;
-    background-color: #f8f8f8;
+    border: 1px solid ${(props) => props.theme.colors.border};
+    background-color: ${(props) => props.theme.colors.bgSurface};
     :hover {
-        background-color: #f2f2f2;
-        // background-color: red;
+        background-color: ${(props) => props.theme.colors.bgSurface};
     }
-    color: #565657;
+    color: ${(props) => props.theme.colors.textSecondary};
     cursor: pointer;
     font-family: Mulish;
     overflow: hidden;
@@ -53,17 +53,16 @@ export const GlossaryTermMiniPreview = ({ glossaryTerm }: { glossaryTerm: Glossa
     const { parentNodes, urn } = glossaryTerm;
     const url = entityRegistry.getEntityUrl(EntityType.GlossaryTerm, urn as string);
     const lastParentNode = parentNodes && parentNodes.count > 0 && parentNodes.nodes[parentNodes.count - 1];
+    const generateColor = useGenerateGlossaryColorFromPalette();
     const termColor = lastParentNode
-        ? lastParentNode.displayProperties?.colorHex || generateColorFromPalette(lastParentNode.urn)
-        : generateColorFromPalette(urn);
-    const MaterialIcon = Muicon.Book;
-
+        ? lastParentNode.displayProperties?.colorHex || generateColor(lastParentNode.urn)
+        : generateColor(urn);
     return (
         <Link to={url}>
             <HoverEntityTooltip entity={glossaryTerm} showArrow={false} placement="bottom">
                 <GlossaryTermMiniPreviewContainer color={termColor}>
                     <span>
-                        <MaterialIcon
+                        <Book
                             style={{ verticalAlign: 'bottom', fontSize: 22, paddingRight: 6 }}
                             fontSize="large"
                             // sx={{ px: 1 }}

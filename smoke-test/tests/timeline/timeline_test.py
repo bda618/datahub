@@ -15,13 +15,19 @@ def test_all(auth_session, graph_client):
     env = "PROD"
     dataset_urn = f"urn:li:dataset:({platform},{dataset_name},{env})"
 
-    ingest_file_via_rest(auth_session, "tests/timeline/timeline_test_data.json")
-    ingest_file_via_rest(auth_session, "tests/timeline/timeline_test_datav2.json")
-    ingest_file_via_rest(auth_session, "tests/timeline/timeline_test_datav3.json")
+    ingest_file_via_rest(
+        auth_session, "tests/timeline/timeline_test_data.json", mode="ASYNC"
+    )
+    ingest_file_via_rest(
+        auth_session, "tests/timeline/timeline_test_datav2.json", mode="ASYNC"
+    )
+    ingest_file_via_rest(
+        auth_session, "tests/timeline/timeline_test_datav3.json", mode="ASYNC"
+    )
 
     res_data = timeline_cli.get_timeline(
         dataset_urn,
-        ["TAG", "DOCUMENTATION", "TECHNICAL_SCHEMA", "GLOSSARY_TERM", "OWNER"],
+        ["TAG", "DOCUMENTATION", "TECHNICAL_SCHEMA", "GLOSSARY_TERM", "OWNERSHIP"],
         None,
         None,
         False,
@@ -225,7 +231,7 @@ def test_ownership(graph_client):
     )
 
     res_data = timeline_cli.get_timeline(
-        dataset_urn, ["OWNER"], None, None, False, graph=graph_client
+        dataset_urn, ["OWNERSHIP"], None, None, False, graph=graph_client
     )
 
     graph_client.hard_delete_entity(urn=dataset_urn)

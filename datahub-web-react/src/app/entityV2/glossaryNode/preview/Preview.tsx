@@ -1,11 +1,13 @@
-import { GenericEntityProperties } from '@app/entity/shared/types';
+import { BookmarksSimple } from '@phosphor-icons/react/dist/csr/BookmarksSimple';
 import React from 'react';
-import { FolderOutlined } from '@ant-design/icons';
-import { EntityType, Owner, ParentNodesResult } from '../../../../types.generated';
-import DefaultPreviewCard from '../../../previewV2/DefaultPreviewCard';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { EntityMenuItems } from '../../shared/EntityDropdown/EntityMenuActions';
-import { PreviewType } from '../../Entity';
+
+import { GenericEntityProperties } from '@app/entity/shared/types';
+import { PreviewType } from '@app/entityV2/Entity';
+import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
+import DefaultPreviewCard from '@app/previewV2/DefaultPreviewCard';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { EntityType, Owner, ParentNodesResult } from '@types';
 
 export const Preview = ({
     urn,
@@ -24,7 +26,7 @@ export const Preview = ({
     owners?: Array<Owner> | null;
     parentNodes?: ParentNodesResult | null;
     headerDropdownItems?: Set<EntityMenuItems>;
-    previewType?: PreviewType;
+    previewType: PreviewType;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     return (
@@ -35,7 +37,7 @@ export const Preview = ({
             data={data}
             description={description || ''}
             owners={owners}
-            logoComponent={<FolderOutlined style={{ fontSize: '20px' }} />}
+            logoComponent={<BookmarksSimple size={20} color="currentColor" />}
             entityType={EntityType.GlossaryNode}
             parentEntities={parentNodes?.nodes}
             headerDropdownItems={headerDropdownItems}

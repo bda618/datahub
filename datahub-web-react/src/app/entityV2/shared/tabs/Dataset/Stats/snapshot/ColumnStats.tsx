@@ -1,12 +1,13 @@
-import { downgradeV2FieldPath } from '@src/app/entityV2/dataset/profile/schema/utils/utils';
 import { Typography } from 'antd';
-import { ColumnsType, ColumnType } from 'antd/lib/table';
+import { ColumnType, ColumnsType } from 'antd/lib/table';
 import React, { useMemo } from 'react';
-import styled from 'styled-components';
-import { DatasetFieldProfile, Maybe, PartitionSpec, PartitionType } from '../../../../../../../types.generated';
-import { StyledTable } from '../../../../components/styled/StyledTable';
-import { ANTD_GRAY } from '../../../../constants';
-import SampleValueTag from './SampleValueTag';
+import styled, { useTheme } from 'styled-components';
+
+import { StyledTable } from '@app/entityV2/shared/components/styled/StyledTable';
+import SampleValueTag from '@app/entityV2/shared/tabs/Dataset/Stats/snapshot/SampleValueTag';
+import { downgradeV2FieldPath } from '@src/app/entityV2/dataset/profile/schema/utils/utils';
+
+import { DatasetFieldProfile, Maybe, PartitionSpec, PartitionType } from '@types';
 
 type Props = {
     columnStats: Array<DatasetFieldProfile>;
@@ -21,7 +22,7 @@ const NameText = styled(Typography.Text)`
     font-family: 'Roboto Mono', monospace;
     font-weight: 600;
     font-size: 12px;
-    color: ${ANTD_GRAY[9]};
+    color: ${(props) => props.theme.colors.text};
 `;
 
 const isPresent = (val?: string | number | null): val is string | number => {
@@ -33,6 +34,7 @@ const decimalToPercentStr = (decimal: number, precision: number): string => {
 };
 
 export default function ColumnStats({ columnStats, partitionSpec }: Props) {
+    const theme = useTheme();
     const columnStatsTableData = useMemo(
         () =>
             columnStats.map((doc) => ({
@@ -58,7 +60,7 @@ export default function ColumnStats({ columnStats, partitionSpec }: Props) {
      * Returns a placeholder value to show in the column data table when data is null.
      */
     const unknownValue = () => {
-        return <Typography.Text style={{ color: '#B8B8B8' }}>unknown</Typography.Text>;
+        return <Typography.Text style={{ color: theme.colors.textDisabled }}>unknown</Typography.Text>;
     };
 
     /**

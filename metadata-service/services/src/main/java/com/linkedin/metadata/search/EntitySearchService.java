@@ -4,11 +4,11 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.browse.BrowseResultV2;
+import com.linkedin.metadata.config.search.SearchServiceConfiguration;
 import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
-import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
@@ -21,6 +21,8 @@ import javax.annotation.Nullable;
 import org.opensearch.action.explain.ExplainResponse;
 
 public interface EntitySearchService {
+
+  SearchServiceConfiguration getSearchServiceConfig();
 
   default void configure() {}
 
@@ -96,7 +98,7 @@ public interface EntitySearchService {
       @Nullable Filter postFilters,
       List<SortCriterion> sortCriteria,
       int from,
-      int size);
+      @Nullable Integer size);
 
   /**
    * Gets a list of documents that match given search request. The results are aggregated and
@@ -125,8 +127,8 @@ public interface EntitySearchService {
       @Nullable Filter postFilters,
       List<SortCriterion> sortCriteria,
       int from,
-      int size,
-      @Nullable List<String> facets);
+      @Nullable Integer size,
+      @Nonnull List<String> facets);
 
   /**
    * Gets a list of documents after applying the input filters.
@@ -147,7 +149,7 @@ public interface EntitySearchService {
       @Nullable Filter filters,
       List<SortCriterion> sortCriteria,
       int from,
-      int size);
+      @Nullable Integer size);
 
   /**
    * Returns a list of suggestions given type ahead query.
@@ -169,7 +171,7 @@ public interface EntitySearchService {
       @Nonnull String query,
       @Nullable String field,
       @Nullable Filter requestParams,
-      int limit);
+      @Nullable Integer limit);
 
   /**
    * Returns number of documents per field value given the field and filters
@@ -187,7 +189,7 @@ public interface EntitySearchService {
       @Nullable List<String> entityNames,
       @Nonnull String field,
       @Nullable Filter requestParams,
-      int limit);
+      @Nullable Integer limit);
 
   /**
    * Gets a list of groups/entities that match given browse request.
@@ -206,7 +208,7 @@ public interface EntitySearchService {
       @Nonnull String path,
       @Nullable Filter requestParams,
       int from,
-      int size);
+      @Nullable Integer size);
 
   /**
    * Gets browse snapshot of a given path
@@ -226,7 +228,7 @@ public interface EntitySearchService {
       @Nullable Filter filter,
       @Nonnull String input,
       int start,
-      int count);
+      @Nullable Integer count);
 
   /**
    * Gets browse snapshot of a given path
@@ -246,7 +248,7 @@ public interface EntitySearchService {
       @Nullable Filter filter,
       @Nonnull String input,
       int start,
-      int count);
+      @Nullable Integer count);
 
   /**
    * Gets a list of paths for a given urn.
@@ -270,6 +272,7 @@ public interface EntitySearchService {
    * @param sortCriteria list of {@link SortCriterion} to be applied to search results
    * @param scrollId opaque scroll identifier to pass to search service
    * @param size the number of search hits to return
+   * @param facets list of facets we want aggregations for
    * @return a {@link ScrollResult} that contains a list of matched documents and related search
    *     result metadata
    */
@@ -282,7 +285,30 @@ public interface EntitySearchService {
       List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
       @Nullable String keepAlive,
-      int size);
+      @Nullable Integer size,
+      @Nonnull List<String> facets);
+
+  @Nonnull
+  default ScrollResult fullTextScroll(
+      @Nonnull OperationContext opContext,
+      @Nonnull List<String> entities,
+      @Nonnull String input,
+      @Nullable Filter postFilters,
+      List<SortCriterion> sortCriteria,
+      @Nullable String scrollId,
+      @Nullable String keepAlive,
+      @Nullable Integer size) {
+    return fullTextScroll(
+        opContext,
+        entities,
+        input,
+        postFilters,
+        sortCriteria,
+        scrollId,
+        keepAlive,
+        size,
+        List.of());
+  }
 
   /**
    * Gets a list of documents that match given search request. The results are aggregated and
@@ -295,6 +321,7 @@ public interface EntitySearchService {
    * @param sortCriteria list of {@link SortCriterion} to be applied to search results
    * @param scrollId opaque scroll identifier to pass to search service
    * @param size the number of search hits to return
+   * @param facets list of facets we want aggregations for
    * @return a {@link ScrollResult} that contains a list of matched documents and related search
    *     result metadata
    */
@@ -307,10 +334,52 @@ public interface EntitySearchService {
       List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
       @Nullable String keepAlive,
-      int size);
+      @Nullable Integer size,
+      @Nonnull List<String> facets);
 
-  /** Max result size returned by the underlying search backend */
-  int maxResultSize();
+  default ScrollResult structuredScroll(
+      @Nonnull OperationContext opContext,
+      @Nonnull List<String> entities,
+      @Nonnull String input,
+      @Nullable Filter postFilters,
+      List<SortCriterion> sortCriteria,
+      @Nullable String scrollId,
+      @Nullable String keepAlive,
+      @Nullable Integer size) {
+    return structuredScroll(
+        opContext,
+        entities,
+        input,
+        postFilters,
+        sortCriteria,
+        scrollId,
+        keepAlive,
+        size,
+        List.of());
+  }
+
+  default ExplainResponse explain(
+      @Nonnull OperationContext opContext,
+      @Nonnull String query,
+      @Nonnull String documentId,
+      @Nonnull String entityName,
+      @Nullable Filter postFilters,
+      List<SortCriterion> sortCriteria,
+      @Nullable String scrollId,
+      @Nullable String keepAlive,
+      @Nullable Integer size) {
+    return explain(
+        opContext,
+        query,
+        documentId,
+        entityName,
+        postFilters,
+        sortCriteria,
+        scrollId,
+        keepAlive,
+        size,
+        List.of());
+  }
 
   ExplainResponse explain(
       @Nonnull OperationContext opContext,
@@ -321,15 +390,18 @@ public interface EntitySearchService {
       List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
       @Nullable String keepAlive,
-      int size,
-      @Nullable List<String> facets);
+      @Nullable Integer size,
+      @Nonnull List<String> facets);
 
   /**
-   * Return index convention
+   * Fetch raw entity documents
    *
-   * @return convent
+   * @param opContext operational context
+   * @param urns the document identifiers
+   * @return map of documents by urn
    */
-  IndexConvention getIndexConvention();
+  @Nonnull
+  Map<Urn, Map<String, Object>> raw(@Nonnull OperationContext opContext, @Nonnull Set<Urn> urns);
 
   default void appendRunId(
       @Nonnull final OperationContext opContext, @Nonnull List<IngestResult> results) {
@@ -367,4 +439,13 @@ public interface EntitySearchService {
         .forEach(
             entry -> appendRunId(opContext, entry.getKey().getKey(), entry.getKey().getValue()));
   }
+
+  /**
+   * Validates doc counts match between an alias and a new backing index, then atomically swaps the
+   * alias.
+   *
+   * @return true if swapped, false if doc counts didn't match
+   */
+  boolean validateAndSwapAlias(@Nonnull String aliasName, @Nonnull String newBackingIndex)
+      throws Exception;
 }

@@ -11,8 +11,6 @@ import static com.linkedin.metadata.authorization.ApiGroup.TIMESERIES;
 import static com.linkedin.metadata.authorization.ApiOperation.READ;
 import static com.linkedin.metadata.resources.operations.OperationsResource.*;
 import static com.linkedin.metadata.resources.restli.RestliConstants.*;
-import static com.linkedin.metadata.utils.CriterionUtils.validateAndConvert;
-
 import com.codahale.metrics.MetricRegistry;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
@@ -143,7 +141,7 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
       @QueryParam("aspect") @Optional @Nullable String aspectName,
       @QueryParam("version") @Optional @Nullable Long version)
       throws URISyntaxException {
-    log.info("GET ASPECT urn: {} aspect: {} version: {}", urnStr, aspectName, version);
+    log.debug("GET ASPECT urn: {} aspect: {} version: {}", urnStr, aspectName, version);
     final Urn urn = Urn.createFromString(urnStr);
     return RestliUtils.toTask(systemOperationContext,
         () -> {
@@ -181,13 +179,13 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
       @ActionParam(PARAM_ASPECT) @Nonnull String aspectName,
       @ActionParam(PARAM_START_TIME_MILLIS) @Optional @Nullable Long startTimeMillis,
       @ActionParam(PARAM_END_TIME_MILLIS) @Optional @Nullable Long endTimeMillis,
-      @ActionParam(PARAM_LIMIT) @Optional("10000") int limit,
+      @ActionParam(PARAM_LIMIT) @Optional @Nullable Integer limit,
       @ActionParam(PARAM_LATEST_VALUE) @Optional("false")
           boolean latestValue, // This field is deprecated.
       @ActionParam(PARAM_FILTER) @Optional @Nullable Filter filter,
       @ActionParam(PARAM_SORT) @Optional @Nullable SortCriterion sort)
       throws URISyntaxException {
-    log.info(
+    log.debug(
         "Get Timeseries Aspect values for aspect {} for entity {} with startTimeMillis {}, endTimeMillis {} and limit {}.",
         aspectName,
         entityName,
@@ -235,7 +233,7 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
                       startTimeMillis,
                       endTimeMillis,
                       limit,
-                      validateAndConvert(filter),
+                      filter,
                       sort)));
           return response;
         },
@@ -311,10 +309,10 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
         final AspectsBatch batch = AspectsBatchImpl.builder()
                 .mcps(metadataChangeProposals, auditStamp, opContext.getRetrieverContext(),
                     opContext.getValidationContext().isAlternateValidation())
-                .build();
+                .build(opContext);
 
         batch.getMCPItems().forEach(item ->
-            log.info(
+            log.debug(
                     "INGEST PROPOSAL content: urn: {}, async: {}, value: {}",
                     item.getUrn(),
                     asyncBool,
@@ -325,7 +323,6 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
 
         List<IngestResult> results =
                 _entityService.ingestProposal(opContext, batch, asyncBool);
-        entitySearchService.appendRunId(opContext, results);
 
             // TODO: We don't actually use this return value anywhere. Maybe we should just stop returning it altogether?
             return RESTLI_SUCCESS;
@@ -373,7 +370,8 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
       @ActionParam("batchSize") @Optional @Nullable Integer batchSize,
       @ActionParam("limit") @Optional @Nullable Integer limit,
       @ActionParam("gePitEpochMs") @Optional @Nullable Long gePitEpochMs,
-      @ActionParam("lePitEpochMs") @Optional @Nullable Long lePitEpochMs) {
+      @ActionParam("lePitEpochMs") @Optional @Nullable Long lePitEpochMs,
+      @ActionParam("createDefaultAspects") @Optional @Nullable Boolean createDefaultAspects) {
     return RestliUtils.toTask(systemOperationContext,
         () -> {
 
@@ -390,7 +388,7 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
             }
 
             return Utils.restoreIndices(systemOperationContext, getContext(),
-              aspectName, urn, urnLike, start, batchSize, limit, gePitEpochMs, lePitEpochMs, _authorizer, _entityService);
+              aspectName, urn, urnLike, start, batchSize, limit, gePitEpochMs, lePitEpochMs, _authorizer, _entityService, createDefaultAspects != null ? createDefaultAspects : false);
         },
         MetricRegistry.name(this.getClass(), "restoreIndices"));
   }

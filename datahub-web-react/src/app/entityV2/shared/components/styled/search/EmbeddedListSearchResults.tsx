@@ -3,27 +3,38 @@ import LanguageIcon from '@mui/icons-material/Language';
 import { Pagination, Spin, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { SearchCfg } from '../../../../../../conf';
-import {
-    DataHubView,
-    FacetFilterInput,
-    FacetMetadata,
-    SearchResults as SearchResultType,
-} from '../../../../../../types.generated';
-import { EntityAndType } from '../../../../../entity/shared/types';
-import { SearchFiltersSection } from '../../../../../search/SearchFiltersSection';
-import { UnionType } from '../../../../../search/utils/constants';
-import { combineSiblingsInSearchResults } from '../../../../../searchV2/utils/combineSiblingsInSearchResults';
-import { useIsShowSeparateSiblingsEnabled } from '../../../../../useAppConfig';
-import { ANTD_GRAY, REDESIGN_COLORS } from '../../../constants';
-import { EntityActionProps, EntitySearchResults } from './EntitySearchResults';
-import MatchingViewsLabel from './MatchingViewsLabel';
 
-const SearchBody = styled.div`
+import { EntityAndType } from '@app/entity/shared/types';
+import {
+    EntityActionProps,
+    EntitySearchResults,
+} from '@app/entityV2/shared/components/styled/search/EntitySearchResults';
+import MatchingViewsLabel from '@app/entityV2/shared/components/styled/search/MatchingViewsLabel';
+import { SearchFiltersSection } from '@app/search/SearchFiltersSection';
+import { UnionType } from '@app/search/utils/constants';
+import { combineSiblingsInSearchResults } from '@app/searchV2/utils/combineSiblingsInSearchResults';
+import { useIsShowSeparateSiblingsEnabled } from '@app/useAppConfig';
+import { SearchCfg } from '@src/conf';
+
+import { DataHubView, FacetFilterInput, FacetMetadata, SearchResults as SearchResultType } from '@types';
+
+const SearchBody = styled.div<{ showFilters?: boolean }>`
     height: 100%;
-    overflow-y: auto;
-    display: flex;
-    background-color: ${REDESIGN_COLORS.BACKGROUND};
+    overflow: hidden;
+    background-color: ${(props) => props.theme.colors.bgSurface};
+    display: grid;
+    grid-template-rows: minmax(0, 1fr) auto;
+    grid-template-columns: ${(p) => (p.showFilters ? '0.2fr auto' : '1fr')};
+    grid-template-areas: ${(p) =>
+        p.showFilters
+            ? `
+                 "filters results"
+                 "footer  footer"
+               `
+            : `
+                 "results"
+                 "footer"
+               `};
 `;
 
 const PaginationInfo = styled(Typography.Text)`
@@ -31,35 +42,49 @@ const PaginationInfo = styled(Typography.Text)`
 `;
 
 const FiltersContainer = styled.div`
-    background-color: ${REDESIGN_COLORS.WHITE};
+    grid-area: filters;
+    background-color: ${(props) => props.theme.colors.bg};
     display: flex;
     flex-direction: column;
-    height: 100%;
     max-width: 260px;
     min-width: 260px;
     border-right: 1px solid;
-    border-color: ${(props) => props.theme.styles['border-color-base']};
+    border-color: ${(props) => props.theme.colors.border};
 `;
 
 const ResultContainer = styled.div`
-    height: auto;
-    overflow: auto;
-    flex: 1;
+    grid-area: results;
+    overflow: hidden;
     position: relative;
     width: 100%;
     display: flex;
     flex-direction: column;
+    min-height: 0;
 `;
 
-const PaginationInfoContainer = styled.span`
+const PaginationInfoContainer = styled.div`
+    grid-area: footer;
     padding: 8px;
     padding-left: 16px;
     border-top: 1px solid;
-    border-color: ${(props) => props.theme.styles['border-color-base']};
+    border-color: ${(props) => props.theme.colors.border};
+    background-color: ${(props) => props.theme.colors.bg};
     display: flex;
-    justify-content: space-between;
+    flex-direction: column;
+    gap: 8px;
+`;
+
+const PaginationRow = styled.div`
+    display: flex;
+    justify-content: center;
     align-items: center;
-    overflow: auto;
+    gap: 16px;
+`;
+
+const ViewMessageRow = styled.div`
+    display: flex;
+    justify-content: center;
+    align-items: center;
 `;
 
 const StyledPagination = styled(Pagination)`
@@ -77,12 +102,12 @@ const LoadingContainer = styled.div`
 
 const StyledLoading = styled(LoadingOutlined)`
     font-size: 32px;
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
     padding-bottom: 18px;
 `;
 
 const ViewsContainer = styled.div`
-    background-color: ${REDESIGN_COLORS.BORDER_2};
+    background-color: ${(props) => props.theme.colors.bgSurface};
     padding: 10px 16px;
     width: 100%;
     display: flex;
@@ -91,21 +116,22 @@ const ViewsContainer = styled.div`
 `;
 
 const Pill = styled.div<{ selected?: boolean }>`
-    border: 1px solid ${(props) => (props.selected ? REDESIGN_COLORS.TITLE_PURPLE : `#797F98`)};
+    border: 1px solid ${(props) => (props.selected ? props.theme.colors.borderBrand : props.theme.colors.border)};
     white-space: nowrap;
     border-radius: 20px;
     padding: 5px 16px;
-    color: ${(props) => (props.selected ? REDESIGN_COLORS.TITLE_PURPLE : '#797F98')};
+    color: ${(props) => (props.selected ? props.theme.colors.textBrand : props.theme.colors.textTertiary)};
     cursor: pointer;
     display: flex;
     gap: 0.5rem;
     align-items: center;
-    background: ${(props) => (props.selected ? '#E5E2F8' : 'none')};
+    background: ${(props) => (props.selected ? props.theme.colors.bgSurfaceBrand : 'none')};
 `;
 
 const Count = styled.div<{ selected: boolean }>`
-    background-color: ${(props) => (props.selected ? REDESIGN_COLORS.HOVER_PURPLE : '#A3A7B9')};
-    color: ${REDESIGN_COLORS.WHITE};
+    background-color: ${(props) =>
+        props.selected ? props.theme.colors.buttonFillBrand : props.theme.colors.textTertiary};
+    color: ${(props) => props.theme.colors.bg};
     border-radius: 20px;
     min-width: 25px;
     padding: 2px 4px;
@@ -119,12 +145,12 @@ const Count = styled.div<{ selected: boolean }>`
 
 const LanguageIconStyle = styled(LanguageIcon)<{ selected?: boolean }>`
     font-size: 18px !important;
-    color: ${(props) => (props.selected ? REDESIGN_COLORS.TITLE_PURPLE : '#797F98')};
+    color: ${(props) => (props.selected ? props.theme.colors.iconBrand : props.theme.colors.textTertiary)};
 `;
 
 const ViewLabel = styled.span`
     font-weight: 700;
-    color: #5f6685;
+    color: ${(props) => props.theme.colors.textSecondary};
     font-size: 16px;
     margin-right: 8px;
 `;
@@ -199,7 +225,7 @@ export const EmbeddedListSearchResults = ({
 
     return (
         <>
-            <SearchBody>
+            <SearchBody showFilters={!!showFilters}>
                 {!!showFilters && (
                     <FiltersContainer>
                         <SearchFiltersSection
@@ -262,34 +288,36 @@ export const EmbeddedListSearchResults = ({
                         />
                     )}
                 </ResultContainer>
+                <PaginationInfoContainer>
+                    <PaginationRow>
+                        <PaginationInfo>
+                            <b>
+                                {lastResultIndex > 0 ? (page - 1) * pageSize + 1 : 0} - {lastResultIndex}
+                            </b>{' '}
+                            of <b>{totalResults}</b>
+                        </PaginationInfo>
+                        <StyledPagination
+                            current={page}
+                            pageSize={numResultsPerPage}
+                            total={totalResults}
+                            showLessItems
+                            onChange={onChangePage}
+                            showSizeChanger={totalResults > SearchCfg.RESULTS_PER_PAGE}
+                            onShowSizeChange={(_currNum, newNum) => setNumResultsPerPage(newNum)}
+                            pageSizeOptions={['10', '20', '30']}
+                        />
+                    </PaginationRow>
+                    {applyView && view && selectedViewUrn === view.urn && (
+                        <ViewMessageRow>
+                            <MatchingViewsLabel
+                                view={view}
+                                selectedViewUrn={selectedViewUrn}
+                                setSelectedViewUrn={setSelectedViewUrn}
+                            />
+                        </ViewMessageRow>
+                    )}
+                </PaginationInfoContainer>
             </SearchBody>
-            <PaginationInfoContainer>
-                <PaginationInfo>
-                    <b>
-                        {lastResultIndex > 0 ? (page - 1) * pageSize + 1 : 0} - {lastResultIndex}
-                    </b>{' '}
-                    of <b>{totalResults}</b>
-                </PaginationInfo>
-                <StyledPagination
-                    current={page}
-                    pageSize={numResultsPerPage}
-                    total={totalResults}
-                    showLessItems
-                    onChange={onChangePage}
-                    showSizeChanger={totalResults > SearchCfg.RESULTS_PER_PAGE}
-                    onShowSizeChange={(_currNum, newNum) => setNumResultsPerPage(newNum)}
-                    pageSizeOptions={['10', '20', '50', '100']}
-                />
-                {applyView ? (
-                    <MatchingViewsLabel
-                        view={view}
-                        selectedViewUrn={selectedViewUrn}
-                        setSelectedViewUrn={setSelectedViewUrn}
-                    />
-                ) : (
-                    <span />
-                )}
-            </PaginationInfoContainer>
         </>
     );
 };

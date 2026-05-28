@@ -1,18 +1,17 @@
-import React from 'react';
-
-import styled from 'styled-components';
 import { Skeleton, Timeline } from 'antd';
+import React from 'react';
 import { range } from 'remirror';
+import styled from 'styled-components';
 
-import { AssertionResultType } from '../../../../../../../../../../../types.generated';
-import { getResultDotIcon } from '../../../../../assertionUtils';
-import { ANTD_GRAY } from '../../../../../../../../constants';
+import { getResultDotIcon } from '@app/entityV2/shared/tabs/Dataset/Validations/assertionUtils';
+
+import { AssertionResultType } from '@types';
 
 const ItemSkeleton = styled(Skeleton.Input)`
     && {
         width: 100%;
         border-radius: 4px;
-        background-color: ${ANTD_GRAY[3]};
+        background-color: ${(props) => props.theme.colors.bgSurface};
     }
 `;
 

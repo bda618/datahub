@@ -1,9 +1,11 @@
-import { SearchCardContext } from '@app/entityV2/shared/SearchCardContext';
 import React from 'react';
-import { useEntityData } from '../../entity/shared/EntityContext';
-import { EntityType } from '../../../types.generated';
-import { EmbeddedListSearchSection } from '../shared/components/styled/search/EmbeddedListSearchSection';
-import { UnionType } from '../../search/utils/constants';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import { SearchCardContext } from '@app/entityV2/shared/SearchCardContext';
+import { EmbeddedListSearchSection } from '@app/entityV2/shared/components/styled/search/EmbeddedListSearchSection';
+import { UnionType } from '@app/search/utils/constants';
+
+import { EntityType } from '@types';
 
 export const DomainEntitiesTab = () => {
     const { urn, entityType } = useEntityData();
@@ -17,7 +19,7 @@ export const DomainEntitiesTab = () => {
         };
     }
 
-    const excludeFromFilter = { field: '_entityType', values: ['DATA_PRODUCT'], value: 'DATA_PRODUCT', negated: true };
+    const excludeFromFilter = { field: '_entityType', values: ['DATA_PRODUCT'], negated: true };
 
     return (
         <SearchCardContext.Provider value={{ showRemovalFromList: true }}>

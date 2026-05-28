@@ -1,15 +1,16 @@
 import { Tooltip } from '@components';
-import { useEmbeddedProfileLinkProps } from '@src/app/shared/useEmbeddedProfileLinkProps';
 import { Divider, Image, Tag } from 'antd';
 import { Maybe } from 'graphql/jsutils/Maybe';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-import { ANTD_GRAY } from '../../../entity/shared/constants';
 
-const EntityTag = styled(Tag)`
-    margin: 4px;
+import { useEmbeddedProfileLinkProps } from '@src/app/shared/useEmbeddedProfileLinkProps';
+
+const EntityTag = styled(Tag)<{ $showMargin?: boolean }>`
+    ${(props) => (props.$showMargin ? `margin: 4px;` : `margin: 0px;`)}
     max-width: inherit;
+    border-color: ${(props) => props.theme.colors.border} !important;
 `;
 
 const TitleContainer = styled.div`
@@ -51,8 +52,8 @@ const ColumnName = styled.span`
     font-weight: bold;
 `;
 
-export const StyledDivider = styled(Divider)`
-    background-color: ${ANTD_GRAY[6]};
+const StyledDivider = styled(Divider)`
+    background-color: ${(props) => props.theme.colors.bgSurface};
     margin: 0 7px;
 `;
 
@@ -70,6 +71,7 @@ type Props = {
     columnName?: string;
     dataTestId?: string;
     showNameTooltip?: boolean;
+    showMargin?: boolean;
 };
 
 const constructExternalUrl = (url) => {
@@ -91,13 +93,14 @@ export const EntityPreviewTag = ({
     columnName,
     dataTestId,
     showNameTooltip = true,
+    showMargin = true,
 }: Props) => {
     const externalUrl = constructExternalUrl(url);
     const linkProps = useEmbeddedProfileLinkProps();
 
     return (
         <StyledLink to={externalUrl} {...linkProps} onClick={onClick} data-testid={dataTestId}>
-            <EntityTag>
+            <EntityTag $showMargin={showMargin}>
                 <TitleContainer>
                     <IconContainer>
                         {(!!platformLogoUrl && !platformLogoUrls && (

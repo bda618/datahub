@@ -1,24 +1,24 @@
 import { LoadingOutlined } from '@ant-design/icons';
-import { colors, Icon, Input as InputComponent, Text } from '@src/alchemy-components';
-import { useUserContext } from '@src/app/context/useUserContext';
-import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
-import { getEntityTypesPropertyFilter, getNotHiddenPropertyFilter } from '@src/app/govern/structuredProperties/utils';
-import { useEntityRegistry } from '@src/app/useEntityRegistry';
-import { useIsThemeV2 } from '@src/app/useIsThemeV2';
-import { PageRoutes } from '@src/conf/Global';
-import { useGetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
-import { Dropdown } from 'antd';
 import { Tooltip } from '@components';
-import { EntityType, Maybe, StructuredProperties, StructuredPropertyEntity } from '@src/types.generated';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
+import { Dropdown } from 'antd';
 import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-import { useEntityData } from '../../EntityContext';
-import EditStructuredPropertyModal from './Edit/EditStructuredPropertyModal';
 
-const AddButton = styled.div<{ isThemeV2: boolean; isV1Drawer?: boolean }>`
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import EditStructuredPropertyModal from '@app/entity/shared/tabs/Properties/Edit/EditStructuredPropertyModal';
+import { Icon, Input as InputComponent, Text } from '@src/alchemy-components';
+import { useUserContext } from '@src/app/context/useUserContext';
+import { getStructuredPropertiesSearchInputs } from '@src/app/govern/structuredProperties/utils';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
+import { PageRoutes } from '@src/conf/Global';
+import { useGetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
+import { Maybe, StructuredProperties, StructuredPropertyEntity } from '@src/types.generated';
+
+const AddButton = styled.div<{ isV1Drawer?: boolean }>`
     border-radius: 200px;
-    background-color: ${(props) => (props.isThemeV2 ? colors.violet[500] : REDESIGN_COLORS.LINK_HOVER_BLUE)};
+    background-color: ${(props) => props.theme.styles['primary-color']};
     width: ${(props) => (props.isV1Drawer ? '24px' : '32px')};
     height: ${(props) => (props.isV1Drawer ? '24px' : '32px')};
     display: flex;
@@ -32,8 +32,8 @@ const AddButton = styled.div<{ isThemeV2: boolean; isV1Drawer?: boolean }>`
 
 const DropdownContainer = styled.div`
     border-radius: 12px;
-    box-shadow: 0px 0px 14px 0px rgba(0, 0, 0, 0.15);
-    background-color: ${colors.white};
+    box-shadow: 0px 0px 14px 0px ${(props) => props.theme.colors.overlayMedium};
+    background-color: ${(props) => props.theme.colors.bg};
     padding-bottom: 8px;
     width: 300px;
 `;
@@ -80,31 +80,14 @@ interface Props {
 const AddPropertyButton = ({ fieldUrn, refetch, fieldProperties, isV1Drawer }: Props) => {
     const [searchQuery, setSearchQuery] = useState('');
     const { entityData, entityType } = useEntityData();
-    const isThemeV2 = useIsThemeV2();
     const me = useUserContext();
     const entityRegistry = useEntityRegistry();
     const [isEditModalVisible, setIsEditModalVisible] = useState(false);
 
-    const inputs = {
-        types: [EntityType.StructuredProperty],
-        query: '',
-        start: 0,
-        count: 100,
-        searchFlags: { skipCache: true },
-        orFilters: [
-            {
-                and: [
-                    getEntityTypesPropertyFilter(entityRegistry, !!fieldUrn, entityType),
-                    getNotHiddenPropertyFilter(),
-                ],
-            },
-        ],
-    };
-
     // Execute search
     const { data, loading } = useGetSearchResultsForMultipleQuery({
         variables: {
-            input: inputs,
+            input: getStructuredPropertiesSearchInputs(entityRegistry, entityType, fieldUrn, searchQuery),
         },
         fetchPolicy: 'cache-first',
     });
@@ -155,9 +138,6 @@ const AddPropertyButton = ({ fieldUrn, refetch, fieldProperties, isV1Drawer }: P
 
     if (!canEditProperties) return null;
 
-    // Filter items based on search query
-    const filteredItems = properties?.filter((prop) => prop.name?.toLowerCase().includes(searchQuery.toLowerCase()));
-
     const noDataText =
         properties?.length === 0 ? (
             <>
@@ -175,15 +155,16 @@ const AddPropertyButton = ({ fieldUrn, refetch, fieldProperties, isV1Drawer }: P
         <>
             <Dropdown
                 trigger={['click']}
-                menu={{ items: filteredItems }}
+                menu={{ items: properties }}
                 dropdownRender={(menuNode) => (
-                    <DropdownContainer>
+                    <DropdownContainer data-testid="add-structured-property-dropdown">
                         <SearchContainer>
                             <InputComponent
                                 label=""
                                 placeholder="Search..."
                                 value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
+                                setValue={setSearchQuery}
+                                inputTestId="search-input"
                             />
                         </SearchContainer>
                         {loading ? (
@@ -193,7 +174,7 @@ const AddPropertyButton = ({ fieldUrn, refetch, fieldProperties, isV1Drawer }: P
                             </LoadingContainer>
                         ) : (
                             <>
-                                {filteredItems?.length === 0 && (
+                                {properties?.length === 0 && (
                                     <EmptyContainer>
                                         <Text color="gray" weight="medium">
                                             No results found
@@ -203,15 +184,15 @@ const AddPropertyButton = ({ fieldUrn, refetch, fieldProperties, isV1Drawer }: P
                                         </Text>
                                     </EmptyContainer>
                                 )}
-                                <OptionsContainer>{menuNode}</OptionsContainer>
+                                <OptionsContainer data-testid="options-container">{menuNode}</OptionsContainer>
                             </>
                         )}
                     </DropdownContainer>
                 )}
             >
                 <Tooltip title="Add property" placement="left" showArrow={false}>
-                    <AddButton isThemeV2={isThemeV2} isV1Drawer={isV1Drawer} data-testid="add-structured-prop-button">
-                        <Icon icon="Add" size={isV1Drawer ? 'lg' : '2xl'} color="white" />
+                    <AddButton isV1Drawer={isV1Drawer} data-testid="add-structured-prop-button">
+                        <Icon icon={Plus} size={isV1Drawer ? 'lg' : '2xl'} color="white" />
                     </AddButton>
                 </Tooltip>
             </Dropdown>

@@ -1,24 +1,26 @@
 import { LoadingOutlined } from '@ant-design/icons';
+import { SearchBar } from '@components';
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useDebounce } from 'react-use';
 import styled from 'styled-components/macro';
-import { useGetAutoCompleteMultipleResultsQuery } from '../../graphql/search.generated';
-import { EntityType } from '../../types.generated';
-import { IconStyleType } from '../entityV2/Entity';
-import { ANTD_GRAY, REDESIGN_COLORS } from '../entityV2/shared/constants';
-import { SearchBar } from '../searchV2/SearchBar';
-import ClickOutside from '../shared/ClickOutside';
-import { useEntityRegistry } from '../useEntityRegistry';
+
+import { IconStyleType } from '@app/entityV2/Entity';
+import ClickOutside from '@app/shared/ClickOutside';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useGetAutoCompleteMultipleResultsQuery } from '@graphql/search.generated';
+import { EntityType } from '@types';
 
 const GlossarySearchWrapper = styled.div`
     position: relative;
-    border-bottom: 1px solid ${REDESIGN_COLORS.BORDER_3};
+    border-bottom: 1px solid ${(props) => props.theme.colors.border};
 `;
 
 const ResultsWrapper = styled.div`
-    background-color: white;
+    background-color: ${(props) => props.theme.colors.bg};
     border-radius: 5px;
-    box-shadow: 0 3px 6px -4px rgb(0 0 0 / 12%), 0 6px 16px 0 rgb(0 0 0 / 8%), 0 9px 28px 8px rgb(0 0 0 / 5%);
+    box-shadow: ${(props) => props.theme.colors.shadowMd};
     padding: 8px;
     position: absolute;
     max-height: 210px;
@@ -37,16 +39,20 @@ const LoadingWrapper = styled.div`
 `;
 
 const SearchResult = styled(Link)`
-    color: ${ANTD_GRAY[11]};
+    color: ${(props) => props.theme.colors.text};
     display: inline-block;
     height: 100%;
     padding: 6px 8px;
     width: 100%;
 
     &:hover {
-        background-color: ${ANTD_GRAY[3]};
-        color: ${ANTD_GRAY[11]};
+        background-color: ${(props) => props.theme.colors.bgSurface};
+        color: ${(props) => props.theme.colors.text};
     }
+`;
+
+const InputWrapper = styled.div`
+    padding: 12px;
 `;
 
 const IconWrapper = styled.span`
@@ -54,10 +60,12 @@ const IconWrapper = styled.span`
 `;
 
 function GlossarySearch() {
+    const [searchInput, setSearchInput] = useState('');
     const [query, setQuery] = useState('');
     const [isSearchBarFocused, setIsSearchBarFocused] = useState(false);
     const entityRegistry = useEntityRegistry();
 
+    useDebounce(() => setQuery(searchInput), 200, [searchInput]);
     const { data, loading } = useGetAutoCompleteMultipleResultsQuery({
         variables: {
             input: {
@@ -74,25 +82,14 @@ function GlossarySearch() {
     return (
         <GlossarySearchWrapper>
             <ClickOutside onClickOutside={() => setIsSearchBarFocused(false)}>
-                <SearchBar
-                    initialQuery={query || ''}
-                    placeholderText="Search"
-                    suggestions={[]}
-                    hideRecommendations
-                    style={{ padding: 9 }}
-                    inputStyle={{
-                        height: 30,
-                        fontSize: 10,
-                        fontWeight: 500,
-                        backgroundColor: ANTD_GRAY[3],
-                    }}
-                    textColor={ANTD_GRAY[10]}
-                    placeholderColor={REDESIGN_COLORS.PLACEHOLDER_PURPLE}
-                    onSearch={() => null}
-                    onQueryChange={(q) => setQuery(q)}
-                    entityRegistry={entityRegistry}
-                    onFocus={() => setIsSearchBarFocused(true)}
-                />
+                <InputWrapper>
+                    <SearchBar
+                        placeholder="Search"
+                        value={searchInput}
+                        onChange={setSearchInput}
+                        onFocus={() => setIsSearchBarFocused(true)}
+                    />
+                </InputWrapper>
                 {isSearchBarFocused && (loading || !!searchResults?.length) && (
                     <ResultsWrapper>
                         {loading && (

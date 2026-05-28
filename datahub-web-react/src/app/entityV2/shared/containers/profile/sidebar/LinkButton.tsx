@@ -1,21 +1,14 @@
-import { LinkOutlined } from '@ant-design/icons';
-import { Button } from 'antd';
+import { Button } from '@components';
 import React from 'react';
 import styled from 'styled-components';
-import { InstitutionalMemoryMetadata } from '../../../../../../types.generated';
 
-export const StyledLink = styled(Button)`
-    display: flex;
-    align-items: center;
-    min-width: 0;
-    padding: 0;
-    > span:not(.anticon) {
-        display: inline-block;
-        max-width: 100%;
-        overflow: hidden;
-        white-space: nowrap;
-        text-overflow: ellipsis;
-    }
+import { LinkIcon } from '@app/entityV2/shared/components/links/LinkIcon';
+import { safeUrl } from '@app/shared/urlUtils';
+
+import { InstitutionalMemoryMetadata } from '@types';
+
+const StyledAnchor = styled.a`
+    text-decoration: none;
 `;
 
 interface Props {
@@ -24,15 +17,11 @@ interface Props {
 
 export default function LinkButton({ link }: Props) {
     return (
-        <StyledLink
-            type="link"
-            href={link.url}
-            target="_blank"
-            rel="noreferrer"
-            key={`${link.label}-${link.url}-${link.actor.urn}`}
-        >
-            <LinkOutlined />
-            {link.description || link.label}
-        </StyledLink>
+        <StyledAnchor href={safeUrl(link.url)} target="_blank" rel="noreferrer">
+            <Button variant="text" color="violet">
+                <LinkIcon url={link.url} />
+                {link.description || link.label}
+            </Button>
+        </StyledAnchor>
     );
 }

@@ -1,12 +1,14 @@
-import React from 'react';
-import { Tag, Typography } from 'antd';
 import { Tooltip } from '@components';
+import { Tag, Typography } from 'antd';
+import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-import { Maybe, Ownership } from '../../types.generated';
-import { useEntityRegistry } from '../useEntityRegistry';
-import AvatarsGroup from '../shared/avatar/AvatarsGroup';
-import DomainItemMenu from './DomainItemMenu';
+
+import DomainItemMenu from '@app/domainV2/DomainItemMenu';
+import { OwnerAvatarGroup } from '@app/sharedV2/owners/OwnerAvatarGroup';
+import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+
+import { Maybe, Ownership } from '@types';
 
 interface DomainEntry {
     name: string;
@@ -50,7 +52,7 @@ export function DomainNameColumn(logoIcon: JSX.Element) {
 }
 
 export function DomainOwnersColumn(ownership: Maybe<Ownership>) {
-    const entityRegistry = useEntityRegistry();
+    const entityRegistry = useEntityRegistryV2();
 
     if (!ownership) {
         return null;
@@ -60,9 +62,10 @@ export function DomainOwnersColumn(ownership: Maybe<Ownership>) {
     if (!owners || owners.length === 0) {
         return null;
     }
+
     return (
         <AvatarGroupWrapper>
-            <AvatarsGroup size={24} owners={owners} entityRegistry={entityRegistry} maxCount={4} />
+            <OwnerAvatarGroup owners={owners} entityRegistry={entityRegistry} />
         </AvatarGroupWrapper>
     );
 }

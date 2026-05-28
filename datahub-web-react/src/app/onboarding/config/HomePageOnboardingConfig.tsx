@@ -1,17 +1,30 @@
+import { Heading, Text } from '@components';
+import { Image } from 'antd';
 import React from 'react';
-import { Image, Typography } from 'antd';
-import { OnboardingStep } from '../OnboardingStep';
-import { ANTD_GRAY } from '../../entity/shared/constants';
-import dataHubFlowDiagram from '../../../images/datahub-flow-diagram-light.png';
+import styled from 'styled-components';
 
-export const GLOBAL_WELCOME_TO_DATAHUB_ID = 'global-welcome-to-datahub';
+import { OnboardingStep } from '@app/onboarding/OnboardingStep';
+
+import dataHubFlowDiagram from '@images/datahub-flow-diagram-light.png';
+
+const GLOBAL_WELCOME_TO_DATAHUB_ID = 'global-welcome-to-datahub';
 export const HOME_PAGE_INGESTION_ID = 'home-page-ingestion';
 export const HOME_PAGE_DOMAINS_ID = 'home-page-domains';
 export const HOME_PAGE_DATA_PRODUCTS_ID = 'home-page-data-products';
 export const HOME_PAGE_INSIGHTS_ID = 'home-page-insights';
 export const HOME_PAGE_PLATFORMS_ID = 'home-page-platforms';
-export const HOME_PAGE_MOST_POPULAR_ID = 'home-page-most-popular';
-export const HOME_PAGE_SEARCH_BAR_ID = 'home-page-search-bar';
+const HOME_PAGE_MOST_POPULAR_ID = 'home-page-most-popular';
+const HOME_PAGE_SEARCH_BAR_ID = 'home-page-search-bar';
+export const HOME_PAGE_ONBOARDING_CARDS_ID = 'home-page-onboarding-cards';
+
+const InfoBox = styled.div`
+    background-color: ${({ theme }) => theme.colors.bgSurfaceDarker};
+    opacity: 0.7;
+    border-radius: 4px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+`;
 
 export const HomePageOnboardingConfig: OnboardingStep[] = [
     {
@@ -25,12 +38,14 @@ export const HomePageOnboardingConfig: OnboardingStep[] = [
                     style={{ marginLeft: '50px' }}
                     src={dataHubFlowDiagram}
                 />
-                <Typography.Title level={3}>Welcome to DataHub! 👋</Typography.Title>
-                <Typography.Paragraph style={{ lineHeight: '22px' }}>
+                <Heading type="h3" size="2xl" weight="bold">
+                    Welcome to DataHub Core! 👋
+                </Heading>
+                <Text type="div" size="md">
                     <strong>DataHub</strong> helps you discover and organize the important data within your
                     organization. You can:
-                </Typography.Paragraph>
-                <Typography.Paragraph style={{ lineHeight: '24px' }}>
+                </Text>
+                <Text type="div" size="md">
                     <ul>
                         <li>
                             Quickly <strong>search</strong> for Datasets, Dashboards, Data Pipelines, and more
@@ -47,22 +62,13 @@ export const HomePageOnboardingConfig: OnboardingStep[] = [
                         </li>
                     </ul>
                     <p>Let&apos;s get started! 🚀</p>
-                    <div
-                        style={{
-                            backgroundColor: ANTD_GRAY[4],
-                            opacity: '0.7',
-                            borderRadius: '4px',
-                            height: '40px',
-                            display: 'flex',
-                            alignItems: 'center',
-                        }}
-                    >
+                    <InfoBox>
                         <span style={{ paddingLeft: '5px' }}>💡</span>
                         <span style={{ paddingLeft: '10px' }}>
                             Press <strong> Cmd + Ctrl + T</strong> to open up this tutorial at any time.
                         </span>
-                    </div>
-                </Typography.Paragraph>
+                    </InfoBox>
+                </Text>
             </div>
         ),
         style: { minWidth: '650px' },
@@ -72,9 +78,9 @@ export const HomePageOnboardingConfig: OnboardingStep[] = [
         selector: `#${HOME_PAGE_INGESTION_ID}`,
         title: 'Ingest Data',
         content: (
-            <Typography.Paragraph>
+            <Text type="div" size="md">
                 Start integrating your data sources immediately by navigating to the <strong>Ingestion</strong> page.
-            </Typography.Paragraph>
+            </Text>
         ),
     },
     {
@@ -82,11 +88,11 @@ export const HomePageOnboardingConfig: OnboardingStep[] = [
         selector: `#${HOME_PAGE_DOMAINS_ID}`,
         title: 'Explore by Domain',
         content: (
-            <Typography.Paragraph>
+            <Text type="div" size="md">
                 Here are your organization&apos;s <strong>Domains</strong>. Domains are collections of data assets -
                 such as Tables, Dashboards, and ML Models - that make it easy to discover information relevant to a
                 particular part of your organization.
-            </Typography.Paragraph>
+            </Text>
         ),
     },
     {
@@ -94,11 +100,11 @@ export const HomePageOnboardingConfig: OnboardingStep[] = [
         selector: `#${HOME_PAGE_PLATFORMS_ID}`,
         title: 'Explore by Platform',
         content: (
-            <Typography.Paragraph>
+            <Text type="div" size="md">
                 Here are your organization&apos;s <strong>Data Platforms</strong>. Data Platforms represent specific
                 third-party Data Systems or Tools. Examples include Data Warehouses like <strong>Snowflake</strong>,
                 Orchestrators like <strong>Airflow</strong>, and Dashboarding tools like <strong>Looker</strong>.
-            </Typography.Paragraph>
+            </Text>
         ),
     },
     {
@@ -112,7 +118,7 @@ export const HomePageOnboardingConfig: OnboardingStep[] = [
         selector: `#${HOME_PAGE_SEARCH_BAR_ID}`,
         title: 'Find your Data 🔍',
         content: (
-            <Typography.Paragraph>
+            <Text type="div" size="md">
                 <p>
                     This is the <strong>Search Bar</strong>. It will serve as your launch point for discovering and
                     collaborating around the data most important to you.
@@ -120,7 +126,7 @@ export const HomePageOnboardingConfig: OnboardingStep[] = [
                 <p>
                     Not sure where to start? Click on <strong>Explore All</strong>!
                 </p>
-            </Typography.Paragraph>
+            </Text>
         ),
     },
 ];

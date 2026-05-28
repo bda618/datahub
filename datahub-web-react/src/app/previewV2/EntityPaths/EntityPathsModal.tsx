@@ -1,26 +1,22 @@
 import { Modal, Skeleton } from 'antd';
 import React, { useContext } from 'react';
 import styled from 'styled-components/macro';
-import { useGetEntitiesQuery } from '@src/graphql/entity.generated';
-import { Entity, EntityPath, LineageDirection } from '../../../types.generated';
-import { ANTD_GRAY } from '../../entity/shared/constants';
-import { CompactEntityNameList } from '../../recommendations/renderer/component/CompactEntityNameList';
-import { getDisplayedColumns } from './ColumnPathsText';
-import ColumnsRelationshipText from './ColumnsRelationshipText';
-import { LineageTabContext } from '../../entityV2/shared/tabs/Lineage/LineageTabContext';
 
-const StyledModal = styled(Modal)`
-    width: 70vw;
-    max-width: 850px;
-`;
+import { LineageTabContext } from '@app/entityV2/shared/tabs/Lineage/LineageTabContext';
+import { getDisplayedColumns } from '@app/previewV2/EntityPaths/ColumnPathsText';
+import ColumnsRelationshipText from '@app/previewV2/EntityPaths/ColumnsRelationshipText';
+import { CompactEntityNameList } from '@app/recommendations/renderer/component/CompactEntityNameList';
+import { useGetEntitiesQuery } from '@src/graphql/entity.generated';
+
+import { Entity, EntityPath, LineageDirection } from '@types';
 
 const PathWrapper = styled.div`
     display: inline-block;
     margin: 15px 0 15px -4px;
     padding: 20px;
-    border: 1px solid ${ANTD_GRAY[4]};
+    border: 1px solid ${(props) => props.theme.colors.border};
     border-radius: 8px;
-    box-shadow: 1px 1px 12px 4px #0000000d;
+    box-shadow: ${(props) => props.theme.colors.shadowSm};
     width: 100%;
 `;
 
@@ -32,7 +28,7 @@ const Header = styled.div`
 const ErrorContainer = styled.div`
     font-size: 14px;
     padding: 8px 0px;
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 interface Props {
@@ -82,7 +78,7 @@ export default function EntityPathsModal({ paths, resultEntityUrn, hideModal }: 
         })
     );
     return (
-        <StyledModal
+        <Modal
             data-testid="entity-paths-modal"
             title={
                 <Header>
@@ -91,13 +87,13 @@ export default function EntityPathsModal({ paths, resultEntityUrn, hideModal }: 
                 </Header>
             }
             width="75vw"
-            visible
+            open
             onCancel={hideModal}
             onOk={hideModal}
             footer={null}
             bodyStyle={{ padding: '16px 24px' }}
         >
             {loading ? <Skeleton /> : loadedState}
-        </StyledModal>
+        </Modal>
     );
 }

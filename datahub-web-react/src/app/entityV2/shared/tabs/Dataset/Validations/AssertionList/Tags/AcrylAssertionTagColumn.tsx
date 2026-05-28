@@ -1,21 +1,20 @@
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
+import { message } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { message } from 'antd';
-import Tag from '@src/app/sharedV2/tags/tag/Tag';
-import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
-import { Plus } from 'phosphor-react';
-import { useGetRecommendations } from '@src/app/shared/recommendation';
-import { handleBatchError } from '@src/app/entityV2/shared/utils';
-import { useBatchAddTagsMutation, useBatchRemoveTagsMutation } from '@src/graphql/mutations.generated';
-import { EntityType, Entity, TagAssociation, Tag as TagType } from '@src/types.generated';
-import { getColor } from '@src/alchemy-components/theme/utils';
+
 import { SelectItemPopover } from '@src/alchemy-components/components/SelectItemsPopover';
 import DataHubTooltip from '@src/alchemy-components/components/Tooltip/Tooltip';
+import { handleBatchError } from '@src/app/entityV2/shared/utils';
+import { useGetRecommendations } from '@src/app/shared/recommendation';
+import Tag from '@src/app/sharedV2/tags/tag/Tag';
+import { useBatchAddTagsMutation, useBatchRemoveTagsMutation } from '@src/graphql/mutations.generated';
+import { Entity, EntityType, TagAssociation, Tag as TagType } from '@src/types.generated';
 
 const StyledTagContainer = styled.div`
     display: flex;
     align-items: center;
-    justify-content: center;
+    justify-content: start;
     flex-wrap: wrap;
     cursor: pointer;
     gap: 4px;
@@ -29,12 +28,12 @@ const StyledPill = styled.div<{ color?: string; backgroundColor?: string }>`
     background-color: ${(props) => props.backgroundColor || 'none'};
     height: 24px;
     width: 24px;
-    color: ${(props) => props.color || '#5F6685'};
+    color: ${(props) => props.color || props.theme.colors.icon};
     border-radius: 100px;
     transition: all 0.2s;
     &:hover {
-        color: black;
-        background-color: ${getColor('gray', 100)};
+        color: ${(props) => props.theme.colors.text};
+        background-color: ${(props) => props.theme.colors.bgHover};
     }
 `;
 
@@ -45,7 +44,7 @@ const AdditionalPillCount = styled.div`
     align-items: center;
     font-size: 12px;
     font-family: Mulish;
-    color: ${REDESIGN_COLORS.BODY_TEXT};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 const TooltipTitleWrapper = styled.div`
@@ -54,7 +53,7 @@ const TooltipTitleWrapper = styled.div`
 `;
 
 const TooltipMoreText = styled.div`
-    color: ${getColor('gray', 500)};
+    color: ${(props) => props.theme.colors.textSecondary};
     font-size: 12px;
     margin-bottom: 4px;
 `;
@@ -86,6 +85,7 @@ export const AcrylAssertionTagColumn: React.FC<AcrylAssertionTagColumnProps> = (
             {displayTags?.map((tag) => (
                 <Tag
                     tag={tag}
+                    key={tag.urn}
                     options={{
                         shouldNotOpenDrawerOnClick: true,
                         shouldNotAddBottomMargin: true,
@@ -100,14 +100,17 @@ export const AcrylAssertionTagColumn: React.FC<AcrylAssertionTagColumnProps> = (
                     open={popoverVisible ? false : undefined}
                     title={
                         <TooltipTitleWrapper onClick={() => setPopoverVisible(true)}>
-                            {record?.tags?.slice(1, MAX_TAGS_FOR_HOVER).map((tag) => (
-                                <Tag
-                                    tag={{ tag: tag.tag } as TagAssociation}
-                                    options={{ shouldNotOpenDrawerOnClick: true }}
-                                    maxWidth={120}
-                                    tagStyle={{ marginBottom: 4 }}
-                                />
-                            ))}
+                            {record?.tags
+                                ?.slice(1, MAX_TAGS_FOR_HOVER)
+                                .map((tag) => (
+                                    <Tag
+                                        key={tag.urn}
+                                        tag={{ tag: tag.tag } as TagAssociation}
+                                        options={{ shouldNotOpenDrawerOnClick: true }}
+                                        maxWidth={120}
+                                        tagStyle={{ marginBottom: 4 }}
+                                    />
+                                ))}
                             {(record?.tags?.length ?? 0) > MAX_TAGS_FOR_HOVER ? (
                                 <TooltipMoreText>+ {record.tags.length - MAX_TAGS_FOR_HOVER} more</TooltipMoreText>
                             ) : null}
@@ -201,7 +204,7 @@ export const AcrylAssertionTagColumn: React.FC<AcrylAssertionTagColumnProps> = (
             selectedItems={selectedTags}
             refetch={refetch}
             onClose={handleClosePopover}
-            entityType={EntityType.Tag}
+            entityTypes={[EntityType.Tag]}
             handleSelectionChange={handleSelectionChange}
             visible={popoverVisible}
             onVisibleChange={setPopoverVisible}

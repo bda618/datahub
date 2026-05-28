@@ -1,28 +1,33 @@
 import React from 'react';
+
 import {
     ActionButtonsContainer,
     DescriptionContainer,
     LabelsWrapper,
     Placeholder,
     SelectValue,
-} from '../../../components';
-import { SelectLabelVariantProps } from '../../../types';
+} from '@components/components/Select/components';
+import { SelectLabelVariantProps, SelectOption } from '@components/components/Select/types';
 
-export default function SingleSelectDefault({
+export default function SingleSelectDefault<OptionType extends SelectOption>({
     selectedOptions,
     selectedValues,
     placeholder,
     isMultiSelect,
     showDescriptions,
-}: SelectLabelVariantProps) {
+}: SelectLabelVariantProps<OptionType>) {
+    const value = selectedOptions[0]?.value;
+
     return (
-        <LabelsWrapper>
+        <LabelsWrapper shouldShowGap={false}>
             {!selectedValues.length && <Placeholder>{placeholder}</Placeholder>}
             {!isMultiSelect && (
                 <>
                     <ActionButtonsContainer>
                         {selectedOptions[0]?.icon}
-                        <SelectValue>{selectedOptions[0]?.label}</SelectValue>
+                        <SelectValue data-testid={value ? `value-${value}` : undefined}>
+                            {selectedOptions[0]?.label}
+                        </SelectValue>
                     </ActionButtonsContainer>
                     {showDescriptions && !!selectedValues.length && (
                         <DescriptionContainer>{selectedOptions[0]?.description}</DescriptionContainer>

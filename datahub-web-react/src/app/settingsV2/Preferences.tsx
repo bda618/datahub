@@ -1,154 +1,135 @@
-import { Card, Divider, message, Switch, Typography } from 'antd';
+import { PageTitle, Switch } from '@components';
+import { message } from 'antd';
 import React from 'react';
-import styled from 'styled-components';
-import { useUpdateUserSettingMutation } from '../../graphql/me.generated';
-import { UserSetting } from '../../types.generated';
-import analytics, { EventType } from '../analytics';
-import { useUserContext } from '../context/useUserContext';
-import { ANTD_GRAY } from '../entity/shared/constants';
-import { useIsThemeV2, useIsThemeV2EnabledForUser, useIsThemeV2Toggleable } from '../useIsThemeV2';
+import { useTranslation } from 'react-i18next';
+import styled, { useTheme } from 'styled-components';
+
+import { useUserContext } from '@app/context/useUserContext';
+import { LanguageSelect } from '@app/i18n/components/LanguageSelect';
+import { useIsI18nEnabled } from '@app/i18n/hooks/useIsI18nEnabled';
+import { useAppConfig } from '@app/useAppConfig';
+
+import { useUpdateApplicationsSettingsMutation } from '@graphql/app.generated';
 
 const Page = styled.div`
     width: 100%;
     display: flex;
-    justify-content: center;
+    flex-direction: column;
+    gap: 16px;
+`;
+
+const HeaderContainer = styled.div`
+    margin-bottom: 24px;
+`;
+
+const StyledCard = styled.div`
+    border: 1px solid ${(props) => props.theme.colors.border};
+    border-radius: 12px;
+    box-shadow: ${(props) => props.theme.colors.shadowXs};
+    padding: 16px;
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 16px;
 `;
 
 const SourceContainer = styled.div`
-    width: 80%;
-    padding-top: 20px;
-    padding-right: 40px;
-    padding-left: 40px;
+    width: 100%;
+    padding: 16px 20px 16px 20px;
 `;
 
 const TokensContainer = styled.div`
     padding-top: 0px;
 `;
 
-const TokensHeaderContainer = styled.div`
-    && {
-        padding-left: 0px;
-    }
-`;
-
-const TokensTitle = styled(Typography.Title)`
-    && {
-        margin-bottom: 8px;
-    }
+const TextContainer = styled.div`
+    display: flex;
+    flex-direction: column;
+    flex: 1;
 `;
 
 const UserSettingRow = styled.div`
     display: flex;
     justify-content: space-between;
+    flex-direction: row;
+    align-items: center;
+    width: 100%;
 `;
 
-const DescriptionText = styled(Typography.Text)`
-    color: ${ANTD_GRAY[7]};
-    font-size: 11px;
+const SettingText = styled.div`
+    font-size: 16px;
+    color: ${(props) => props.theme.colors.text};
+    font-weight: 700;
 `;
 
-const SettingText = styled(Typography.Text)`
+const DescriptionText = styled.div`
+    color: ${(props) => props.theme.colors.textSecondary};
     font-size: 14px;
+    font-weight: 400;
+    line-height: 1.5;
 `;
 
 export const Preferences = () => {
-    // Current User Urn
-    const { user, refetchUser } = useUserContext();
-    const isThemeV2 = useIsThemeV2();
-    const [isThemeV2Toggleable] = useIsThemeV2Toggleable();
-    const [isThemeV2EnabledForUser] = useIsThemeV2EnabledForUser();
-    const showSimplifiedHomepage = !!user?.settings?.appearance?.showSimplifiedHomepage;
+    const { t } = useTranslation('settings.preferences');
+    const theme = useTheme();
+    const userContext = useUserContext();
+    const appConfig = useAppConfig();
+    const i18nEnabled = useIsI18nEnabled();
 
-    const [updateUserSettingMutation] = useUpdateUserSettingMutation();
+    const applicationsEnabled = appConfig.config?.visualConfig?.application?.showApplicationInNavigation ?? false;
 
-    const showSimplifiedHomepageSetting = !isThemeV2;
+    const [updateApplicationsSettingsMutation] = useUpdateApplicationsSettingsMutation();
+
+    const canManageApplicationAppearance = userContext?.platformPrivileges?.manageFeatures;
 
     return (
         <Page>
             <SourceContainer>
                 <TokensContainer>
-                    <TokensHeaderContainer>
-                        <TokensTitle level={2}>Appearance</TokensTitle>
-                        <Typography.Paragraph type="secondary">Manage your appearance settings.</Typography.Paragraph>
-                    </TokensHeaderContainer>
+                    <HeaderContainer>
+                        <PageTitle title={t('appearance.title')} subTitle={t('appearance.subTitle')} />
+                    </HeaderContainer>
                 </TokensContainer>
-                <Divider />
-                {showSimplifiedHomepageSetting && (
-                    <Card>
+                {canManageApplicationAppearance && (
+                    <StyledCard>
                         <UserSettingRow>
-                            <span>
-                                <SettingText>Show simplified homepage </SettingText>
-                                <div>
-                                    <DescriptionText>
-                                        Limits entity browse cards on homepage to Domains, Charts, Datasets, Dashboards
-                                        and Glossary Terms
-                                    </DescriptionText>
-                                </div>
-                            </span>
+                            <TextContainer>
+                                <SettingText>{t('showApplications.title')}</SettingText>
+                                <DescriptionText>{t('showApplications.description')}</DescriptionText>
+                            </TextContainer>
                             <Switch
-                                checked={showSimplifiedHomepage}
+                                label=""
+                                checked={applicationsEnabled}
                                 onChange={async () => {
-                                    await updateUserSettingMutation({
+                                    await updateApplicationsSettingsMutation({
                                         variables: {
                                             input: {
-                                                name: UserSetting.ShowSimplifiedHomepage,
-                                                value: !showSimplifiedHomepage,
+                                                enabled: !applicationsEnabled,
                                             },
                                         },
                                     });
-                                    analytics.event({
-                                        type: showSimplifiedHomepage
-                                            ? EventType.ShowStandardHomepageEvent
-                                            : EventType.ShowSimplifiedHomepageEvent,
+                                    message.success({
+                                        content: t('showApplications.successMessage'),
+                                        duration: 2,
                                     });
-                                    message.success({ content: 'Setting updated!', duration: 2 });
-                                    refetchUser?.();
+                                    appConfig?.refreshContext();
                                 }}
                             />
                         </UserSettingRow>
-                    </Card>
+                    </StyledCard>
                 )}
-                {isThemeV2Toggleable && (
-                    <>
-                        <Card style={{ marginTop: 20 }}>
-                            <UserSettingRow>
-                                <span>
-                                    <SettingText>Try New User Experience</SettingText>
-                                    <div>
-                                        <DescriptionText>
-                                            Enable an early preview of the new DataHub UX - a complete makeover for your
-                                            app with a sleek new design and advanced features. Flip the switch and
-                                            refresh your browser to try it out!
-                                        </DescriptionText>
-                                    </div>
-                                </span>
-                                <Switch
-                                    checked={isThemeV2EnabledForUser}
-                                    onChange={async () => {
-                                        await updateUserSettingMutation({
-                                            variables: {
-                                                input: {
-                                                    name: UserSetting.ShowThemeV2,
-                                                    value: !isThemeV2EnabledForUser,
-                                                },
-                                            },
-                                        });
-                                        // clicking this button toggles, so event is whatever is opposite to what isThemeV2EnabledForUser currently is
-                                        analytics.event({
-                                            type: isThemeV2EnabledForUser
-                                                ? EventType.RevertV2ThemeEvent
-                                                : EventType.ShowV2ThemeEvent,
-                                        });
-                                        message.success({ content: 'Setting updated!', duration: 2 });
-                                        refetchUser?.();
-                                    }}
-                                />
-                            </UserSettingRow>
-                        </Card>
-                    </>
+                {i18nEnabled && (
+                    <StyledCard>
+                        <UserSettingRow>
+                            <TextContainer>
+                                <SettingText>{t('language.title')}</SettingText>
+                                <DescriptionText>{t('language.description')}</DescriptionText>
+                            </TextContainer>
+                            <LanguageSelect />
+                        </UserSettingRow>
+                    </StyledCard>
                 )}
-                {!showSimplifiedHomepageSetting && !isThemeV2Toggleable && (
-                    <div style={{ color: ANTD_GRAY[7] }}>No appearance settings found.</div>
+                {!canManageApplicationAppearance && !i18nEnabled && (
+                    <div style={{ color: theme.colors.textSecondary }}>{t('noSettings')}</div>
                 )}
             </SourceContainer>
         </Page>

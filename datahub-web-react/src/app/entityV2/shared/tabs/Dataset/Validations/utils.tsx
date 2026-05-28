@@ -1,12 +1,13 @@
+import { formatNumberWithoutAbbreviation } from '@app/shared/formatNumber';
+import { parseMaybeStringAsFloatOrDefault } from '@app/shared/numberUtil';
+
 import {
     AssertionStdOperator,
     AssertionStdParameters,
     AssertionValueChangeType,
     VolumeAssertionInfo,
     VolumeAssertionType,
-} from '../../../../../../types.generated';
-import { formatNumberWithoutAbbreviation } from '../../../../../shared/formatNumber';
-import { parseMaybeStringAsFloatOrDefault } from '../../../../../shared/numberUtil';
+} from '@types';
 
 export const getIsRowCountChange = (type: VolumeAssertionType) => {
     return [VolumeAssertionType.RowCountChange, VolumeAssertionType.IncrementingSegmentRowCountChange].includes(type);
@@ -71,7 +72,7 @@ type VolumeTypeField =
     | 'incrementingSegmentRowCountTotal'
     | 'incrementingSegmentRowCountChange';
 
-export const getPropertyFromVolumeType = (type: VolumeAssertionType) => {
+const getPropertyFromVolumeType = (type: VolumeAssertionType) => {
     switch (type) {
         case VolumeAssertionType.RowCountTotal:
             return 'rowCountTotal' as VolumeTypeField;

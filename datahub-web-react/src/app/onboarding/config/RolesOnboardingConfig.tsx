@@ -1,6 +1,7 @@
+import { Text } from '@components';
 import React from 'react';
-import { Typography } from 'antd';
-import { OnboardingStep } from '../OnboardingStep';
+
+import { OnboardingStep } from '@app/onboarding/OnboardingStep';
 
 export const ROLES_INTRO_ID = 'roles-intro';
 
@@ -9,7 +10,7 @@ export const RolesOnboardingConfig: OnboardingStep[] = [
         id: ROLES_INTRO_ID,
         title: 'Roles',
         content: (
-            <Typography.Paragraph>
+            <Text type="div" size="md">
                 <p>
                     Welcome to DataHub <strong>Roles</strong>!
                 </p>
@@ -25,13 +26,13 @@ export const RolesOnboardingConfig: OnboardingStep[] = [
                     <a
                         target="_blank"
                         rel="noreferrer noopener"
-                        href="https://datahubproject.io/docs/authorization/roles"
+                        href="https://docs.datahub.com/docs/authorization/roles"
                     >
                         {' '}
                         here.
                     </a>
                 </p>
-            </Typography.Paragraph>
+            </Text>
         ),
     },
 ];

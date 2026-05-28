@@ -1,23 +1,22 @@
-import React, { useRef, useState } from 'react';
-import { Button, message, Modal, Select, Tag as CustomTag } from 'antd';
-import styled from 'styled-components';
 import { GlobalOutlined } from '@ant-design/icons';
-import { Entity, EntityType, ResourceRefInput } from '../../../types.generated';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import { handleBatchError } from '../../entity/shared/utils';
-import {
-    useAddBusinessAttributeMutation,
-    useRemoveBusinessAttributeMutation,
-} from '../../../graphql/mutations.generated';
-import { useGetSearchResultsLazyQuery } from '../../../graphql/search.generated';
-import ClickOutside from '../ClickOutside';
-import { useGetRecommendations } from '../recommendation';
-import { useEnterKeyListener } from '../useEnterKeyListener';
-import { ENTER_KEY_CODE } from '../constants';
-import AttributeBrowser from '../../businessAttribute/AttributeBrowser';
-import { useListBusinessAttributesQuery } from '../../../graphql/businessAttribute.generated';
+import { Button, Tag as CustomTag, Modal, Select, message } from 'antd';
+import React, { useRef, useState } from 'react';
+import styled from 'styled-components';
 
-export enum OperationType {
+import AttributeBrowser from '@app/businessAttribute/AttributeBrowser';
+import { handleBatchError } from '@app/entity/shared/utils';
+import ClickOutside from '@app/shared/ClickOutside';
+import { ENTER_KEY_CODE } from '@app/shared/constants';
+import { useGetRecommendations } from '@app/shared/recommendation';
+import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useListBusinessAttributesQuery } from '@graphql/businessAttribute.generated';
+import { useAddBusinessAttributeMutation, useRemoveBusinessAttributeMutation } from '@graphql/mutations.generated';
+import { useGetSearchResultsLazyQuery } from '@graphql/search.generated';
+import { Entity, EntityType, ResourceRefInput } from '@types';
+
+enum OperationType {
     ADD,
     REMOVE,
 }
@@ -43,10 +42,13 @@ const StyleTag = styled(CustomTag)`
     word-break: break-all;
 `;
 
-export const BrowserWrapper = styled.div<{ isHidden: boolean; width?: string; maxHeight?: number }>`
+const BrowserWrapper = styled.div<{ isHidden: boolean; width?: string; maxHeight?: number }>`
     background-color: white;
     border-radius: 5px;
-    box-shadow: 0 3px 6px -4px rgb(0 0 0 / 12%), 0 6px 16px 0 rgb(0 0 0 / 8%), 0 9px 28px 8px rgb(0 0 0 / 5%);
+    box-shadow:
+        0 3px 6px -4px rgb(0 0 0 / 12%),
+        0 6px 16px 0 rgb(0 0 0 / 8%),
+        0 9px 28px 8px rgb(0 0 0 / 5%);
     max-height: ${(props) => (props.maxHeight ? props.maxHeight : '380')}px;
     overflow: auto;
     position: absolute;
@@ -156,7 +158,7 @@ export default function EditBusinessAttributeModal({
         };
         /* eslint-disable-next-line react/prop-types */
         const selectedItem = selectedAttribute
-            ? selectedAttribute?.props?.component
+            ? selectedAttribute?.component
             : displayedAttributes.find((attribute) => attribute.urn === value)?.component;
         return (
             <StyleTag onMouseDown={onPreventMouseDown} closable={closable} onClose={onClose}>

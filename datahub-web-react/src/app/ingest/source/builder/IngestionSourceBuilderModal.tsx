@@ -1,13 +1,16 @@
 import { Modal, Steps, Typography } from 'antd';
+import { isEqual } from 'lodash';
 import React, { useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
-import { isEqual } from 'lodash';
-import { SourceBuilderState, StepProps } from './types';
-import { CreateScheduleStep } from './CreateScheduleStep';
-import { DefineRecipeStep } from './DefineRecipeStep';
-import { NameSourceStep } from './NameSourceStep';
-import { SelectTemplateStep } from './SelectTemplateStep';
-import sourcesJson from './sources.json';
+
+import { CreateScheduleStep } from '@app/ingest/source/builder/CreateScheduleStep';
+import { DefineRecipeStep } from '@app/ingest/source/builder/DefineRecipeStep';
+import { NameSourceStep } from '@app/ingest/source/builder/NameSourceStep';
+import { SelectTemplateStep } from '@app/ingest/source/builder/SelectTemplateStep';
+import sourcesJson from '@app/ingest/source/builder/sources.json';
+import { SourceBuilderState, StepProps } from '@app/ingest/source/builder/types';
+
+import { IngestionSource } from '@types';
 
 const StyledModal = styled(Modal)`
     && .ant-modal-content {
@@ -32,7 +35,7 @@ const StepsContainer = styled.div`
 /**
  * Mapping from the step type to the title for the step
  */
-export enum IngestionSourceBuilderStepTitles {
+enum IngestionSourceBuilderStepTitles {
     SELECT_TEMPLATE = 'Choose Data Source',
     DEFINE_RECIPE = 'Configure Connection',
     CREATE_SCHEDULE = 'Sync Schedule',
@@ -42,7 +45,7 @@ export enum IngestionSourceBuilderStepTitles {
 /**
  * Mapping from the step type to the component implementing that step.
  */
-export const IngestionSourceBuilderStepComponent = {
+const IngestionSourceBuilderStepComponent = {
     SELECT_TEMPLATE: SelectTemplateStep,
     DEFINE_RECIPE: DefineRecipeStep,
     CREATE_SCHEDULE: CreateScheduleStep,
@@ -52,7 +55,7 @@ export const IngestionSourceBuilderStepComponent = {
 /**
  * Steps of the Ingestion Source Builder flow.
  */
-export enum IngestionSourceBuilderStep {
+enum IngestionSourceBuilderStep {
     SELECT_TEMPLATE = 'SELECT_TEMPLATE',
     DEFINE_RECIPE = 'DEFINE_RECIPE',
     CREATE_SCHEDULE = 'CREATE_SCHEDULE',
@@ -66,9 +69,18 @@ type Props = {
     open: boolean;
     onSubmit?: (input: SourceBuilderState, resetState: () => void, shouldRun?: boolean) => void;
     onCancel?: () => void;
+    sourceRefetch?: () => Promise<any>;
+    selectedSource?: IngestionSource;
 };
 
-export const IngestionSourceBuilderModal = ({ initialState, open, onSubmit, onCancel }: Props) => {
+export const IngestionSourceBuilderModal = ({
+    initialState,
+    open,
+    onSubmit,
+    onCancel,
+    sourceRefetch,
+    selectedSource,
+}: Props) => {
     const isEditing = initialState !== undefined;
     const titleText = isEditing ? 'Edit Data Source' : 'Connect Data Source';
     const initialStep = isEditing
@@ -154,11 +166,14 @@ export const IngestionSourceBuilderModal = ({ initialState, open, onSubmit, onCa
             <StepComponent
                 state={ingestionBuilderState}
                 updateState={setIngestionBuilderState}
+                isEditing={isEditing}
                 goTo={goTo}
                 prev={stepStack.length > 1 ? prev : undefined}
                 submit={submit}
                 cancel={cancel}
                 ingestionSources={ingestionSources}
+                sourceRefetch={sourceRefetch}
+                selectedSource={selectedSource}
             />
         </StyledModal>
     );

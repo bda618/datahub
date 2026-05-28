@@ -1,12 +1,14 @@
 import { Button, Form, Modal, Select, Tag, Tooltip } from 'antd';
 import React, { ReactNode, useRef, useState } from 'react';
 import styled from 'styled-components/macro';
-import { useGetSearchResultsLazyQuery } from '../../../../../../../graphql/search.generated';
-import { Container, Entity, EntityType } from '../../../../../../../types.generated';
-import { useEnterKeyListener } from '../../../../../../shared/useEnterKeyListener';
-import { useEntityRegistry } from '../../../../../../useEntityRegistry';
-import { getParentEntities } from '../../../../../../search/filters/utils';
-import ParentEntities from '../../../../../../search/filters/ParentEntities';
+
+import ParentEntities from '@app/search/filters/ParentEntities';
+import { getParentEntities } from '@app/search/filters/utils';
+import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useGetSearchResultsLazyQuery } from '@graphql/search.generated';
+import { Container, Entity, EntityType } from '@types';
 
 type Props = {
     onCloseModal: () => void;
@@ -28,7 +30,7 @@ const StyleTag = styled(Tag)`
     align-items: center;
 `;
 
-export const PreviewImage = styled.img`
+const PreviewImage = styled.img`
     max-height: 18px;
     width: auto;
     object-fit: contain;

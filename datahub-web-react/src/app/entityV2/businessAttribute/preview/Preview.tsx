@@ -1,20 +1,26 @@
+import { Hexagon } from '@phosphor-icons/react/dist/csr/Hexagon';
 import React from 'react';
-import { GlobalOutlined } from '@ant-design/icons';
-import { EntityType, Owner } from '../../../../types.generated';
-import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { IconStyleType, PreviewType } from '../../Entity';
-import UrlButton from '../../shared/UrlButton';
-import { getRelatedEntitiesUrl } from '../../../businessAttribute/businessAttributeUtils';
+
+import { getRelatedEntitiesUrl } from '@app/businessAttribute/businessAttributeUtils';
+import { GenericEntityProperties } from '@app/entity/shared/types';
+import { IconStyleType, PreviewType } from '@app/entityV2/Entity';
+import UrlButton from '@app/entityV2/shared/UrlButton';
+import DefaultPreviewCard from '@app/previewV2/DefaultPreviewCard';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+import { resolveRuntimePath } from '@utils/runtimeBasePath';
+
+import { EntityType, Owner } from '@types';
 
 export const Preview = ({
     urn,
+    data,
     name,
     description,
     owners,
     previewType,
 }: {
     urn: string;
+    data: GenericEntityProperties | null;
     name: string;
     description?: string | null;
     owners?: Array<Owner> | null;
@@ -23,17 +29,21 @@ export const Preview = ({
     const entityRegistry = useEntityRegistry();
     return (
         <DefaultPreviewCard
+            entityType={EntityType.BusinessAttribute}
+            data={data}
             previewType={previewType}
             url={entityRegistry.getEntityUrl(EntityType.BusinessAttribute, urn)}
             name={name || ''}
             urn={urn}
             description={description || ''}
             owners={owners}
-            logoComponent={<GlobalOutlined style={{ fontSize: '20px' }} />}
+            logoComponent={<Hexagon size={20} color="currentColor" />}
             type="Business Attribute"
             typeIcon={entityRegistry.getIcon(EntityType.BusinessAttribute, 14, IconStyleType.ACCENT)}
             entityTitleSuffix={
-                <UrlButton href={getRelatedEntitiesUrl(entityRegistry, urn)}>View Related Entities</UrlButton>
+                <UrlButton href={resolveRuntimePath(getRelatedEntitiesUrl(entityRegistry, urn))}>
+                    View Related Entities
+                </UrlButton>
             }
         />
     );

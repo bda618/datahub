@@ -1,22 +1,16 @@
+import { Button } from '@components';
 import React from 'react';
 import styled from 'styled-components';
-import { Button, Typography } from 'antd';
-import { GetDatasetQuery } from '../../../../../../../../graphql/dataset.generated';
-import { InfoItem } from '../../../../../components/styled/InfoItem';
-import { ANTD_GRAY } from '../../../../../constants';
-import { useBaseEntity, useRouteToTab } from '../../../../../../../entity/shared/EntityContext';
-import { SidebarSection } from '../../SidebarSection';
 
-const HeaderInfoBody = styled(Typography.Text)`
+import { useBaseEntity, useRouteToTab } from '@app/entity/shared/EntityContext';
+import { InfoItem } from '@app/entityV2/shared/components/styled/InfoItem';
+import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
+
+import { GetDatasetQuery } from '@graphql/dataset.generated';
+
+const HeaderInfoBody = styled.span`
     font-size: 16px;
-    color: ${ANTD_GRAY[9]};
-`;
-
-const StatsButton = styled(Button)`
-    && {
-        margin: 0px;
-        padding: 0px;
-    }
+    color: ${(props) => props.theme.colors.text};
 `;
 
 const InfoRow = styled.div`
@@ -47,9 +41,9 @@ export const SidebarViewDefinitionSection = () => {
                             <HeaderInfoBody>{language.toUpperCase()}</HeaderInfoBody>
                         </InfoItem>
                     </InfoRow>
-                    <StatsButton onClick={() => routeToTab({ tabName: 'View Definition' })} type="link">
+                    <Button variant="link" color="violet" onClick={() => routeToTab({ tabName: 'View Definition' })}>
                         View full definition &gt;
-                    </StatsButton>
+                    </Button>
                 </>
             }
         />

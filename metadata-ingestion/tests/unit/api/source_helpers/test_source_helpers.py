@@ -1,9 +1,9 @@
 import logging
 from datetime import datetime
-from typing import List, Union
+from typing import List, Optional, Union
 
 import pytest
-from freezegun import freeze_time
+import time_machine
 
 import datahub.metadata.schema_classes as models
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
@@ -168,7 +168,7 @@ def test_auto_lowercase_aspects():
     assert list(auto_lowercase_urns(mcws)) == expected
 
 
-@freeze_time("2023-01-02 00:00:00")
+@time_machine.travel("2023-01-02 00:00:00", tick=False)
 def test_auto_empty_dataset_usage_statistics(caplog: pytest.LogCaptureFixture) -> None:
     has_urn = make_dataset_urn("my_platform", "has_aspect")
     empty_urn = make_dataset_urn("my_platform", "no_aspect")
@@ -217,7 +217,7 @@ def test_auto_empty_dataset_usage_statistics(caplog: pytest.LogCaptureFixture) -
     ]
 
 
-@freeze_time("2023-01-02 00:00:00")
+@time_machine.travel("2023-01-02 00:00:00", tick=False)
 def test_auto_empty_dataset_usage_statistics_invalid_timestamp(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
@@ -269,7 +269,11 @@ def test_auto_empty_dataset_usage_statistics_invalid_timestamp(
     ]
 
 
-def get_sample_mcps(mcps_to_append: List = []) -> List[MetadataChangeProposalWrapper]:
+def get_sample_mcps(
+    mcps_to_append: Optional[List] = None,
+) -> List[MetadataChangeProposalWrapper]:
+    if not mcps_to_append:
+        mcps_to_append = []
     mcps = [
         MetadataChangeProposalWrapper(
             entityUrn="urn:li:dataset:(urn:li:dataPlatform:dbt,abc.foo.bar,PROD)",
@@ -311,7 +315,7 @@ def get_auto_generated_wu() -> List[MetadataWorkUnit]:
     return auto_generated_work_units
 
 
-@freeze_time("2023-01-02 00:00:00")
+@time_machine.travel("2023-01-02 00:00:00", tick=False)
 def test_auto_patch_last_modified_no_change():
     mcps = [
         MetadataChangeProposalWrapper(
@@ -329,7 +333,7 @@ def test_auto_patch_last_modified_no_change():
     )  # There should be no change
 
 
-@freeze_time("2023-01-02 00:00:00")
+@time_machine.travel("2023-01-02 00:00:00", tick=False)
 def test_auto_patch_last_modified_max_last_updated_timestamp():
     mcps = get_sample_mcps()
 
@@ -344,7 +348,7 @@ def test_auto_patch_last_modified_max_last_updated_timestamp():
     assert list(auto_patch_last_modified(auto_workunit(mcps))) == expected
 
 
-@freeze_time("2023-01-02 00:00:00")
+@time_machine.travel("2023-01-02 00:00:00", tick=False)
 def test_auto_patch_last_modified_multi_patch():
     mcps = get_sample_mcps()
 
@@ -368,7 +372,7 @@ def test_auto_patch_last_modified_multi_patch():
     assert list(auto_patch_last_modified(work_units)) == expected
 
 
-@freeze_time("2023-01-02 00:00:00")
+@time_machine.travel("2023-01-02 00:00:00", tick=False)
 def test_auto_patch_last_modified_last_modified_patch_exist():
     mcps = get_sample_mcps()
 
@@ -391,7 +395,7 @@ def test_auto_patch_last_modified_last_modified_patch_exist():
     assert list(auto_patch_last_modified(work_units)) == work_units
 
 
-@freeze_time("2023-01-02 00:00:00")
+@time_machine.travel("2023-01-02 00:00:00", tick=False)
 def test_auto_patch_last_modified_last_modified_patch_not_exist():
     mcps = get_sample_mcps()
 

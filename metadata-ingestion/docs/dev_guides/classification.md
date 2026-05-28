@@ -1,4 +1,8 @@
-# Classification
+---
+description: "Configure DataHub ingestion sources to automatically predict info types for columns and apply them as glossary terms during ingestion."
+---
+
+# Classification (Deprecated)
 
 The classification feature enables sources to be configured to automatically predict info types for columns and use them as glossary terms. This is an explicit opt-in feature and is not enabled by default.
 
@@ -451,4 +455,4 @@ source:
 
 ### DataHub Blog
 
-- [PII Classification just got easier with DataHub](https://blog.datahubproject.io/pii-classification-just-got-easier-with-datahub-6bab2b63abcb)
+- [PII Classification just got easier with DataHub](https://medium.com/datahub-project/pii-classification-just-got-easier-with-datahub-6bab2b63abcb)

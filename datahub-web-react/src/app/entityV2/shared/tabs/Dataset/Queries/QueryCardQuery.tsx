@@ -1,10 +1,10 @@
 import React from 'react';
 import styled from 'styled-components';
-import { ANTD_GRAY } from '../../../constants';
-import { StyledSyntaxHighlighter } from '../../../StyledSyntaxHighlighter';
+
+import { StyledSyntaxHighlighter } from '@app/entityV2/shared/StyledSyntaxHighlighter';
 
 const Statement = styled.div<{ fullHeight?: boolean; isCompact?: boolean }>`
-    background-color: ${ANTD_GRAY[2]};
+    background-color: ${(props) => props.theme.colors.bgSurface};
     height: ${(props) => (props.fullHeight && '378px') || '240px'};
     margin: 0px 0px 4px 0px;
     border-radius: 8px;
@@ -39,7 +39,7 @@ const NestedSyntax = styled(StyledSyntaxHighlighter)<{ isCompact?: boolean }>`
     `}
 `;
 
-export type Props = {
+type Props = {
     query: string;
     showDetails: boolean;
     onClickExpand?: (newQuery) => void;

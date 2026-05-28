@@ -1,10 +1,10 @@
 import React from 'react';
 import styled from 'styled-components';
-import { formatNumber } from '../shared/formatNumber';
-import { REDESIGN_COLORS } from '../entityV2/shared/constants';
+
+import { formatNumber } from '@app/shared/formatNumber';
 
 const Container = styled.div`
-    color: ${REDESIGN_COLORS.FOUNDATION_BLUE_4};
+    color: ${(props) => props.theme.colors.textTertiary};
     font-size: 12px;
     white-space: nowrap;
 `;

@@ -1,22 +1,24 @@
+import { Divider } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { Dataset } from '@src/types.generated';
-import { Divider } from 'antd';
+
+import { GenericEntityProperties } from '@src/app/entity/shared/types';
 import { EntityLinkList } from '@src/app/homeV2/reference/sections/EntityLinkList';
-import { ANTD_GRAY } from '../../constants';
 
 type Props = {
-    directEntities: Dataset[];
-    indirectEntities: Dataset[];
+    directEntities: GenericEntityProperties[];
+    indirectEntities: GenericEntityProperties[];
     loadMoreDirectEntities: () => void;
     loadMoreIndirectEntities: () => void;
     remainingDirectEntities: number;
     remainingIndirectEntities: number;
+    showHealthIcon?: boolean;
+    showDeprecatedIcon?: boolean;
 };
 
 const Container = styled.div`
     padding: 10px;
-    background-color: white;
+    background-color: ${(props) => props.theme.colors.bgSurface};
 `;
 
 const StyledDivider = styled(Divider)`
@@ -36,7 +38,7 @@ const ShowMoreWrapper = styled.div`
     display: flex;
     justify-content: end;
     font-weight: 600;
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
     font-size: 12px;
 `;
 
@@ -47,6 +49,8 @@ const UpstreamEntitiesList = ({
     loadMoreIndirectEntities,
     remainingDirectEntities,
     remainingIndirectEntities,
+    showHealthIcon,
+    showDeprecatedIcon,
 }: Props) => {
     return (
         <Container>
@@ -63,7 +67,8 @@ const UpstreamEntitiesList = ({
                             showMoreComponent={
                                 <ShowMoreWrapper>{`Show ${remainingDirectEntities} more`}</ShowMoreWrapper>
                             }
-                            showHealthIcon
+                            showHealthIcon={showHealthIcon}
+                            showDeprecatedIcon={showDeprecatedIcon}
                         />
                     </>
                 )}

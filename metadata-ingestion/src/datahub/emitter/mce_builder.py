@@ -3,7 +3,6 @@
 import hashlib
 import json
 import logging
-import os
 import re
 import time
 from datetime import datetime, timezone
@@ -26,9 +25,12 @@ import typing_inspect
 from avrogen.dict_wrapper import DictWrapper
 from typing_extensions import assert_never
 
+from datahub.configuration.env_vars import get_dataset_urn_to_lower
 from datahub.emitter.enum_helpers import get_enum_options
 from datahub.metadata.schema_classes import (
     AssertionKeyClass,
+    AssertionSourceClass,
+    AssertionSourceTypeClass,
     AuditStampClass,
     ChartKeyClass,
     ContainerKeyClass,
@@ -52,7 +54,16 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
     _Aspect as AspectAbstract,
 )
-from datahub.metadata.urns import DataFlowUrn, DatasetUrn, TagUrn
+from datahub.metadata.urns import (
+    ChartUrn,
+    DashboardUrn,
+    DataFlowUrn,
+    DataJobUrn,
+    DataPlatformUrn,
+    DatasetUrn,
+    OwnershipTypeUrn,
+    TagUrn,
+)
 from datahub.utilities.urn_encoder import UrnEncoder
 
 logger = logging.getLogger(__name__)
@@ -61,11 +72,24 @@ Aspect = TypeVar("Aspect", bound=AspectAbstract)
 DEFAULT_ENV = FabricTypeClass.PROD
 ALL_ENV_TYPES: Set[str] = set(get_enum_options(FabricTypeClass))
 
+# NOTE: This is lowercase "prod", not the FabricType enum value "PROD".
+# This creates a two-layer mismatch that every caller must handle:
+#   URN  (DataFlowKey.cluster) - free-form string: "prod" is valid
+#   Aspect (DataFlowInfo.env)  - FabricType enum:  only uppercase "PROD", "DEV", … are valid
+# The aspect's env field is indexed with addToFilters=true ("Environment" facet in search),
+# so it must carry a valid FabricType value. Code that writes to those aspects
+# (datahub.api, datahub.sdk) must normalize cluster → uppercase before writing to the aspect,
+# while keeping the original casing in the URN identity.
+# Two proper fixes exist, both requiring a URN migration for existing Airflow entities:
+#   (A) Change this default to "PROD" and tighten DataFlowKey.cluster to FabricType in
+#       the model, eliminating the mismatch at the source.
+#   (B) Remove the coupling entirely: keep cluster as a free-form string, stop using it
+#       as an env value in the aspects, and fix the Airflow plugin to stop conflating the
+#       two — removing the need for the normalization workaround in datahub.api / datahub.sdk.
 DEFAULT_FLOW_CLUSTER = "prod"
 UNKNOWN_USER = "urn:li:corpuser:unknown"
-DATASET_URN_TO_LOWER: bool = (
-    os.getenv("DATAHUB_DATASET_URN_TO_LOWER", "false") == "true"
-)
+SYSTEM_ACTOR = "urn:li:corpuser:__datahub_system"
+DATASET_URN_TO_LOWER: bool = get_dataset_urn_to_lower() == "true"
 
 if TYPE_CHECKING:
     from datahub.emitter.mcp_builder import DatahubKey
@@ -117,9 +141,7 @@ def parse_ts_millis(ts: Optional[float]) -> Optional[datetime]:
 
 
 def make_data_platform_urn(platform: str) -> str:
-    if platform.startswith("urn:li:dataPlatform:"):
-        return platform
-    return f"urn:li:dataPlatform:{platform}"
+    return DataPlatformUrn(platform).urn()
 
 
 def make_dataset_urn(platform: str, name: str, env: str = DEFAULT_ENV) -> str:
@@ -223,6 +245,17 @@ def make_assertion_urn(assertion_id: str) -> str:
     return f"urn:li:assertion:{assertion_id}"
 
 
+def make_assertion_source() -> AssertionSourceClass:
+    """Create a standard AssertionSource for ingestion-created assertions."""
+    return AssertionSourceClass(
+        type=AssertionSourceTypeClass.EXTERNAL,
+        created=AuditStampClass(
+            time=int(time.time() * 1000),
+            actor=SYSTEM_ACTOR,
+        ),
+    )
+
+
 def assertion_urn_to_key(assertion_urn: str) -> Optional[AssertionKeyClass]:
     pattern = r"urn:li:assertion:(.*)"
     results = re.search(pattern, assertion_urn)
@@ -236,7 +269,7 @@ def make_user_urn(username: str) -> str:
     Makes a user urn if the input is not a user or group urn already
     """
     return (
-        f"urn:li:corpuser:{username}"
+        f"urn:li:corpuser:{UrnEncoder.encode_string(username)}"
         if not username.startswith(("urn:li:corpuser:", "urn:li:corpGroup:"))
         else username
     )
@@ -249,7 +282,7 @@ def make_group_urn(groupname: str) -> str:
     if groupname and groupname.startswith(("urn:li:corpGroup:", "urn:li:corpuser:")):
         return groupname
     else:
-        return f"urn:li:corpGroup:{groupname}"
+        return f"urn:li:corpGroup:{UrnEncoder.encode_string(groupname)}"
 
 
 def make_tag_urn(tag: str) -> str:
@@ -301,7 +334,12 @@ def make_data_flow_urn(
 
 
 def make_data_job_urn_with_flow(flow_urn: str, job_id: str) -> str:
-    return f"urn:li:dataJob:({flow_urn},{job_id})"
+    data_flow_urn = DataFlowUrn.from_string(flow_urn)
+    data_job_urn = DataJobUrn.create_from_ids(
+        data_flow_urn=data_flow_urn.urn(),
+        job_id=job_id,
+    )
+    return data_job_urn.urn()
 
 
 def make_data_process_instance_urn(dataProcessInstanceId: str) -> str:
@@ -324,10 +362,11 @@ def make_dashboard_urn(
     platform: str, name: str, platform_instance: Optional[str] = None
 ) -> str:
     # FIXME: dashboards don't currently include data platform urn prefixes.
-    if platform_instance:
-        return f"urn:li:dashboard:({platform},{platform_instance}.{name})"
-    else:
-        return f"urn:li:dashboard:({platform},{name})"
+    return DashboardUrn.create_from_ids(
+        platform=platform,
+        name=name,
+        platform_instance=platform_instance,
+    ).urn()
 
 
 def dashboard_urn_to_key(dashboard_urn: str) -> Optional[DashboardKeyClass]:
@@ -342,10 +381,11 @@ def make_chart_urn(
     platform: str, name: str, platform_instance: Optional[str] = None
 ) -> str:
     # FIXME: charts don't currently include data platform urn prefixes.
-    if platform_instance:
-        return f"urn:li:chart:({platform},{platform_instance}.{name})"
-    else:
-        return f"urn:li:chart:({platform},{name})"
+    return ChartUrn.create_from_ids(
+        platform=platform,
+        name=name,
+        platform_instance=platform_instance,
+    ).urn()
 
 
 def chart_urn_to_key(chart_urn: str) -> Optional[ChartKeyClass]:
@@ -360,6 +400,12 @@ def make_domain_urn(domain: str) -> str:
     if domain.startswith("urn:li:domain:"):
         return domain
     return f"urn:li:domain:{domain}"
+
+
+def make_data_product_urn(data_product_id: str) -> str:
+    if data_product_id.startswith("urn:li:dataProduct:"):
+        return data_product_id
+    return f"urn:li:dataProduct:{data_product_id}"
 
 
 def make_ml_primary_key_urn(feature_table_name: str, primary_key_name: str) -> str:
@@ -393,7 +439,8 @@ def make_ml_model_group_urn(platform: str, group_name: str, env: str) -> str:
 
 def validate_ownership_type(ownership_type: str) -> Tuple[str, Optional[str]]:
     if ownership_type.startswith("urn:li:"):
-        return OwnershipTypeClass.CUSTOM, ownership_type
+        ownership_type_urn = OwnershipTypeUrn.from_string(ownership_type)
+        return OwnershipTypeClass.CUSTOM, ownership_type_urn.urn()
     ownership_type = ownership_type.upper()
     if ownership_type in get_enum_options(OwnershipTypeClass):
         return ownership_type, None

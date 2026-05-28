@@ -4,6 +4,8 @@ import static com.linkedin.metadata.Constants.CORP_USER_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.STATUS_ASPECT_NAME;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotEquals;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
 import com.datahub.util.RecordUtils;
@@ -11,6 +13,7 @@ import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.SetMode;
+import com.linkedin.data.template.StringMap;
 import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
@@ -19,10 +22,19 @@ import com.linkedin.metadata.entity.ebean.PartitionedStream;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.utils.AuditStampUtils;
+import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
+import io.datahubproject.metadata.context.ObjectMapperContext;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.SystemTelemetryContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import io.opentelemetry.api.OpenTelemetry;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.SpanContext;
+import io.opentelemetry.api.trace.Tracer;
+import io.opentelemetry.sdk.OpenTelemetrySdk;
+import io.opentelemetry.sdk.trace.SdkTracerProvider;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -30,6 +42,7 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.mockito.Spy;
@@ -39,7 +52,18 @@ import org.testng.annotations.Test;
 public class AspectDaoTest {
 
   private final OperationContext opContext =
-      TestOperationContexts.systemContextNoSearchAuthorization();
+      TestOperationContexts.systemContextTraceNoSearchAuthorization(
+          () -> ObjectMapperContext.DEFAULT,
+          () -> {
+            // Set up OpenTelemetry SDK for testing
+            SdkTracerProvider tracerProvider = SdkTracerProvider.builder().build();
+            OpenTelemetry openTelemetry =
+                OpenTelemetrySdk.builder().setTracerProvider(tracerProvider).build();
+
+            // Create a tracer
+            Tracer tracer = openTelemetry.getTracer("test-tracer");
+            return SystemTelemetryContext.builder().tracer(tracer).build();
+          });
   private final EntitySpec corpUserEntitySpec =
       opContext.getEntityRegistry().getEntitySpec(CORP_USER_ENTITY_NAME);
 
@@ -73,7 +97,7 @@ public class AspectDaoTest {
 
     // Execute
     Pair<Optional<EntityAspect>, Optional<EntityAspect>> result =
-        aspectDao.saveLatestAspect(opContext, txContext, null, newAspect);
+        aspectDao.saveLatestAspect(opContext, txContext, null, newAspect, 2);
 
     // Verify
     assertFalse(result.getFirst().isPresent(), "Should not have inserted previous version");
@@ -91,11 +115,28 @@ public class AspectDaoTest {
 
     // Execute
     Pair<Optional<EntityAspect>, Optional<EntityAspect>> result =
-        aspectDao.saveLatestAspect(opContext, txContext, currentAspect, newAspect);
+        aspectDao.saveLatestAspect(opContext, txContext, currentAspect, newAspect, 2);
 
     // Verify
     assertTrue(result.getFirst().isPresent(), "Should have inserted previous version");
     assertTrue(result.getSecond().isPresent(), "Should have updated current version");
+  }
+
+  @Test
+  public void testSaveLatestAspect_MaxVersionsOne_NoHistoryRow() {
+    // When maxVersionsToKeep <= 1, no previous-version row is inserted (only version 0 updated)
+    SystemAspect currentAspect = createSystemAspect("1");
+    SystemAspect newAspect = createSystemAspect("2");
+    SystemAspect dbAspect = createSystemAspect("1");
+    currentAspect.setDatabaseAspect(dbAspect);
+
+    Pair<Optional<EntityAspect>, Optional<EntityAspect>> result =
+        aspectDao.saveLatestAspect(opContext, txContext, currentAspect, newAspect, 1);
+
+    assertFalse(
+        result.getFirst().isPresent(),
+        "Should not insert previous version when maxVersionsToKeep=1");
+    assertTrue(result.getSecond().isPresent(), "Should still update version 0");
   }
 
   @Test
@@ -111,7 +152,7 @@ public class AspectDaoTest {
 
     // Execute
     Pair<Optional<EntityAspect>, Optional<EntityAspect>> result =
-        aspectDao.saveLatestAspect(opContext, txContext, currentAspect, newAspect);
+        aspectDao.saveLatestAspect(opContext, txContext, currentAspect, newAspect, 2);
 
     // Verify
     assertFalse(result.getFirst().isPresent(), "Should not have inserted previous version");
@@ -129,7 +170,7 @@ public class AspectDaoTest {
 
     // Execute
     Pair<Optional<EntityAspect>, Optional<EntityAspect>> result =
-        aspectDao.saveLatestAspect(opContext, txContext, currentAspect, newAspect);
+        aspectDao.saveLatestAspect(opContext, txContext, currentAspect, newAspect, 2);
 
     // Verify
     assertFalse(result.getFirst().isPresent(), "Should not have inserted previous version");
@@ -155,7 +196,7 @@ public class AspectDaoTest {
 
     // Execute
     Pair<Optional<EntityAspect>, Optional<EntityAspect>> result =
-        aspectDao.saveLatestAspect(opContext, null, currentAspect, newAspect);
+        aspectDao.saveLatestAspect(opContext, null, currentAspect, newAspect, 2);
 
     // Verify
     assertTrue(result.getFirst().isPresent(), "Should have inserted previous version");
@@ -172,7 +213,7 @@ public class AspectDaoTest {
     currentAspect.setDatabaseAspect(dbAspect);
 
     // Execute - should throw IllegalArgumentException
-    aspectDao.saveLatestAspect(opContext, null, currentAspect, newAspect);
+    aspectDao.saveLatestAspect(opContext, null, currentAspect, newAspect, 2);
   }
 
   @Test
@@ -185,7 +226,7 @@ public class AspectDaoTest {
 
     // Execute
     Pair<Optional<EntityAspect>, Optional<EntityAspect>> result =
-        aspectDao.saveLatestAspect(opContext, txContext, currentAspect, newAspect);
+        aspectDao.saveLatestAspect(opContext, txContext, currentAspect, newAspect, 2);
 
     // Verify
     assertTrue(result.getFirst().isPresent(), "Should have inserted previous version");
@@ -205,7 +246,171 @@ public class AspectDaoTest {
     SystemAspect newAspect = createSystemAspect(null);
 
     // Execute - should throw IllegalArgumentException
-    aspectDao.saveLatestAspect(opContext, null, null, newAspect);
+    aspectDao.saveLatestAspect(opContext, null, null, newAspect, 2);
+  }
+
+  @Test
+  public void testSaveLatestAspect_NoOpTracingSet() {
+    // Setup
+    SystemAspect currentAspect = createSystemAspect("1");
+    SystemAspect newAspect = createSystemAspect("1");
+    SystemAspect dbAspect = createSystemAspect("1");
+    currentAspect.setDatabaseAspect(dbAspect);
+
+    // Execute
+    Pair<Optional<EntityAspect>, Optional<EntityAspect>> result =
+        aspectDao.saveLatestAspect(opContext, txContext, currentAspect, newAspect, 2);
+
+    // Verify
+    // Should not have any changes since it's a true no-op (same version and content)
+    assertFalse(result.getFirst().isPresent(), "Should not have inserted previous version");
+    assertFalse(result.getSecond().isPresent(), "Should not have updated current version");
+
+    // The input aspect should not be modified since no update occurred
+    assertNull(
+        newAspect.getSystemMetadata().getProperties(),
+        "SystemMetadata should not be modified for no-op case with no update");
+  }
+
+  @Test
+  public void testSaveLatestAspect_NoOpWithMetadataChange() {
+    opContext.withSpan(
+        "testSaveLatestAspect_NoOpWithMetadataChange",
+        () -> {
+          // Verify span context is valid
+          SpanContext currentSpanContext = Span.current().getSpanContext();
+          assertTrue(currentSpanContext.isValid(), "Span context should be valid");
+
+          // Setup
+          SystemAspect currentAspect = createSystemAspect("1");
+          SystemAspect newAspect = createSystemAspect("1");
+          SystemAspect dbAspect = createSystemAspect("1");
+          currentAspect.setDatabaseAspect(dbAspect);
+
+          // Modify system metadata but keep same content
+          newAspect
+              .getSystemMetadata()
+              .setLastObserved(newAspect.getSystemMetadata().getLastObserved() + 1);
+
+          // Execute
+          Pair<Optional<EntityAspect>, Optional<EntityAspect>> result =
+              aspectDao.saveLatestAspect(opContext, txContext, currentAspect, newAspect, 2);
+
+          // Verify
+          assertFalse(result.getFirst().isPresent(), "Should not have inserted previous version");
+          assertTrue(result.getSecond().isPresent(), "Should have updated current version");
+
+          SystemMetadata updatedMetadata =
+              RecordUtils.toRecordTemplate(
+                  SystemMetadata.class, result.getSecond().get().getSystemMetadata());
+
+          assertTrue(
+              SystemMetadataUtils.isNoOp(updatedMetadata),
+              "NoOp should be true for metadata-only change");
+          assertTrue(
+              updatedMetadata.getProperties().containsKey("telemetryTraceId"),
+              "TraceId should be set");
+        });
+  }
+
+  @Test
+  public void testSaveLatestAspect_ContentChangeTracing() {
+    opContext.withSpan(
+        "testSaveLatestAspect_ContentChangeTracing",
+        () -> {
+          // Verify span context is valid
+          SpanContext currentSpanContext = Span.current().getSpanContext();
+          assertTrue(currentSpanContext.isValid(), "Span context should be valid");
+
+          // Setup
+          SystemAspect currentAspect = createSystemAspect("1");
+          SystemAspect newAspect = createSystemAspect("2");
+          // Modify the content to ensure it's not a no-op
+          Status newStatus = new Status().setRemoved(true);
+          newAspect.setRecordTemplate(newStatus);
+
+          SystemAspect dbAspect = createSystemAspect("1");
+          currentAspect.setDatabaseAspect(dbAspect);
+
+          // Execute
+          Pair<Optional<EntityAspect>, Optional<EntityAspect>> result =
+              aspectDao.saveLatestAspect(opContext, txContext, currentAspect, newAspect, 2);
+
+          // Verify
+          assertTrue(result.getFirst().isPresent(), "Should have inserted previous version");
+          assertTrue(result.getSecond().isPresent(), "Should have updated current version");
+
+          SystemMetadata updatedMetadata =
+              RecordUtils.toRecordTemplate(
+                  SystemMetadata.class, result.getSecond().get().getSystemMetadata());
+
+          assertFalse(
+              SystemMetadataUtils.isNoOp(updatedMetadata),
+              "NoOp should be false for content change");
+          assertTrue(
+              updatedMetadata.getProperties().containsKey("telemetryTraceId"),
+              "TraceId should be set");
+
+          // Verify previous version's metadata is unchanged
+          SystemMetadata previousMetadata =
+              RecordUtils.toRecordTemplate(
+                  SystemMetadata.class, result.getFirst().get().getSystemMetadata());
+          assertFalse(
+              SystemMetadataUtils.isNoOp(previousMetadata),
+              "Previous version should not have NoOp flag");
+        });
+  }
+
+  @Test
+  public void testSaveLatestAspect_TraceIdPropagation() {
+    opContext.withSpan(
+        "testSaveLatestAspect_TraceIdPropagation",
+        () -> {
+          // Verify span context is valid
+          SpanContext currentSpanContext = Span.current().getSpanContext();
+          assertTrue(currentSpanContext.isValid(), "Span context should be valid");
+
+          // Setup
+          String existingTraceId = "existing-trace-123";
+          SystemAspect currentAspect = createSystemAspect("1");
+          currentAspect
+              .getSystemMetadata()
+              .setProperties(new StringMap(Map.of("telemetryTraceId", existingTraceId)));
+
+          SystemAspect newAspect = createSystemAspect("2");
+          // Set a different trace ID to verify overwrite behavior
+          newAspect
+              .getSystemMetadata()
+              .setProperties(new StringMap(Map.of("telemetryTraceId", "new-trace-456")));
+
+          SystemAspect dbAspect = createSystemAspect("1");
+          dbAspect
+              .getSystemMetadata()
+              .setProperties(new StringMap(Map.of("telemetryTraceId", existingTraceId)));
+          currentAspect.setDatabaseAspect(dbAspect);
+
+          // Execute
+          Pair<Optional<EntityAspect>, Optional<EntityAspect>> result =
+              aspectDao.saveLatestAspect(opContext, txContext, currentAspect, newAspect, 2);
+
+          // Verify
+          assertTrue(result.getSecond().isPresent(), "Should have updated current version");
+
+          SystemMetadata updatedMetadata =
+              RecordUtils.toRecordTemplate(
+                  SystemMetadata.class, result.getSecond().get().getSystemMetadata());
+
+          assertTrue(
+              updatedMetadata.getProperties().containsKey("telemetryTraceId"),
+              "TraceId should be set");
+          assertNotEquals(
+              updatedMetadata.getProperties().get("telemetryTraceId"),
+              existingTraceId,
+              "TraceId should be overwritten for version increment");
+          assertFalse(
+              updatedMetadata.getProperties().get("telemetryTraceId").contains("-trace-"),
+              "TraceId should match operation context and not the test trace ids");
+        });
   }
 
   // Concrete implementation for testing default methods
@@ -268,7 +473,18 @@ public class AspectDaoTest {
     }
 
     @Override
+    public Integer countAspect(RestoreIndicesArgs args) {
+      return null;
+    }
+
+    @Override
     public PartitionedStream<EbeanAspectV2> streamAspectBatches(RestoreIndicesArgs args) {
+      return null;
+    }
+
+    @Override
+    public PartitionedStream<EbeanAspectV2> streamAspectBatchesForMigration(
+        Map<String, Long> aspectTargetVersions, long afterCreatedOnMs, int batchSize, int limit) {
       return null;
     }
 
@@ -278,7 +494,10 @@ public class AspectDaoTest {
     }
 
     @Override
-    public int deleteUrn(TransactionContext txContext, String urn) {
+    public int deleteUrn(
+        @Nonnull OperationContext opContext,
+        @Nullable TransactionContext txContext,
+        @Nonnull final String urn) {
       return 0;
     }
 
@@ -316,6 +535,18 @@ public class AspectDaoTest {
     public <T> Optional<T> runInTransactionWithRetry(
         Function<TransactionContext, TransactionResult<T>> block, int maxTransactionRetry) {
       return Optional.empty();
+    }
+
+    @Nonnull
+    @Override
+    public List<com.linkedin.metadata.aspect.SystemAspectValidator> getSystemAspectValidators() {
+      return java.util.Collections.emptyList();
+    }
+
+    @Nullable
+    @Override
+    public com.linkedin.metadata.config.AspectSizeValidationConfiguration getValidationConfig() {
+      return null;
     }
   }
 }

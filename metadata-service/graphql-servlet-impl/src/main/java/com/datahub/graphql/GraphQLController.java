@@ -1,6 +1,7 @@
 package com.datahub.graphql;
 
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.telemetry.OpenTelemetryKeyConstants.ACTOR_URN_ATTR;
 
 import com.codahale.metrics.MetricRegistry;
 import com.datahub.authentication.Authentication;
@@ -45,16 +46,13 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api")
 public class GraphQLController {
 
-  public GraphQLController() {
-    MetricUtils.get().counter(MetricRegistry.name(this.getClass(), "error"));
-    MetricUtils.get().counter(MetricRegistry.name(this.getClass(), "call"));
-  }
-
   @Inject GraphQLEngine _engine;
 
   @Inject AuthorizerChain _authorizerChain;
 
   @Inject ConfigurationProvider configurationProvider;
+
+  @Inject MetricUtils metricUtils;
 
   @Nonnull
   @Inject
@@ -132,7 +130,7 @@ public class GraphQLController {
             operationName,
             query,
             variables);
-    Span.current().setAttribute("actor.urn", context.getActorUrn());
+    Span.current().setAttribute(ACTOR_URN_ATTR, context.getActorUrn());
 
     final String threadName = Thread.currentThread().getName();
     final String queryName = context.getQueryName();
@@ -140,7 +138,7 @@ public class GraphQLController {
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
-          log.info("Executing operation {} for {}", queryName, threadName);
+          log.debug("Executing operation {} for {}", queryName, threadName);
 
           /*
            * Execute GraphQL Query
@@ -162,13 +160,27 @@ public class GraphQLController {
            */
           try {
             long totalDuration = submitMetrics(executionResult);
-            String executionTook = totalDuration > 0 ? " in " + totalDuration + " ms" : "";
-            log.info("Executed operation {}" + executionTook, queryName);
             // Remove tracing from response to reduce bulk, not used by the frontend
             executionResult.getExtensions().remove("tracing");
             String responseBodyStr =
                 new ObjectMapper().writeValueAsString(executionResult.toSpecification());
-            log.info("Operation {} execution result size: {}", queryName, responseBodyStr.length());
+            if (totalDuration
+                >= configurationProvider.getGraphQL().getQuery().getSlowQueryThresholdMs()) {
+              log.info(
+                  "Slow operation {} took {} ms (response size: {})",
+                  queryName,
+                  totalDuration,
+                  responseBodyStr.length());
+            } else if (totalDuration > 0) {
+              log.debug(
+                  "Executed operation {} in {} ms (response size: {})",
+                  queryName,
+                  totalDuration,
+                  responseBodyStr.length());
+            } else {
+              log.debug(
+                  "Executed operation {} (response size: {})", queryName, responseBodyStr.length());
+            }
             log.trace("Execution result: {}", responseBodyStr);
             return new ResponseEntity<>(responseBodyStr, HttpStatus.OK);
           } catch (IllegalArgumentException | JsonProcessingException e) {
@@ -197,21 +209,21 @@ public class GraphQLController {
               if (graphQLError instanceof DataHubGraphQLError) {
                 DataHubGraphQLError dhGraphQLError = (DataHubGraphQLError) graphQLError;
                 int errorCode = dhGraphQLError.getErrorCode();
-                MetricUtils.get()
-                    .counter(
-                        MetricRegistry.name(
-                            this.getClass(), "errorCode", Integer.toString(errorCode)))
-                    .inc();
+                if (metricUtils != null)
+                  metricUtils.increment(
+                      MetricRegistry.name(
+                          this.getClass(), "errorCode", Integer.toString(errorCode)),
+                      1);
               } else {
-                MetricUtils.get()
-                    .counter(
-                        MetricRegistry.name(
-                            this.getClass(), "errorType", graphQLError.getErrorType().toString()))
-                    .inc();
+                if (metricUtils != null)
+                  metricUtils.increment(
+                      MetricRegistry.name(
+                          this.getClass(), "errorType", graphQLError.getErrorType().toString()),
+                      1);
               }
             });
-    if (executionResult.getErrors().size() != 0) {
-      MetricUtils.get().counter(MetricRegistry.name(this.getClass(), "error")).inc();
+    if (executionResult.getErrors().size() != 0 && metricUtils != null) {
+      metricUtils.increment(MetricRegistry.name(this.getClass(), "error"), 1);
     }
   }
 
@@ -219,7 +231,8 @@ public class GraphQLController {
   private long submitMetrics(ExecutionResult executionResult) {
     try {
       observeErrors(executionResult);
-      MetricUtils.get().counter(MetricRegistry.name(this.getClass(), "call")).inc();
+      if (metricUtils != null)
+        metricUtils.increment(MetricRegistry.name(this.getClass(), "call"), 1);
       Object tracingInstrumentation = executionResult.getExtensions().get("tracing");
       if (tracingInstrumentation instanceof Map) {
         Map<String, Object> tracingMap = (Map<String, Object>) tracingInstrumentation;
@@ -236,15 +249,13 @@ public class GraphQLController {
                 .map(parentResolver -> parentResolver.get("fieldName"))
                 .map(Object::toString)
                 .orElse("UNKNOWN");
-        MetricUtils.get()
-            .histogram(MetricRegistry.name(this.getClass(), fieldName))
-            .update(totalDuration);
+        if (metricUtils != null) metricUtils.histogram(this.getClass(), fieldName, totalDuration);
         return totalDuration;
       }
     } catch (Exception e) {
-      MetricUtils.get()
-          .counter(MetricRegistry.name(this.getClass(), "submitMetrics", "exception"))
-          .inc();
+      if (metricUtils != null)
+        metricUtils.increment(
+            MetricRegistry.name(this.getClass(), "submitMetrics", "exception"), 1);
       log.error("Unable to submit metrics for GraphQL call.", e);
     }
 

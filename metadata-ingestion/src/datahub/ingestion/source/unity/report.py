@@ -1,11 +1,15 @@
 from dataclasses import dataclass, field
-from typing import Optional, Tuple
+from typing import TYPE_CHECKING, Optional, Tuple
 
 from datahub.ingestion.api.report import EntityFilterReport, Report
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
-from datahub.ingestion.source_report.ingestion_stage import IngestionStageReport
 from datahub.utilities.lossy_collections import LossyDict, LossyList
 from datahub.utilities.perf_timer import PerfTimer
+
+if TYPE_CHECKING:
+    from datahub.ingestion.source.unity.platform_resource_repository import (
+        UnityCatalogPlatformResourceRepository,
+    )
 
 
 @dataclass
@@ -19,13 +23,19 @@ class UnityCatalogUsagePerfReport(Report):
 
 
 @dataclass
-class UnityCatalogReport(IngestionStageReport, SQLSourceReport):
+class UnityCatalogReport(SQLSourceReport):
     metastores: EntityFilterReport = EntityFilterReport.field(type="metastore")
     catalogs: EntityFilterReport = EntityFilterReport.field(type="catalog")
     schemas: EntityFilterReport = EntityFilterReport.field(type="schema")
+    # Metric views also count as tables so soft-delete keeps tracking them.
     tables: EntityFilterReport = EntityFilterReport.field(type="table/view")
     table_profiles: EntityFilterReport = EntityFilterReport.field(type="table profile")
     notebooks: EntityFilterReport = EntityFilterReport.field(type="notebook")
+    ml_models: EntityFilterReport = EntityFilterReport.field(type="ml_model")
+    ml_model_versions: EntityFilterReport = EntityFilterReport.field(
+        type="ml_model_version"
+    )
+    metric_views: EntityFilterReport = EntityFilterReport.field(type="metric_view")
 
     hive_metastore_catalog_found: Optional[bool] = None
 
@@ -59,5 +69,24 @@ class UnityCatalogReport(IngestionStageReport, SQLSourceReport):
     num_catalogs_missing_name: int = 0
     num_schemas_missing_name: int = 0
     num_tables_missing_name: int = 0
+    num_ml_models_missing_name: int = 0
     num_columns_missing_name: int = 0
     num_queries_missing_info: int = 0
+    num_metric_views_yaml_parse_failures: int = 0
+    num_metric_views_yaml_shape_invalid: int = 0
+    num_metric_views_no_parseable_sources: int = 0
+    num_metric_views_expr_parse_failures: int = 0
+    num_metric_view_joins_skipped: int = 0
+    num_metric_view_unresolved_qualifiers: int = 0
+    num_metric_view_unparseable_sources: int = 0
+    num_metric_view_skipped_dim_measure_entries: int = 0
+    num_metric_view_expr_empty_tree: int = 0
+    num_metric_view_unresolved_measure_refs: int = 0
+    num_metric_view_display_name_truncated: int = 0
+    num_metric_view_synonyms_overflow: int = 0
+    num_metric_view_synonyms_truncated: int = 0
+    num_metric_view_synonyms_dropped_invalid: int = 0
+    num_metric_view_format_unknown_subkeys: int = 0
+
+    # Platform resource repository for automatic cache statistics via SupportsAsObj
+    tag_urn_resolver_cache: Optional["UnityCatalogPlatformResourceRepository"] = None

@@ -1,17 +1,23 @@
-import React, { useState, useEffect } from 'react';
-import { LoadingOutlined } from '@ant-design/icons';
-import { KeyboardArrowDownRounded, KeyboardArrowRightRounded } from '@mui/icons-material';
+import { BookmarkSimple } from '@phosphor-icons/react/dist/csr/BookmarkSimple';
+import { BookmarksSimple } from '@phosphor-icons/react/dist/csr/BookmarksSimple';
+import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
+import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
+import React, { useEffect, useState } from 'react';
 import styled from 'styled-components/macro';
-import { Entity, EntityType, GlossaryNode, GlossaryTerm } from '../../../types.generated';
-import { GlossaryNodeFragment } from '../../../graphql/fragments.generated';
-import { REDESIGN_COLORS } from '../../entityV2/shared/constants';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import { useGetGlossaryNodeQuery } from '../../../graphql/glossaryNode.generated';
-import TermItem, { TermLink as NodeLink, NameWrapper } from './TermItem';
-import { sortGlossaryNodes } from '../../entityV2/glossaryNode/utils';
-import { sortGlossaryTerms } from '../../entityV2/glossaryTerm/utils';
-import { useGlossaryEntityData } from '../../entityV2/shared/GlossaryEntityContext';
-import { generateColorFromPalette } from '../colorUtils';
+
+import { sortGlossaryNodes } from '@app/entityV2/glossaryNode/utils';
+import { sortGlossaryTerms } from '@app/entityV2/glossaryTerm/utils';
+import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
+import { SelectedMark } from '@app/glossaryV2/GlossaryBrowser/SelectedMark';
+import TermItem, { NameWrapper, TermLink as NodeLink } from '@app/glossaryV2/GlossaryBrowser/TermItem';
+import GlossaryColoredIcon from '@app/glossaryV2/GlossaryColoredIcon';
+import { useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+import { Loader } from '@src/alchemy-components';
+import useGlossaryChildren from '@src/app/entityV2/glossaryNode/useGlossaryChildren';
+
+import { GlossaryNodeFragment } from '@graphql/fragments.generated';
+import { EntityType, GlossaryNode, GlossaryTerm } from '@types';
 
 interface ItemWrapperProps {
     $isSelected: boolean;
@@ -23,86 +29,80 @@ const ItemWrapper = styled.div<ItemWrapperProps>`
     flex-direction: column;
     font-weight: 700;
     position: relative;
-    overflow: ${(props) => !props.$isChildNode && 'hidden'};
 `;
 
-const NodeBadge = styled.span<{ color: string }>`
-    position: absolute;
-    height: 9px;
-    width: 50px;
-    background-color: ${({ color }) => color};
-    top: 0;
-    left: -15px;
-    transform: rotate(-45deg);
-    opacity: 1;
+const StyledNodeIcon = styled(GlossaryColoredIcon)`
+    margin-right: 8px;
 `;
 
 const NodeWrapper = styled.div<{ $isSelected: boolean; $depth: number }>`
     align-items: center;
     display: flex;
     font-size: 16px;
-    padding: 13px 0;
-    background-color: ${(props) => props.$isSelected && REDESIGN_COLORS.HIGHLIGHT_PURPLE};
+    background-color: ${(props) => props.$isSelected && props.theme.colors.bgActive};
     padding-left: calc(${(props) => (props.$depth ? props.$depth * 18 + 12 : 12)}px);
-`;
 
-const StyledRightOutlined = styled(KeyboardArrowRightRounded)<{ isSelected: boolean }>`
-    color: ${(props) =>
-        props.isSelected ? `${REDESIGN_COLORS.TITLE_PURPLE}` : `${REDESIGN_COLORS.SECONDARY_LIGHT_GREY}`};
-    cursor: pointer;
-    margin-right: 6px;
-    line-height: 0;
-    :hover {
-        stroke: ${(props) =>
-            props.isSelected ? `${REDESIGN_COLORS.TITLE_PURPLE}` : `${REDESIGN_COLORS.SECONDARY_LIGHT_GREY}`};
+    &:hover {
+        background-color: ${(props) => props.theme.colors.bgHover};
+        ${NameWrapper} {
+            color: ${(props) => props.theme.colors.textBrand};
+        }
     }
 `;
 
-const StyledDownOutlined = styled(KeyboardArrowDownRounded)<{ isSelected: boolean }>`
-    color: ${(props) => (props.isSelected ? `${REDESIGN_COLORS.TITLE_PURPLE}` : `${REDESIGN_COLORS.HOVER_PURPLE_2}`)};
-    cursor: pointer;
+const CaretSlot = styled.div`
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 14px;
     margin-right: 6px;
+`;
+
+const StyledCaretRight = styled(CaretRight)<{ $isSelected: boolean }>`
+    color: ${(props) => (props.$isSelected ? props.theme.colors.iconSelected : props.theme.colors.icon)};
+    cursor: pointer;
     line-height: 0;
+    flex-shrink: 0;
+
     :hover {
-        stroke: ${(props) =>
-            props.isSelected ? `${REDESIGN_COLORS.TITLE_PURPLE}` : `${REDESIGN_COLORS.HOVER_PURPLE_2}`};
+        color: ${(props) => props.theme.colors.iconHover};
+    }
+`;
+
+const StyledCaretDown = styled(CaretDown)<{ $isSelected: boolean }>`
+    color: ${(props) => (props.$isSelected ? props.theme.colors.iconSelected : props.theme.colors.icon)};
+    cursor: pointer;
+    line-height: 0;
+    flex-shrink: 0;
+
+    :hover {
+        color: ${(props) => props.theme.colors.iconHover};
     }
 `;
 
 const ChildrenWrapper = styled.div``;
 
-const LoadingWrapper = styled.div`
-    padding: 8px;
-    display: flex;
-    justify-content: center;
-
-    svg {
-        height: 15px;
-        width: 15px;
-    }
-`;
-
 const ChildrenCount = styled.div`
-    padding: 1px 8px;
-    display: flex;
+    padding: 0 8px;
+    display: inline-flex;
+    align-items: center;
     justify-content: center;
-    border-radius: 10px;
-    background-color: #eeecfa;
-    color: #434863;
-    font-size: 10px;
+    border-radius: 20px;
+    background-color: ${(props) => props.theme.colors.bgHover};
+    color: ${(props) => props.theme.colors.textSecondary};
+    font-size: 12px;
+    height: 22px;
+    min-width: 28px;
     font-weight: 400;
-    margin-right: 13px;
+    margin-right: 12px;
 `;
 
 const StyledDivider = styled.div<{ depth: number }>`
     width: calc(100% + 26px + ${(props) => props.depth * 18}px);
     margin-left: calc(-13px - ${(props) => props.depth * 18}px);
-    border-bottom: 1px solid #eae8fb;
+    border-bottom: 1px solid ${(props) => props.theme.colors.bgActive};
 `;
-
-interface Relationship {
-    entity?: Entity | null;
-}
 
 interface Props {
     node: GlossaryNodeFragment;
@@ -115,6 +115,8 @@ interface Props {
     selectNode?: (urn: string, displayName: string) => void;
     isChildNode?: boolean;
     depth: number;
+    selectedUrns?: string[];
+    iconColor?: string;
 }
 
 function NodeItem(props: Props) {
@@ -129,16 +131,21 @@ function NodeItem(props: Props) {
         selectNode,
         isChildNode,
         depth,
+        selectedUrns,
+        iconColor,
     } = props;
     const shouldHideNode = nodeUrnToHide === node.urn;
 
+    const generateColor = useGenerateGlossaryColorFromPalette();
     const [areChildrenVisible, setAreChildrenVisible] = useState(false);
     const entityRegistry = useEntityRegistry();
-    const { entityData, urnsToUpdate, setUrnsToUpdate } = useGlossaryEntityData();
-    const { data, loading, refetch } = useGetGlossaryNodeQuery({
-        variables: { urn: node.urn },
-        skip: !areChildrenVisible || shouldHideNode,
-    });
+    const entityUrn = node.urn;
+    const {
+        scrollRef,
+        data: children,
+        loading,
+    } = useGlossaryChildren({ entityUrn, skip: !areChildrenVisible || shouldHideNode });
+    const { entityData } = useGlossaryEntityData();
 
     useEffect(() => {
         if (openToEntity && entityData && entityData.parentNodes?.nodes?.some((parent) => parent.urn === node.urn)) {
@@ -152,15 +159,7 @@ function NodeItem(props: Props) {
         }
     }, [refreshBrowser]);
 
-    useEffect(() => {
-        if (urnsToUpdate.includes(node.urn)) {
-            refetch();
-            setUrnsToUpdate(urnsToUpdate.filter((urn) => urn !== node.urn));
-        }
-    });
-
-    const children: Relationship[] | undefined = data?.glossaryNode?.children?.relationships;
-    const noOfChildren = node.children?.total;
+    const noOfChildren = (node.childrenCount?.termsCount || 0) + (node.childrenCount?.nodesCount || 0);
 
     function handleSelectNode() {
         if (selectNode) {
@@ -169,47 +168,49 @@ function NodeItem(props: Props) {
         }
     }
 
-    const childNodes =
-        children
-            ?.filter((child) => child.entity?.type === EntityType.GlossaryNode)
-            .sort((nodeA, nodeB) => sortGlossaryNodes(entityRegistry, nodeA.entity, nodeB.entity))
-            .map((child) => child.entity) || [];
-    const childTerms =
-        children
-            ?.filter((child) => child.entity?.type === EntityType.GlossaryTerm)
-            .sort((termA, termB) => sortGlossaryTerms(entityRegistry, termA.entity, termB.entity))
-            .map((child) => child.entity) || [];
+    const childNodes = children
+        ?.filter((child) => child?.type === EntityType.GlossaryNode)
+        .sort((nodeA, nodeB) => sortGlossaryNodes(entityRegistry, nodeA, nodeB));
+    const childTerms = children
+        ?.filter((child) => child?.type === EntityType.GlossaryTerm)
+        .sort((termA, termB) => sortGlossaryTerms(entityRegistry, termA, termB));
+
+    const isSelected = isSelecting && selectedUrns?.includes(node.urn);
 
     if (shouldHideNode) return null;
 
-    const glossaryColor = node.displayProperties?.colorHex || generateColorFromPalette(node.urn);
+    const glossaryColor = iconColor || node.displayProperties?.colorHex || generateColor(node.urn);
+    const NodeIcon = iconColor ? BookmarkSimple : BookmarksSimple;
 
     return (
         <ItemWrapper $isSelected={entityData?.urn === node.urn} $isChildNode={isChildNode}>
-            {!isChildNode && <NodeBadge color={glossaryColor} />}
             <NodeWrapper $isSelected={entityData?.urn === node.urn} $depth={depth}>
-                {areChildrenVisible && (
-                    <StyledDownOutlined
-                        fontSize="inherit"
-                        viewBox="2 2 18 18"
-                        onClick={() => setAreChildrenVisible(false)}
-                        isSelected={entityData?.urn === node.urn}
-                    />
-                )}
-                {!areChildrenVisible && (
-                    <StyledRightOutlined
-                        fontSize="inherit"
-                        viewBox="2 2 18 18"
-                        onClick={() => setAreChildrenVisible(true)}
-                        isSelected={entityData?.urn === node.urn}
-                    />
-                )}
+                <CaretSlot>
+                    {noOfChildren > 0 &&
+                        (areChildrenVisible ? (
+                            <StyledCaretDown
+                                size={14}
+                                weight="regular"
+                                onClick={() => setAreChildrenVisible(false)}
+                                $isSelected={entityData?.urn === node.urn}
+                            />
+                        ) : (
+                            <StyledCaretRight
+                                size={14}
+                                weight="regular"
+                                onClick={() => setAreChildrenVisible(true)}
+                                $isSelected={entityData?.urn === node.urn}
+                            />
+                        ))}
+                </CaretSlot>
+                <StyledNodeIcon color={glossaryColor} icon={NodeIcon} size={24} iconSize={14} />
                 {!isSelecting && (
                     <NodeLink
                         to={`${entityRegistry.getEntityUrl(node.type, node.urn)}`}
                         $isSelected={entityData?.urn === node.urn}
                         $areChildrenVisible={areChildrenVisible}
                         $isChildNode
+                        data-testid={`glossary-sidebar-node-${node.urn}`}
                     >
                         {entityRegistry.getDisplayName(node.type, node)}
                     </NodeLink>
@@ -219,17 +220,14 @@ function NodeItem(props: Props) {
                         {entityRegistry.getDisplayName(node.type, node)}
                     </NameWrapper>
                 )}
+                {isSelected && <SelectedMark />}
                 {!!noOfChildren && <ChildrenCount>{noOfChildren}</ChildrenCount>}
             </NodeWrapper>
             <StyledDivider depth={depth} />
             {areChildrenVisible && (
                 <>
-                    {!data && loading && (
-                        <LoadingWrapper>
-                            <LoadingOutlined />
-                        </LoadingWrapper>
-                    )}
-                    {data && data.glossaryNode && (
+                    {!children.length && loading && <Loader size="xs" padding={8} />}
+                    {children.length > 0 && (
                         <ChildrenWrapper>
                             {(childNodes as GlossaryNode[]).map((child) => (
                                 <NodeItem
@@ -243,22 +241,26 @@ function NodeItem(props: Props) {
                                     isChildNode
                                     key={child.urn}
                                     depth={depth + 1}
+                                    selectedUrns={selectedUrns}
+                                    iconColor={glossaryColor}
                                 />
                             ))}
                             {!hideTerms &&
                                 (childTerms as GlossaryTerm[]).map((child) => (
-                                    <>
+                                    <span key={child.urn}>
                                         <TermItem
                                             term={child}
                                             isSelecting={isSelecting}
                                             selectTerm={selectTerm}
                                             includeActiveTabPath
-                                            key={child.urn}
                                             depth={depth + 1}
+                                            selectedUrns={selectedUrns}
+                                            iconColor={glossaryColor}
                                         />
                                         <StyledDivider depth={depth + 1} />
-                                    </>
+                                    </span>
                                 ))}
+                            <div ref={scrollRef} />
                         </ChildrenWrapper>
                     )}
                 </>

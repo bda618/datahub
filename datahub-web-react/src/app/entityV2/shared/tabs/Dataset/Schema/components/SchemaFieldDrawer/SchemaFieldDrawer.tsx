@@ -1,29 +1,30 @@
-import { CodeOutlined, ReadOutlined, UnorderedListOutlined } from '@ant-design/icons';
-import { generateSchemaFieldUrn } from '@app/entityV2/shared/tabs/Lineage/utils';
-import { useGetEntitiesNotesQuery } from '@graphql/relationships.generated';
-import QueryStatsOutlinedIcon from '@mui/icons-material/QueryStatsOutlined';
-import { TabRenderType } from '@src/app/entityV2/shared/types';
+import { BookOpen } from '@phosphor-icons/react/dist/csr/BookOpen';
+import { ChartBar } from '@phosphor-icons/react/dist/csr/ChartBar';
+import { Code } from '@phosphor-icons/react/dist/csr/Code';
+import { ListBullets } from '@phosphor-icons/react/dist/csr/ListBullets';
 import { Drawer, Typography } from 'antd';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
-import { GetDatasetQuery, useGetDataProfilesLazyQuery } from '../../../../../../../../graphql/dataset.generated';
+
+import { useBaseEntity } from '@app/entity/shared/EntityContext';
+import { ExtendedSchemaFields } from '@app/entityV2/dataset/profile/schema/utils/types';
+import { AboutFieldTab } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/AboutFieldTab';
+import DrawerFooter from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/DrawerFooter';
+import FieldHeader from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/FieldHeader';
 import {
-    EditableSchemaMetadata,
-    Post,
-    SchemaField,
-    TimeWindow,
-    UsageQueryResult,
-} from '../../../../../../../../types.generated';
-import { useBaseEntity } from '../../../../../../../entity/shared/EntityContext';
-import { ExtendedSchemaFields } from '../../../../../../dataset/profile/schema/utils/types';
-import { PropertiesTab } from '../../../../Properties/PropertiesTab';
-import { SchemaTimelineSection } from '../../../Timeline/SchemaTimelineSection';
-import { AboutFieldTab } from './AboutFieldTab';
-import DrawerFooter from './DrawerFooter';
-import FieldHeader from './FieldHeader';
-import { SchemaFieldDrawerTabs, TABS_WIDTH } from './SchemaFieldDrawerTabs';
-import SchemaFieldQueriesSidebarTab from './SchemaFieldQueriesSidebarTab';
-import StatsSidebarView from './StatsSidebarView';
+    SchemaFieldDrawerTabs,
+    TABS_WIDTH,
+} from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/SchemaFieldDrawerTabs';
+import SchemaFieldQueriesSidebarTab from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/SchemaFieldQueriesSidebarTab';
+import StatsTabWrapper from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/StatsTabWrapper';
+import { SchemaTimelineSection } from '@app/entityV2/shared/tabs/Dataset/Timeline/SchemaTimelineSection';
+import { generateSchemaFieldUrn } from '@app/entityV2/shared/tabs/Lineage/utils';
+import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
+import { TabRenderType } from '@src/app/entityV2/shared/types';
+
+import { GetDatasetQuery, useGetDataProfilesLazyQuery } from '@graphql/dataset.generated';
+import { useGetEntitiesNotesQuery } from '@graphql/relationships.generated';
+import { EditableSchemaMetadata, Post, SchemaField, TimeWindow, UsageQueryResult } from '@types';
 
 const StyledDrawer = styled(Drawer)`
     &&& .ant-drawer-body {
@@ -35,7 +36,7 @@ const StyledDrawer = styled(Drawer)`
     }
 
     &&& .ant-drawer-content-wrapper {
-        box-shadow: -20px 0px 44px 0px rgba(0, 0, 0, 0.1);
+        box-shadow: ${(props) => props.theme.colors.shadowLg};
     }
 `;
 
@@ -68,7 +69,7 @@ const Body = styled.div`
 
 const Content = styled.div`
     flex: 1;
-    border-right: 1px solid #e8e8e8;
+    border-right: 1px solid ${(props) => props.theme.colors.border};
     max-width: calc(100% - ${TABS_WIDTH}px);
 `;
 
@@ -87,7 +88,6 @@ interface Props {
     displayedRows: ExtendedSchemaFields[];
     refetch?: () => void;
     mask?: boolean;
-    isShowMoreEnabled?: boolean;
     defaultSelectedTabName?: string;
 }
 
@@ -104,7 +104,6 @@ export default function SchemaFieldDrawer({
     displayedRows,
     refetch,
     mask = false,
-    isShowMoreEnabled,
     defaultSelectedTabName = 'About',
 }: Props) {
     const expandedFieldIndex = useMemo(
@@ -184,7 +183,7 @@ export default function SchemaFieldDrawer({
     const tabs: any = [
         {
             name: 'About',
-            icon: ReadOutlined,
+            icon: BookOpen,
             component: AboutFieldTab,
             properties: {
                 schemaFields,
@@ -193,17 +192,20 @@ export default function SchemaFieldDrawer({
                 usageStats,
                 fieldProfile,
                 profiles,
+                fetchDataWithLookbackWindow,
+                profilesDataLoading,
                 notes,
-                isShowMoreEnabled,
                 setSelectedTabName,
                 refetch,
                 refetchNotes,
+                fieldUrn: expandedField?.schemaFieldEntity?.urn,
+                assetUrn: urn,
             },
         },
         {
             name: 'Statistics',
-            icon: QueryStatsOutlinedIcon,
-            component: StatsSidebarView,
+            icon: ChartBar,
+            component: StatsTabWrapper,
             properties: {
                 expandedField,
                 fieldProfile,
@@ -216,14 +218,14 @@ export default function SchemaFieldDrawer({
             name: 'Queries',
             component: SchemaFieldQueriesSidebarTab,
             description: 'View queries about this field',
-            icon: CodeOutlined,
+            icon: Code,
             properties: { fieldPath: expandedField?.fieldPath },
         },
         {
             name: 'Properties',
             component: PropertiesTab,
             description: 'View additional properties about this field',
-            icon: UnorderedListOutlined,
+            icon: ListBullets,
             properties: {
                 fieldPath: expandedField?.fieldPath,
                 fieldUrn: expandedField?.schemaFieldEntity?.urn,
@@ -252,7 +254,7 @@ export default function SchemaFieldDrawer({
                     closable={false}
                 >
                     {expandedField && (
-                        <DrawerContent>
+                        <DrawerContent data-testid="schema-field-drawer-content">
                             <FieldHeader
                                 setExpandedDrawerFieldPath={setExpandedDrawerFieldPath}
                                 expandedField={expandedField}

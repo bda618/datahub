@@ -1,18 +1,14 @@
-import React from 'react';
-
 import { Popover } from '@components';
 import UpdateOutlinedIcon from '@mui/icons-material/UpdateOutlined';
+import React from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '../entity/shared/constants';
-import { getLastIngestedColor } from '../entity/shared/containers/profile/sidebar/LastIngested';
-import { REDESIGN_COLORS } from '../entityV2/shared/constants';
-
-import { toLocalDateString, toRelativeTimeString } from '../shared/time/timeUtils';
+import { getLastIngestedColor } from '@app/entity/shared/containers/profile/sidebar/LastIngested';
+import { toLocalDateString, toRelativeTimeString } from '@app/shared/time/timeUtils';
 
 const LastUpdatedContainer = styled.div<{ color: string }>`
     align-items: center;
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
     display: flex;
     flex-direction: row;
     gap: 5px;
@@ -25,7 +21,7 @@ const LastUpdatedContainer = styled.div<{ color: string }>`
 const PopoverContent = styled.div`
     align-items: center;
     display: flex;
-    color: ${REDESIGN_COLORS.DARK_GREY};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 type Props = {
@@ -47,17 +43,6 @@ const descriptors = {
         sectionTitle: 'Last Updated',
         tooltip: 'Last updated',
     },
-};
-
-export const getFreshnessTitle = (property: string | undefined) => {
-    switch (property) {
-        case 'lastModified':
-            return descriptors.lastModified.sectionTitle;
-        case 'lastRefreshed':
-            return descriptors.lastRefreshed.sectionTitle;
-        default: // default to "lastUpdated"
-            return descriptors.lastUpdated.sectionTitle;
-    }
 };
 
 const Freshness = ({ time, timeProperty, showDate = true }: Props) => {

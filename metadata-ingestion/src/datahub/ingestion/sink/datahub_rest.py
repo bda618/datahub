@@ -3,24 +3,33 @@ import contextlib
 import dataclasses
 import functools
 import logging
-import os
 import threading
 import uuid
+from datetime import timedelta
 from enum import auto
 from typing import List, Optional, Tuple, Union
 
 import pydantic
+from pydantic import field_validator
 
 from datahub.configuration.common import (
     ConfigEnum,
     ConfigurationError,
     OperationalError,
 )
+from datahub.configuration.env_vars import (
+    get_rest_sink_default_max_threads,
+    get_rest_sink_default_mode,
+)
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import mcps_from_mce
 from datahub.emitter.rest_emitter import (
+    _DEFAULT_EMIT_MODE,
     BATCH_INGEST_MAX_PAYLOAD_LENGTH,
+    DEFAULT_REST_EMITTER_ENDPOINT,
     DataHubRestEmitter,
+    EmitMode,
+    RestSinkEndpoint,
 )
 from datahub.ingestion.api.common import RecordEnvelope, WorkUnit
 from datahub.ingestion.api.sink import (
@@ -30,7 +39,7 @@ from datahub.ingestion.api.sink import (
     WriteCallback,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.graph.client import DatahubClientConfig
+from datahub.ingestion.graph.config import ClientMode, DatahubClientConfig
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
     MetadataChangeProposal,
@@ -44,9 +53,7 @@ from datahub.utilities.server_config_util import set_gms_config
 
 logger = logging.getLogger(__name__)
 
-_DEFAULT_REST_SINK_MAX_THREADS = int(
-    os.getenv("DATAHUB_REST_SINK_DEFAULT_MAX_THREADS", 15)
-)
+_DEFAULT_REST_SINK_MAX_THREADS = get_rest_sink_default_max_threads()
 
 
 class RestSinkMode(ConfigEnum):
@@ -59,13 +66,15 @@ class RestSinkMode(ConfigEnum):
     ASYNC_BATCH = auto()
 
 
-_DEFAULT_REST_SINK_MODE = pydantic.parse_obj_as(
-    RestSinkMode, os.getenv("DATAHUB_REST_SINK_DEFAULT_MODE", RestSinkMode.ASYNC_BATCH)
+_DEFAULT_REST_SINK_MODE = pydantic.TypeAdapter(RestSinkMode).validate_python(
+    get_rest_sink_default_mode() or RestSinkMode.ASYNC_BATCH
 )
 
 
 class DatahubRestSinkConfig(DatahubClientConfig):
     mode: RestSinkMode = _DEFAULT_REST_SINK_MODE
+    endpoint: RestSinkEndpoint = DEFAULT_REST_EMITTER_ENDPOINT
+    server_config_refresh_interval: Optional[int] = None
 
     # These only apply in async modes.
     max_threads: pydantic.PositiveInt = _DEFAULT_REST_SINK_MAX_THREADS
@@ -73,9 +82,11 @@ class DatahubRestSinkConfig(DatahubClientConfig):
 
     # Only applies in async batch mode.
     max_per_batch: pydantic.PositiveInt = 100
+    min_process_interval_seconds: pydantic.PositiveFloat = 30
 
-    @pydantic.validator("max_per_batch", always=True)
-    def validate_max_per_batch(cls, v):
+    @field_validator("max_per_batch", mode="before")
+    @classmethod
+    def validate_max_per_batch(cls, v: int) -> int:
         if v > BATCH_INGEST_MAX_PAYLOAD_LENGTH:
             raise ValueError(
                 f"max_per_batch must be less than or equal to {BATCH_INGEST_MAX_PAYLOAD_LENGTH}"
@@ -86,6 +97,7 @@ class DatahubRestSinkConfig(DatahubClientConfig):
 @dataclasses.dataclass
 class DataHubRestSinkReport(SinkReport):
     mode: Optional[RestSinkMode] = None
+    endpoint: Optional[RestSinkEndpoint] = None
     max_threads: Optional[int] = None
     gms_version: Optional[str] = None
     pending_requests: int = 0
@@ -120,30 +132,66 @@ def _get_partition_key(record_envelope: RecordEnvelope) -> str:
     return str(uuid.uuid4())
 
 
+def _resolve_gms_emit_mode(
+    rest_sink_mode: RestSinkMode, configured_gms_emit_mode: EmitMode
+) -> EmitMode:
+    """Pick an EmitMode compatible with the sink mode.
+
+    If the user-configured GMS emit mode (via DATAHUB_EMIT_MODE env var) belongs
+    to the same family as the sink mode, honour it.  Otherwise warn and fall back
+    to a safe default for that family.
+    """
+    if rest_sink_mode == RestSinkMode.SYNC:
+        if not configured_gms_emit_mode.is_async:
+            return configured_gms_emit_mode
+        logger.warning(
+            f"REST sink mode is SYNC but DATAHUB_EMIT_MODE is "
+            f"{configured_gms_emit_mode.value} (async family). "
+            f"Overriding GMS emit mode to SYNC_PRIMARY."
+        )
+        return EmitMode.SYNC_PRIMARY
+    else:  # ASYNC or ASYNC_BATCH
+        if configured_gms_emit_mode.is_async:
+            return configured_gms_emit_mode
+        logger.warning(
+            f"REST sink mode is {rest_sink_mode.value} but DATAHUB_EMIT_MODE is "
+            f"{configured_gms_emit_mode.value} (sync family). "
+            f"Overriding GMS emit mode to ASYNC."
+        )
+        return EmitMode.ASYNC
+
+
 class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
     _emitter_thread_local: threading.local
     treat_errors_as_warnings: bool = False
 
     def __post_init__(self) -> None:
         self._emitter_thread_local = threading.local()
+        self._gms_emit_mode = _resolve_gms_emit_mode(
+            self.config.mode, _DEFAULT_EMIT_MODE
+        )
 
         try:
-            gms_config = self.emitter.get_server_config()
+            gms_config = self.emitter.server_config
         except Exception as exc:
             raise ConfigurationError(
                 f"💥 Failed to connect to DataHub with {repr(self.emitter)}"
             ) from exc
 
-        self.report.gms_version = (
-            gms_config.get("versions", {})
-            .get("acryldata/datahub", {})
-            .get("version", None)
-        )
+        self.report.gms_version = gms_config.service_version
         self.report.mode = self.config.mode
+        self.report.endpoint = self.config.endpoint
         self.report.max_threads = self.config.max_threads
         logger.debug("Setting env variables to override config")
         logger.debug("Setting gms config")
         set_gms_config(gms_config)
+
+        logger.debug(
+            f"REST sink initialized: rest_sink_mode={self.config.mode.value}, "
+            f"gms_emit_mode={self._gms_emit_mode.value}, "
+            f"max_threads={self.config.max_threads}, "
+            f"max_per_batch={self.config.max_per_batch}"
+        )
 
         self.executor: Union[PartitionExecutor, BatchPartitionExecutor]
         if self.config.mode == RestSinkMode.ASYNC_BATCH:
@@ -152,6 +200,9 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
                 max_pending=self.config.max_pending_requests,
                 process_batch=self._emit_batch_wrapper,
                 max_per_batch=self.config.max_per_batch,
+                min_process_interval=timedelta(
+                    seconds=self.config.min_process_interval_seconds
+                ),
             )
         else:
             self.executor = PartitionExecutor(
@@ -168,10 +219,16 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
             read_timeout_sec=config.timeout_sec,
             retry_status_codes=config.retry_status_codes,
             retry_max_times=config.retry_max_times,
+            pool_connections=config.pool_connections,
+            pool_maxsize=config.pool_maxsize,
             extra_headers=config.extra_headers,
             ca_certificate_path=config.ca_certificate_path,
             client_certificate_path=config.client_certificate_path,
             disable_ssl_verification=config.disable_ssl_verification,
+            openapi_ingestion=config.endpoint == RestSinkEndpoint.OPENAPI,
+            client_mode=config.client_mode,
+            datahub_component=config.datahub_component,
+            tcp_keepalive=config.tcp_keepalive,
         )
 
     @property
@@ -182,6 +239,7 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
         # https://github.com/psf/requests/issues/1871#issuecomment-32751346
         thread_local = self._emitter_thread_local
         if not hasattr(thread_local, "emitter"):
+            self.config.client_mode = ClientMode.INGESTION
             thread_local.emitter = DatahubRestSink._make_emitter(self.config)
         return thread_local.emitter
 
@@ -245,9 +303,10 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
             MetadataChangeProposal,
             MetadataChangeProposalWrapper,
         ],
+        emit_mode: EmitMode,
     ) -> None:
         # TODO: Add timing metrics
-        self.emitter.emit(record)
+        self.emitter.emit(record, emit_mode=emit_mode)
 
     def _emit_batch_wrapper(
         self,
@@ -262,8 +321,10 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
         ],
     ) -> None:
         events: List[Union[MetadataChangeProposal, MetadataChangeProposalWrapper]] = []
+
         for record in records:
             event = record[0]
+
             if isinstance(event, MetadataChangeEvent):
                 # Unpack MCEs into MCPs.
                 mcps = mcps_from_mce(event)
@@ -271,12 +332,13 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
             else:
                 events.append(event)
 
-        chunks = self.emitter.emit_mcps(events)
+        trace_data = self.emitter.emit_mcps(events, emit_mode=self._gms_emit_mode)
+        num_chunks = len(trace_data)
         self.report.async_batches_prepared += 1
-        if chunks > 1:
-            self.report.async_batches_split += chunks
+        if num_chunks > 1:
+            self.report.async_batches_split += num_chunks
             logger.info(
-                f"In async_batch mode, the payload was split into {chunks} batches. "
+                f"In async_batch mode, the payload was split into {num_chunks} batches. "
                 "If there's many of these issues, consider decreasing `max_per_batch`."
             )
 
@@ -302,6 +364,7 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
                     partition_key,
                     self._emit_wrapper,
                     record,
+                    self._gms_emit_mode,
                     done_callback=functools.partial(
                         self._write_done_callback, record_envelope, write_callback
                     ),
@@ -313,6 +376,7 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
                 self.executor.submit(
                     partition_key,
                     record,
+                    self._gms_emit_mode,
                     done_callback=functools.partial(
                         self._write_done_callback, record_envelope, write_callback
                     ),
@@ -321,7 +385,7 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
             else:
                 # execute synchronously
                 try:
-                    self._emit_wrapper(record)
+                    self._emit_wrapper(record, emit_mode=self._gms_emit_mode)
                     write_callback.on_success(record_envelope, success_metadata={})
                 except Exception as e:
                     write_callback.on_failure(record_envelope, e, failure_metadata={})
@@ -333,11 +397,14 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
         ],
     ) -> None:
         return self.write_record_async(
-            RecordEnvelope(item, metadata={}),
-            NoopWriteCallback(),
+            RecordEnvelope(item, metadata={}), NoopWriteCallback()
         )
 
     def close(self):
+        # Execute pre-shutdown callbacks first (handled by parent class)
+        super().close()
+
+        # Then perform sink-specific shutdown
         with self.report.main_thread_blocking_timer:
             self.executor.shutdown()
 

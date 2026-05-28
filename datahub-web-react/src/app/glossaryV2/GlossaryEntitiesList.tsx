@@ -1,19 +1,19 @@
-import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
-import { GlossaryNodeFragment } from '../../graphql/fragments.generated';
-import { ChildGlossaryTermFragment } from '../../graphql/glossaryNode.generated';
-import { GlossaryNode, GlossaryTerm } from '../../types.generated';
-import { useEntityData } from '../entity/shared/EntityContext';
-import { REDESIGN_COLORS } from '../entityV2/shared/constants';
-import { useEntityRegistry } from '../useEntityRegistry';
-import GlossaryEntityItem from './GlossaryEntityItem';
 
-const SectionTitle = styled(Typography)`
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import GlossaryEntityItem from '@app/glossaryV2/GlossaryEntityItem';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { GlossaryNodeFragment, RootGlossaryNodeWithFourLayersFragment } from '@graphql/fragments.generated';
+import { ChildGlossaryTermFragment } from '@graphql/glossaryNode.generated';
+import { GlossaryNode, GlossaryTerm } from '@types';
+
+const SectionTitle = styled.div`
     margin: 12px 0 12px 16px;
     font-size: 12px;
     font-weight: 400;
-    color: ${REDESIGN_COLORS.SUBTITLE};
+    color: ${(props) => props.theme.colors.text};
 `;
 
 const GlossaryNodes = styled.div<{ isGrid?: boolean }>`
@@ -22,27 +22,27 @@ const GlossaryNodes = styled.div<{ isGrid?: boolean }>`
         props.isGrid
             ? `
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(24%, 1fr));
-        gap: 8px; /* Adjust gap as needed */
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 8px;
         `
             : `
         display: flex;
         flex-direction: column;
-        gap: 12px; /* Adjust gap as needed */
+        gap: 8px;
         `}
     width: 100%;
-    margin-bottom: 20px;
+    margin-bottom: 8px;
 `;
 
 const GlossaryTerms = styled.div`
     display: flex;
     flex-direction: column;
-    gap: 12px;
-    margin-bottom: 20px;
+    gap: 8px;
+    margin-bottom: 8px;
 `;
 
 interface Props {
-    nodes: (GlossaryNode | GlossaryNodeFragment)[];
+    nodes: (GlossaryNode | GlossaryNodeFragment | RootGlossaryNodeWithFourLayersFragment)[];
     terms: (GlossaryTerm | ChildGlossaryTermFragment)[];
 }
 
@@ -64,19 +64,15 @@ function GlossaryEntitiesList(props: Props) {
                             description={node.properties?.description || ''}
                             urn={node.urn}
                             type={node.type}
-                            descendants={
-                                (node as GlossaryNodeFragment).children?.relationships
-                                    ?.map((child) => child.entity)
-                                    .filter((child) => child !== null) as (GlossaryNode | GlossaryTerm)[]
-                            }
                             displayProperties={node.displayProperties}
                             showAsCard={!isGlossaryEntityPage}
+                            node={node}
                         />
                     ))}
                 </GlossaryNodes>
             ) : null}
-            {terms.length > 0 && isGlossaryEntityPage ? <SectionTitle>Glossary Terms</SectionTitle> : null}
-            {terms.length ? (
+            {isGlossaryEntityPage && terms.length > 0 ? <SectionTitle>Glossary Terms</SectionTitle> : null}
+            {isGlossaryEntityPage && terms.length ? (
                 <GlossaryTerms>
                     {terms.map((term) => (
                         <GlossaryEntityItem

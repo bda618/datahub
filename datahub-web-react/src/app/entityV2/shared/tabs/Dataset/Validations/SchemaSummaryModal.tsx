@@ -1,7 +1,9 @@
+import { Modal } from '@components';
 import React from 'react';
-import { Button, Modal } from 'antd';
-import { SchemaSummary } from './SchemaSummary';
-import { SchemaMetadata } from '../../../../../../types.generated';
+
+import { SchemaSummary } from '@app/entityV2/shared/tabs/Dataset/Validations/SchemaSummary';
+
+import { SchemaMetadata } from '@types';
 
 const modalStyle = {
     top: 40,
@@ -23,9 +25,15 @@ export const SchemaSummaryModal = ({ schema, onClose }: Props) => {
             style={modalStyle}
             bodyStyle={modalBodyStyle}
             title="View Schema Assertion"
-            visible
+            open
             onCancel={onClose}
-            footer={<Button onClick={onClose}>Close</Button>}
+            buttons={[
+                {
+                    text: 'Close',
+                    variant: 'filled',
+                    onClick: onClose,
+                },
+            ]}
         >
             <SchemaSummary schema={schema} />
         </Modal>

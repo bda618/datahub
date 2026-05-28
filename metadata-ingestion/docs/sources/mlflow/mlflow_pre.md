@@ -1,9 +1,7 @@
-### Concept Mapping
+### Overview
 
-This ingestion source maps the following MLflow Concepts to DataHub Concepts:
+The `mlflow` module ingests metadata from Mlflow into DataHub. It is intended for production ingestion workflows and module-specific capabilities are documented below.
 
-|                                  Source Concept                                   |                                       DataHub Concept                                       | Notes                                                                                                                                                                                            |
-|:---------------------------------------------------------------------------------:|:-------------------------------------------------------------------------------------------:|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| [`Registered Model`](https://mlflow.org/docs/latest/model-registry.html#concepts) | [`MlModelGroup`](https://datahubproject.io/docs/generated/metamodel/entities/mlmodelgroup/) | The name of a Model Group is the same as a Registered Model's name (e.g. my_mlflow_model)                                                                                                        |
-|  [`Model Version`](https://mlflow.org/docs/latest/model-registry.html#concepts)   |      [`MlModel`](https://datahubproject.io/docs/generated/metamodel/entities/mlmodel/)      | The name of a Model is `{registered_model_name}{model_name_separator}{model_version}` (e.g. my_mlflow_model_1 for Registered Model named my_mlflow_model and Version 1, my_mlflow_model_2, etc.) |
-|   [`Model Stage`](https://mlflow.org/docs/latest/model-registry.html#concepts)    |          [`Tag`](https://datahubproject.io/docs/generated/metamodel/entities/tag/)          | The mapping between Model Stages and generated Tags is the following:<br/>- Production: mlflow_production<br/>- Staging: mlflow_staging<br/>- Archived: mlflow_archived<br/>- None: mlflow_none  |
+### Prerequisites
+
+Before running ingestion, ensure network connectivity to the source, valid authentication credentials, and read permissions for metadata APIs required by this module.

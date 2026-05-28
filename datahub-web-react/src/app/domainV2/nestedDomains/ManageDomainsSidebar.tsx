@@ -1,14 +1,15 @@
+import { Button } from '@components';
+import { ArrowLineLeft } from '@phosphor-icons/react/dist/csr/ArrowLineLeft';
+import { ArrowLineRight } from '@phosphor-icons/react/dist/csr/ArrowLineRight';
+import { Divider } from 'antd';
 import React, { useCallback, useState } from 'react';
-import { Button, Divider } from 'antd';
-import { Tooltip } from '@components';
 import styled from 'styled-components';
+
+import DomainSearch from '@app/domainV2/DomainSearch';
+import DomainsSidebarHeader from '@app/domainV2/nestedDomains/DomainsSidebarHeader';
+import DomainNavigator from '@app/domainV2/nestedDomains/domainNavigator/DomainNavigator';
+import useSidebarWidth from '@app/sharedV2/sidebar/useSidebarWidth';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
-import useSidebarWidth from '../../sharedV2/sidebar/useSidebarWidth';
-import DomainsSidebarHeader from './DomainsSidebarHeader';
-import DomainNavigator from './domainNavigator/DomainNavigator';
-import DomainSearch from '../DomainSearch';
-import { ANTD_GRAY } from '../../entity/shared/constants';
-import SidebarBackArrow from '../../../images/sidebarBackArrow.svg?react';
 
 const PLATFORM_BROWSE_TRANSITION_MS = 300;
 
@@ -27,7 +28,7 @@ const StyledEntitySidebarContainer = styled.div<{
     margin-bottom: ${(props) => (props.$isShowNavBarRedesign ? '0' : '12px')};
     transition: width ${PLATFORM_BROWSE_TRANSITION_MS}ms ease-in-out;
 
-    background-color: #ffffff;
+    background-color: ${(props) => props.theme.colors.bg};
     border-radius: ${(props) =>
         props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '8px'};
     display: flex;
@@ -35,39 +36,23 @@ const StyledEntitySidebarContainer = styled.div<{
     ${(props) =>
         props.$isShowNavBarRedesign &&
         `
-        margin: ${props.$isEntityProfile ? '5px 12px 5px 5px' : '0 16px 0 0'};
-        box-shadow: ${props.theme.styles['box-shadow-navbar-redesign']};
-    `}
+ margin: ${props.$isEntityProfile ? '5px 12px 5px 5px' : '0 16px 0 0'};
+ box-shadow: ${props.theme.styles['box-shadow-navbar-redesign']};
+ `}
 `;
 
 const Controls = styled.div<{ isCollapsed: boolean }>`
     display: flex;
     align-items: center;
     justify-content: ${(props) => (props.isCollapsed ? 'center' : 'space-between')};
-    padding: 15px 16px 10px 12px;
+    padding: 12px;
     overflow: hidden;
     height: 50px;
-`;
-
-const CloseButton = styled(Button)<{ $isActive }>`
-    margin: 0px;
-    padding: 2px 0px;
-    display: flex;
-    align-items: center;
-    transition: transform ${PLATFORM_BROWSE_TRANSITION_MS}ms ease;
-    && {
-        color: ${(props) => (props.$isActive ? ANTD_GRAY[9] : '#8088a3')};
-    }
 `;
 
 const ThinDivider = styled(Divider)`
     margin: 0px;
     padding: 0px;
-`;
-
-const StyledSidebarBackArrow = styled(SidebarBackArrow)<{ direction: 'left' | 'right' }>`
-    cursor: pointer;
-    ${(props) => (props.direction === 'right' && 'transform: scaleX(-1);') || undefined}
 `;
 
 const StyledSidebar = styled.div`
@@ -100,23 +85,21 @@ export default function ManageDomainsSidebarV2({ isEntityProfile }: Props) {
         >
             <Controls isCollapsed={isClosed}>
                 {!isClosed && <DomainsSidebarHeader />}
-                <Tooltip
-                    placement="left"
-                    showArrow={false}
-                    title={!isClosed ? 'Close navigator' : 'Open navigator'}
-                    mouseEnterDelay={0.7}
-                    mouseLeaveDelay={0}
-                >
-                    <CloseButton $isActive={!isClosed} type="link" onClick={() => setIsClosed(!isClosed)}>
-                        <StyledSidebarBackArrow direction={isClosed ? 'left' : 'right'} />
-                    </CloseButton>
-                </Tooltip>
+                <Button
+                    variant="text"
+                    color="gray"
+                    size="lg"
+                    isCircle
+                    icon={{ icon: isClosed ? ArrowLineRight : ArrowLineLeft }}
+                    isActive={!isClosed}
+                    onClick={() => setIsClosed(!isClosed)}
+                />
             </Controls>
             <ThinDivider />
             <StyledSidebar>
                 <DomainSearch isCollapsed={isClosed} unhideSidebar={unhideSidebar} />
                 <ThinDivider />
-                <DomainNavigator isCollapsed={isClosed} unhideSidebar={unhideSidebar} />
+                <DomainNavigator isCollapsed={isClosed} unhideSidebar={unhideSidebar} variant="sidebar" />
             </StyledSidebar>
         </StyledEntitySidebarContainer>
     );

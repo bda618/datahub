@@ -1,19 +1,19 @@
-import { ArrowDownOutlined, ArrowUpOutlined, SearchOutlined } from '@ant-design/icons';
-import { useIsSeparateSiblingsMode } from '@app/entity/shared/siblingUtils';
+import { ArrowDownOutlined, ArrowUpOutlined } from '@ant-design/icons';
+import { Icon, Tooltip } from '@components';
+import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
 import { Button, Divider } from 'antd';
-import { Tooltip } from '@components';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components/macro';
-import { LineageDirection } from '../../../../../types.generated';
-import { UnionType } from '../../../../search/utils/constants';
-import { useEntityRegistry } from '../../../../useEntityRegistry';
-import { useEntityData } from '../../../../entity/shared/EntityContext';
-import { ANTD_GRAY, SEARCH_COLORS } from '../../constants';
-import { ImpactAnalysis } from './ImpactAnalysis';
-import { LineageTabContext } from './LineageTabContext';
 
-// Unfortunately, we have to artificially bound the height.
-// Accounts for search bar, controls header, and padding.
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import { useIsSeparateSiblingsMode } from '@app/entity/shared/siblingUtils';
+import { ImpactAnalysis } from '@app/entityV2/shared/tabs/Lineage/ImpactAnalysis';
+import { LineageTabContext } from '@app/entityV2/shared/tabs/Lineage/LineageTabContext';
+import { UnionType } from '@app/search/utils/constants';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { LineageDirection, LineageSearchPath } from '@types';
+
 const Container = styled.div`
     flex: 1;
     overflow: hidden;
@@ -23,12 +23,12 @@ const Container = styled.div`
 
 const LineageButton = styled(Button)<{ $isSelected: boolean }>`
     &&& {
-        background-color: ${(props) => (props.$isSelected ? SEARCH_COLORS.TITLE_PURPLE : 'none')};
-        color: ${(props) => (props.$isSelected ? '#ffffff' : ANTD_GRAY[7])};
+        background-color: ${(props) => (props.$isSelected ? props.theme.styles['primary-color'] : 'none')};
+        color: ${(props) => (props.$isSelected ? props.theme.colors.bg : props.theme.colors.textTertiary)};
         border-radius: 8px;
         margin-right: 12px;
         min-height: 32px;
-        ${(props) => props.$isSelected && `border-color: ${SEARCH_COLORS.TITLE_PURPLE}`};
+        ${(props) => props.$isSelected && `border-color: ${props.theme.styles['primary-color']}`};
     }
 `;
 
@@ -63,8 +63,9 @@ const LevelFilter = styled.div<{ $isSelected: boolean }>`
     padding: 2px 8px;
     margin-right: 12px;
     border-radius: 8px;
-    color: ${(props) => (props.$isSelected ? SEARCH_COLORS.TITLE_PURPLE : ANTD_GRAY[7])};
-    border: 1px solid ${(props) => (props.$isSelected ? SEARCH_COLORS.TITLE_PURPLE : ANTD_GRAY[7])};
+    color: ${(props) => (props.$isSelected ? props.theme.styles['primary-color'] : props.theme.colors.textTertiary)};
+    border: 1px solid
+        ${(props) => (props.$isSelected ? props.theme.styles['primary-color'] : props.theme.colors.textTertiary)};
     &:hover {
         opacity: 0.8;
         cursor: pointer;
@@ -75,7 +76,7 @@ const AdvancedFiltersButton = styled(Button)<{ $isSelected: boolean }>`
     && {
         padding: 0px 4px;
         font-size: 16px;
-        color: ${(props) => (props.$isSelected ? '#00615F' : ANTD_GRAY[7])};
+        color: ${(props) => (props.$isSelected ? props.theme.colors.textSelected : props.theme.colors.textTertiary)};
     }
 `;
 
@@ -95,10 +96,14 @@ const StyledArrowUpOutlined = styled(ArrowUpOutlined)`
 
 const Results = styled.div`
     flex: 1;
-    overflow: auto;
+    overflow: hidden;
     display: flex;
+    min-height: 0;
     & > div {
         width: 100%;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
     }
 `;
 
@@ -117,6 +122,7 @@ export const CompactLineageTab = ({ defaultDirection }: { defaultDirection: Line
     const [selectedDirection, setDirection] = useState<LineageDirection>(defaultDirection);
     const [selectedLevels, setSelectedLevels] = useState<Set<LevelFilterType>>(DEFAULT_SELECTED_LEVELS);
     const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+    const [lineageSearchPath, setLineageSearchPath] = useState<LineageSearchPath | null>(null);
     const entityName = (entityData && entityRegistry.getDisplayName(entityType, entityData)) || '-';
 
     const toggleLevelFilter = (level: LevelFilterType) => {
@@ -227,14 +233,19 @@ export const CompactLineageTab = ({ defaultDirection }: { defaultDirection: Line
                         $isSelected={showAdvancedFilters}
                         onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
                     >
-                        <SearchOutlined />
+                        <Icon icon={MagnifyingGlass} />
                     </AdvancedFiltersButton>
                 </Tooltip>
             </Filters>
             <ThinDivider />
             <Results>
                 <LineageTabContext.Provider
-                    value={{ isColumnLevelLineage: false, lineageDirection: selectedDirection }}
+                    value={{
+                        isColumnLevelLineage: false,
+                        lineageDirection: selectedDirection,
+                        lineageSearchPath,
+                        setLineageSearchPath,
+                    }}
                 >
                     <ImpactAnalysis
                         type="compact"

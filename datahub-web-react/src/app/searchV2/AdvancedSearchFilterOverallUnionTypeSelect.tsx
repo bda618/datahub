@@ -2,8 +2,7 @@ import { Select } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
 
-import { ANTD_GRAY } from '../entity/shared/constants';
-import { UnionType } from './utils/constants';
+import { UnionType } from '@app/searchV2/utils/constants';
 
 type Props = {
     unionType: UnionType;
@@ -15,9 +14,9 @@ const { Option } = Select;
 
 const StyledSelect = styled(Select)`
     border-radius: 5px;
-    background: ${ANTD_GRAY[4]};
+    background: ${(props) => props.theme.colors.bgSurface};
     :hover {
-        background: ${ANTD_GRAY[4.5]};
+        background: ${(props) => props.theme.colors.bgHover};
     }
 `;
 

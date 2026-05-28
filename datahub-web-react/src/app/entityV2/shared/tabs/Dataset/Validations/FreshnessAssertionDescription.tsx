@@ -1,26 +1,28 @@
 import { Typography } from 'antd';
-import React from 'react';
-import cronstrue from 'cronstrue';
 import { Maybe } from 'graphql/jsutils/Maybe';
+import React from 'react';
+
+import { cronToString, removeTimePrefix } from '@utils/cronstrue';
+
 import {
     CronSchedule,
     FixedIntervalSchedule,
     FreshnessAssertionInfo,
     FreshnessAssertionScheduleType,
     FreshnessAssertionType,
-} from '../../../../../../types.generated';
+} from '@types';
 
 type Props = {
     assertionInfo: FreshnessAssertionInfo;
     monitorSchedule?: Maybe<CronSchedule>;
 };
 
-export const getCronAsLabel = (cronSchedule: CronSchedule) => {
+const getCronAsLabel = (cronSchedule: CronSchedule) => {
     const { cron, timezone } = cronSchedule;
     if (!cron) {
         return '';
     }
-    return `${cronstrue.toString(cron).toLocaleLowerCase().replace('at', '')} (${timezone})`;
+    return `${removeTimePrefix(cronToString(cron).toLocaleLowerCase())} (${timezone})`;
 };
 export const createCronText = (cronSchedule: CronSchedule) => {
     return `between cron windows scheduled at ${getCronAsLabel(cronSchedule)}`;

@@ -1,22 +1,20 @@
 import React, { useCallback } from 'react';
-import { Popover } from '../../Popover';
-import { Text } from '../../Text';
+import { useTheme } from 'styled-components';
+
+import { GLYPH_DROP_SHADOW_FILTER } from '@components/components/LineChart/constants';
+import { Popover } from '@components/components/Popover';
+import { Text } from '@components/components/Text';
 import {
-    DEFAULT_COLOR_SHEME,
     WHISKER_METRIC_ATTRIBUTE_NAMES,
     WHISKER_METRIC_NAMES as WHISKER_METRIC_LABELS,
-} from '../constants';
-import { TooltipRendererProps } from '../types';
+    getDefaultColorScheme,
+} from '@components/components/WhiskerChart/constants';
+import { TooltipRendererProps } from '@components/components/WhiskerChart/types';
 
 const RADIUS = 6;
 
-const SHADOW = `
-    drop-shadow(0px 1px 3px rgba(33, 23, 95, 0.30))
-    drop-shadow(0px 2px 5px rgba(33, 23, 95, 0.25))
-    drop-shadow(0px -2px 5px rgba(33, 23, 95, 0.25))
-`;
-
 export default function GlyphWithLineAndPopover({ x, y, minY, maxY, datum }: TooltipRendererProps) {
+    const theme = useTheme();
     const renderPopoverContent = useCallback(() => {
         if (!datum) return null;
 
@@ -25,10 +23,8 @@ export default function GlyphWithLineAndPopover({ x, y, minY, maxY, datum }: Too
 
         return (
             <>
-                <Text type="span" color="gray">
-                    {label}:&nbsp;
-                </Text>
-                <Text weight="semiBold" color="gray" type="span">
+                <Text type="span">{label}:&nbsp;</Text>
+                <Text weight="semiBold" type="span">
                     {value}
                 </Text>
             </>
@@ -37,7 +33,7 @@ export default function GlyphWithLineAndPopover({ x, y, minY, maxY, datum }: Too
 
     if (y === undefined || x === undefined) return null;
 
-    const color = datum?.colorShemeSettings?.alternative ?? DEFAULT_COLOR_SHEME.alternative;
+    const color = datum?.colorShemeSettings?.alternative ?? getDefaultColorScheme(theme).alternative;
 
     return (
         <svg>
@@ -48,7 +44,7 @@ export default function GlyphWithLineAndPopover({ x, y, minY, maxY, datum }: Too
                 x2={x}
                 strokeWidth={3}
                 stroke={color}
-                style={{ filter: SHADOW, pointerEvents: 'none' }}
+                style={{ filter: GLYPH_DROP_SHADOW_FILTER, pointerEvents: 'none' }}
             />
             <line
                 y1={y + RADIUS}
@@ -57,7 +53,7 @@ export default function GlyphWithLineAndPopover({ x, y, minY, maxY, datum }: Too
                 x2={x}
                 strokeWidth={3}
                 stroke={color}
-                style={{ filter: SHADOW, pointerEvents: 'none' }}
+                style={{ filter: GLYPH_DROP_SHADOW_FILTER, pointerEvents: 'none' }}
             />
             <Popover content={() => renderPopoverContent()} placement="topLeft" align={{ offset: [15, 15] }} open>
                 <circle
@@ -67,7 +63,7 @@ export default function GlyphWithLineAndPopover({ x, y, minY, maxY, datum }: Too
                     fill="transparent"
                     strokeWidth={2}
                     stroke={color}
-                    style={{ filter: SHADOW, pointerEvents: 'none' }}
+                    style={{ filter: GLYPH_DROP_SHADOW_FILTER, pointerEvents: 'none' }}
                 />
             </Popover>
         </svg>

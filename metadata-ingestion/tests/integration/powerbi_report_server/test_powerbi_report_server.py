@@ -1,11 +1,12 @@
 from datetime import datetime
+from typing import Any, Optional
 from unittest import mock
 
-from freezegun import freeze_time
+import time_machine
 
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.metadata.schema_classes import AuditStampClass, OwnerClass, OwnershipClass
-from tests.test_helpers import mce_helpers
+from datahub.testing import mce_helpers
 
 FROZEN_TIME = "2022-02-03 07:00:00"
 
@@ -21,7 +22,11 @@ def mock_user_to_add(*args, **kwargs):
     return None
 
 
-def register_mock_api(request_mock, override_mock_data={}):
+def register_mock_api(
+    request_mock: Any, override_mock_data: Optional[dict] = None
+) -> None:
+    if override_mock_data is None:
+        override_mock_data = {}
     api_vs_response = {
         "https://host_port/Reports/api/v2.0/Reports": {
             "method": "GET",
@@ -112,7 +117,7 @@ def register_mock_api(request_mock, override_mock_data={}):
 
     api_vs_response.update(override_mock_data)
 
-    for url in api_vs_response.keys():
+    for url in api_vs_response:
         request_mock.register_uri(
             api_vs_response[url]["method"],
             url,
@@ -159,7 +164,7 @@ def add_mock_method_in_pipeline(pipeline: Pipeline) -> None:
     pipeline.ctx.graph.get_aspect_v2.side_effect = mock_user_to_add
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @mock.patch("requests_ntlm.HttpNtlmAuth")
 def test_powerbi_ingest(mock_msal, pytestconfig, tmp_path, mock_time, requests_mock):
     test_resources_dir = (
@@ -185,7 +190,7 @@ def test_powerbi_ingest(mock_msal, pytestconfig, tmp_path, mock_time, requests_m
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @mock.patch("requests_ntlm.HttpNtlmAuth")
 def test_powerbi_ingest_with_failure(
     mock_msal, pytestconfig, tmp_path, mock_time, requests_mock

@@ -1,12 +1,14 @@
-import { Col, Pagination, Row } from 'antd';
 import { Tooltip } from '@components';
+import { Col, Pagination, Row } from 'antd';
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-import { useGetUserGroupsLazyQuery } from '../../../graphql/user.generated';
-import { CorpGroup, EntityRelationship, EntityType } from '../../../types.generated';
-import { scrollToTop } from '../../shared/searchUtils';
-import { useEntityRegistry } from '../../useEntityRegistry';
+
+import { scrollToTop } from '@app/shared/searchUtils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useGetUserGroupsLazyQuery } from '@graphql/user.generated';
+import { CorpGroup, EntityRelationship, EntityType } from '@types';
 
 type Props = {
     urn: string;
@@ -37,7 +39,7 @@ const GroupItemColumn = styled(Col)`
 `;
 
 const GroupItem = styled.div`
-    border: 1px solid #eaeaea;
+    border: 1px solid ${(props) => props.theme.colors.border};
     padding: 10px;
     min-height: 107px;
     max-height: 107px;
@@ -56,7 +58,7 @@ const GroupTitle = styled.span`
     font-size: 14px;
     line-height: 22px;
     font-weight: bold;
-    color: #262626;
+    color: ${(props) => props.theme.colors.text};
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
@@ -66,7 +68,7 @@ const GroupMember = styled.span`
     font-weight: 500;
     font-size: 12px;
     line-height: 23px;
-    color: #8c8c8c;
+    color: ${(props) => props.theme.colors.textSecondary};
     padding-left: 7px;
 `;
 
@@ -74,7 +76,7 @@ const GroupDescription = styled.span`
     font-weight: 500;
     font-size: 12px;
     line-height: 20px;
-    color: #262626;
+    color: ${(props) => props.theme.colors.text};
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -95,8 +97,13 @@ export default function UserGroups({ urn, initialRelationships, pageSize }: Prop
     };
 
     const relationships = groupsData ? groupsData.corpUser?.relationships?.relationships : initialRelationships;
-    const total = relationships?.length || 0;
-    const userGroups = relationships?.map((rel) => rel.entity as CorpGroup) || [];
+    const userGroups = [...(relationships || [])]
+        .filter((rel) => {
+            const group = rel?.entity as CorpGroup;
+            return group?.info || group?.editableProperties;
+        })
+        .map((rel) => rel.entity as CorpGroup);
+    const total = userGroups.length;
 
     return (
         <GroupsViewWrapper>

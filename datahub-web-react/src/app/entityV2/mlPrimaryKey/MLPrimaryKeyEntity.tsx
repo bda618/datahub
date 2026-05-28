@@ -1,27 +1,30 @@
-import { DotChartOutlined, PartitionOutlined, UnorderedListOutlined } from '@ant-design/icons';
+import { PartitionOutlined, UnorderedListOutlined } from '@ant-design/icons';
+import { Key } from '@phosphor-icons/react/dist/csr/Key';
 import * as React from 'react';
-import { useGetMlPrimaryKeyQuery } from '../../../graphql/mlPrimaryKey.generated';
-import { EntityType, MlPrimaryKey, SearchResult } from '../../../types.generated';
-import { GenericEntityProperties } from '../../entity/shared/types';
-import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
-import { TYPE_ICON_CLASS_NAME } from '../shared/components/subtypes';
-import { EntityProfile } from '../shared/containers/profile/EntityProfile';
-import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
-import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
-import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
-import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
-import SidebarEntityHeader from '../shared/containers/profile/sidebar/SidebarEntityHeader';
-import { SidebarGlossaryTermsSection } from '../shared/containers/profile/sidebar/SidebarGlossaryTermsSection';
-import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
-import StatusSection from '../shared/containers/profile/sidebar/shared/StatusSection';
-import { getDataForEntityType } from '../shared/containers/profile/utils';
-import SidebarStructuredProperties from '../shared/sidebarSection/SidebarStructuredProperties';
-import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
-import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
-import { FeatureTableTab } from '../shared/tabs/ML/MlPrimaryKeyFeatureTableTab';
-import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
-import { SidebarTitleActionType, getDataProduct, isOutputPort } from '../shared/utils';
-import { Preview } from './preview/Preview';
+
+import { GenericEntityProperties } from '@app/entity/shared/types';
+import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
+import { Preview } from '@app/entityV2/mlPrimaryKey/preview/Preview';
+import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
+import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
+import { SidebarAboutSection } from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
+import DataProductSection from '@app/entityV2/shared/containers/profile/sidebar/DataProduct/DataProductSection';
+import { SidebarDomainSection } from '@app/entityV2/shared/containers/profile/sidebar/Domain/SidebarDomainSection';
+import { SidebarOwnerSection } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
+import SidebarEntityHeader from '@app/entityV2/shared/containers/profile/sidebar/SidebarEntityHeader';
+import { SidebarGlossaryTermsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarGlossaryTermsSection';
+import { SidebarTagsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarTagsSection';
+import StatusSection from '@app/entityV2/shared/containers/profile/sidebar/shared/StatusSection';
+import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
+import SidebarStructuredProperties from '@app/entityV2/shared/sidebarSection/SidebarStructuredProperties';
+import { DocumentationTab } from '@app/entityV2/shared/tabs/Documentation/DocumentationTab';
+import { LineageTab } from '@app/entityV2/shared/tabs/Lineage/LineageTab';
+import { FeatureTableTab } from '@app/entityV2/shared/tabs/ML/MlPrimaryKeyFeatureTableTab';
+import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
+import { SidebarTitleActionType, getDataProduct, isOutputPort } from '@app/entityV2/shared/utils';
+
+import { useGetMlPrimaryKeyQuery } from '@graphql/mlPrimaryKey.generated';
+import { EntityType, MlPrimaryKey, SearchResult } from '@types';
 
 /**
  * Definition of the DataHub MLPrimaryKey entity.
@@ -30,23 +33,12 @@ export class MLPrimaryKeyEntity implements Entity<MlPrimaryKey> {
     type: EntityType = EntityType.MlprimaryKey;
 
     icon = (fontSize?: number, styleType?: IconStyleType, color?: string) => {
-        if (styleType === IconStyleType.TAB_VIEW) {
-            return <DotChartOutlined className={TYPE_ICON_CLASS_NAME} style={{ fontSize, color }} />;
-        }
-
-        if (styleType === IconStyleType.HIGHLIGHT) {
-            return (
-                <DotChartOutlined className={TYPE_ICON_CLASS_NAME} style={{ fontSize, color: color || '#9633b9' }} />
-            );
-        }
-
         return (
-            <DotChartOutlined
+            <Key
                 className={TYPE_ICON_CLASS_NAME}
-                style={{
-                    fontSize,
-                    color: color || '#BFBFBF',
-                }}
+                size={fontSize || 14}
+                color={color || 'currentColor'}
+                weight={styleType === IconStyleType.HIGHLIGHT ? 'fill' : 'regular'}
             />
         );
     };
@@ -95,6 +87,7 @@ export class MLPrimaryKeyEntity implements Entity<MlPrimaryKey> {
                 {
                     name: 'Lineage',
                     component: LineageTab,
+                    supportsFullsize: true,
                 },
                 {
                     name: 'Properties',
@@ -192,6 +185,7 @@ export class MLPrimaryKeyEntity implements Entity<MlPrimaryKey> {
                 degree={(result as any).degree}
                 paths={(result as any).paths}
                 isOutputPort={isOutputPort(result)}
+                previewType={PreviewType.SEARCH}
             />
         );
     };
@@ -230,6 +224,8 @@ export class MLPrimaryKeyEntity implements Entity<MlPrimaryKey> {
             EntityCapabilityType.SOFT_DELETE,
             EntityCapabilityType.DATA_PRODUCTS,
             EntityCapabilityType.LINEAGE,
+            EntityCapabilityType.RELATED_DOCUMENTS,
+            EntityCapabilityType.FORMS,
         ]);
     };
 }

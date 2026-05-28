@@ -1,25 +1,26 @@
+import * as QueryString from 'query-string';
 import React from 'react';
 import styled from 'styled-components';
-import * as QueryString from 'query-string';
-import { AggregationMetadata, EntityType, FacetMetadata, SearchResults } from '../../../../../../../types.generated';
-import filtersToQueryStringParams from '../../../../../../search/utils/filtersToQueryStringParams';
-import { pluralize } from '../../../../../../shared/textUtil';
-import { EntityRegistry } from '../../../../../../../entityRegistryContext';
-import { ANTD_GRAY } from '../../../../constants';
+
+import filtersToQueryStringParams from '@app/search/utils/filtersToQueryStringParams';
+import { pluralize } from '@app/shared/textUtil';
+import { EntityRegistry } from '@src/entityRegistryContext';
+
+import { AggregationMetadata, EntityType, FacetMetadata, SearchResults } from '@types';
 
 const UNIT_SEPARATOR = '␞';
 
 const SummaryText = styled.span`
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
-export type ContentTypeSummary = {
+type ContentTypeSummary = {
     entityType: EntityType;
     type?: string;
     count: number;
 };
 
-export type ContentsSummary = {
+type ContentsSummary = {
     total: number;
     types: ContentTypeSummary[];
 };

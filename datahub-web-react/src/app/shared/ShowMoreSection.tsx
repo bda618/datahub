@@ -1,9 +1,10 @@
 import React from 'react';
-import colors from '@src/alchemy-components/theme/foundations/colors';
 import styled from 'styled-components';
-import { ANTD_GRAY } from '../entity/shared/constants';
 
-export const ShowMoreButton = styled.div`
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import colors from '@src/alchemy-components/theme/foundations/colors';
+
+const ShowMoreButton = styled.div`
     padding: 4px;
     color: ${colors.gray[1700]};
     text-align: left;

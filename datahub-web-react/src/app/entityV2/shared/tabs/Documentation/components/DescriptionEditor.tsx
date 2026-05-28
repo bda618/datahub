@@ -1,15 +1,20 @@
+import { Editor } from '@components';
+import { Modal, message } from 'antd';
 import React, { useEffect, useRef, useState } from 'react';
-import { message, Modal } from 'antd';
 import styled from 'styled-components/macro';
-import { useUpdateDescriptionMutation } from '../../../../../../graphql/mutations.generated';
-import analytics, { EntityActionType, EventType } from '../../../../../analytics';
-import { useEntityData, useEntityUpdate, useMutationUrn, useRefetch } from '../../../../../entity/shared/EntityContext';
-import { GenericEntityUpdate } from '../../../../../entity/shared/types';
-import { EDITED_DESCRIPTIONS_CACHE_NAME } from '../../../utils';
-import { DescriptionEditorToolbar } from './DescriptionEditorToolbar';
-import { Editor } from './editor/Editor';
-import SourceDescription from './SourceDescription';
-import { getAssetDescriptionDetails } from '../utils';
+
+import analytics, { EntityActionType, EventType } from '@app/analytics';
+import { useEntityData, useEntityUpdate, useMutationUrn, useRefetch } from '@app/entity/shared/EntityContext';
+import { GenericEntityUpdate } from '@app/entity/shared/types';
+import { DescriptionEditorToolbar } from '@app/entityV2/shared/tabs/Documentation/components/DescriptionEditorToolbar';
+import SourceDescription from '@app/entityV2/shared/tabs/Documentation/components/SourceDescription';
+import { getAssetDescriptionDetails } from '@app/entityV2/shared/tabs/Documentation/utils';
+import { EDITED_DESCRIPTIONS_CACHE_NAME } from '@app/entityV2/shared/utils';
+import useFileUpload from '@app/shared/hooks/useFileUpload';
+import useFileUploadAnalyticsCallbacks from '@app/shared/hooks/useFileUploadAnalyticsCallbacks';
+
+import { useUpdateDescriptionMutation } from '@graphql/mutations.generated';
+import { UploadDownloadScenario } from '@types';
 
 const EditorContainer = styled.div`
     flex: 1;
@@ -30,6 +35,16 @@ export const DescriptionEditor = ({ onComplete }: DescriptionEditorProps) => {
     const mutationUrn = useMutationUrn();
     const { entityType, entityData, loading } = useEntityData();
     const refetch = useRefetch();
+
+    const uploadFileAnalyticsCallbacks = useFileUploadAnalyticsCallbacks({
+        scenario: UploadDownloadScenario.AssetDocumentation,
+        assetUrn: mutationUrn,
+    });
+
+    const { uploadFile } = useFileUpload({
+        scenario: UploadDownloadScenario.AssetDocumentation,
+        assetUrn: mutationUrn,
+    });
 
     const updateEntity = useEntityUpdate<GenericEntityUpdate>();
     const [updateDescriptionMutation] = useUpdateDescriptionMutation();
@@ -193,12 +208,17 @@ export const DescriptionEditor = ({ onComplete }: DescriptionEditorProps) => {
     return !loading ? (
         <>
             <EditorSourceWrapper>
-                <EditorContainer>
+                <EditorContainer data-testid="description-editor">
                     <Editor
                         key={editorKey}
                         content={updatedDescription}
                         onChange={handleEditorChange}
                         placeholder="Describe this asset to make it more discoverable. Tag @user or reference @asset to make your docs come to life!"
+                        uploadFileProps={{
+                            onFileUpload: uploadFile,
+                            ...uploadFileAnalyticsCallbacks,
+                        }}
+                        hideBorder
                     />
                 </EditorContainer>
                 <SourceDescription />

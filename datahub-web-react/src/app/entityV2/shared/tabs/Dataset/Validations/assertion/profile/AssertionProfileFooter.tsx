@@ -1,9 +1,6 @@
-import React from 'react';
-
-import styled from 'styled-components';
 import { BellTwoTone } from '@ant-design/icons';
-
-import { ANTD_GRAY } from '../../../../../constants';
+import React from 'react';
+import styled from 'styled-components';
 
 const Container = styled.div`
     display: flex;
@@ -14,10 +11,10 @@ const Container = styled.div`
 `;
 
 const Tip = styled.div`
-    background-color: ${ANTD_GRAY[3]};
+    background-color: ${(props) => props.theme.colors.bgSurface};
     padding: 20px;
     border-radius: 4px;
-    color: ${ANTD_GRAY[8]};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 const Title = styled.div`
@@ -39,7 +36,7 @@ export const AssertionProfileFooter = () => {
                 </Title>
                 Sign up to receive notifications when this assertion passes or fails by{' '}
                 <a
-                    href="https://datahubproject.io/docs/next/managed-datahub/subscription-and-notification/"
+                    href="https://docs.datahub.com/docs/next/managed-datahub/subscription-and-notification/"
                     target="_blank"
                     rel="noreferrer noopener"
                 >

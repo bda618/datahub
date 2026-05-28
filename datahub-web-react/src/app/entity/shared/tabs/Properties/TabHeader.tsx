@@ -1,10 +1,11 @@
-import { SearchOutlined } from '@ant-design/icons';
-import { Maybe, StructuredProperties } from '@src/types.generated';
+import { Icon } from '@components';
+import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
 import { Input } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { ANTD_GRAY } from '../../constants';
-import AddPropertyButton from './AddPropertyButton';
+
+import AddPropertyButton from '@app/entity/shared/tabs/Properties/AddPropertyButton';
+import { Maybe, StructuredProperties } from '@src/types.generated';
 
 const StyledInput = styled(Input)`
     border-radius: 70px;
@@ -13,7 +14,7 @@ const StyledInput = styled(Input)`
 
 const TableHeader = styled.div`
     padding: 8px 16px;
-    border-bottom: 1px solid ${ANTD_GRAY[4.5]};
+    border-bottom: 1px solid ${(props) => props.theme.colors.border};
     display: flex;
     justify-content: space-between;
 `;
@@ -32,7 +33,7 @@ export default function TabHeader({ setFilterText, fieldUrn, fieldProperties, re
                 placeholder="Search in properties..."
                 onChange={(e) => setFilterText(e.target.value)}
                 allowClear
-                prefix={<SearchOutlined />}
+                prefix={<Icon icon={MagnifyingGlass} />}
             />
             <AddPropertyButton fieldUrn={fieldUrn} fieldProperties={fieldProperties} refetch={refetch} />
         </TableHeader>

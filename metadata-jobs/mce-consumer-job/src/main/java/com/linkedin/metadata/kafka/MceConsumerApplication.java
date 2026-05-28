@@ -4,15 +4,20 @@ import com.linkedin.gms.factory.telemetry.ScheduledAnalyticsFactory;
 import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.boot.autoconfigure.cassandra.CassandraAutoConfiguration;
-import org.springframework.boot.autoconfigure.elasticsearch.ElasticsearchRestClientAutoConfiguration;
+import org.springframework.boot.cassandra.autoconfigure.CassandraAutoConfiguration;
+import org.springframework.boot.elasticsearch.autoconfigure.ElasticsearchClientAutoConfiguration;
+import org.springframework.boot.elasticsearch.autoconfigure.ElasticsearchRestClientAutoConfiguration;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
 import org.springframework.context.annotation.PropertySource;
 
 @SuppressWarnings("checkstyle:HideUtilityClassConstructor")
 @SpringBootApplication(
-    exclude = {ElasticsearchRestClientAutoConfiguration.class, CassandraAutoConfiguration.class})
+    exclude = {
+      ElasticsearchClientAutoConfiguration.class,
+      ElasticsearchRestClientAutoConfiguration.class,
+      CassandraAutoConfiguration.class
+    })
 @ComponentScan(
     basePackages = {
       "com.linkedin.metadata.boot.kafka",
@@ -34,7 +39,8 @@ import org.springframework.context.annotation.PropertySource;
       "com.linkedin.metadata.dao.producer",
       "io.datahubproject.metadata.jobs.common.health.kafka",
       "com.linkedin.gms.factory.context",
-      "com.linkedin.gms.factory.plugins"
+      "com.linkedin.gms.factory.plugins",
+      "com.linkedin.gms.factory.system_telemetry"
     },
     excludeFilters = {
       @ComponentScan.Filter(

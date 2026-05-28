@@ -1,7 +1,7 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Button } from 'antd';
 import { EditOutlined } from '@ant-design/icons';
 import MDEditor from '@uiw/react-md-editor';
+import { Button } from 'antd';
+import React, { useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
 
 const EditIcon = styled(EditOutlined)`
@@ -63,7 +63,7 @@ const MarkdownViewContainer = styled.div<{
         `}
 `;
 
-export const MarkdownView = styled(MDEditor.Markdown)`
+const MarkdownView = styled(MDEditor.Markdown)`
     display: block;
     overflow-wrap: break-word;
     word-wrap: break-word;
@@ -73,7 +73,7 @@ export const MarkdownView = styled(MDEditor.Markdown)`
     font-weight: 400;
 `;
 
-export type Props = {
+type Props = {
     source: string;
     limit?: number;
     // eslint-disable-next-line react/no-unused-prop-types

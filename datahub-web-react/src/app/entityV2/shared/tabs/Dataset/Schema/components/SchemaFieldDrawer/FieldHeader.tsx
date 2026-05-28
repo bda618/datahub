@@ -1,23 +1,27 @@
 import { CloseOutlined } from '@ant-design/icons';
-import { useAppConfig } from '@app/useAppConfig';
 import { Divider } from 'antd';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-import colors from '@src/alchemy-components/theme/foundations/colors';
-import { SchemaField } from '../../../../../../../../types.generated';
-import translateFieldPath from '../../../../../../dataset/profile/schema/utils/translateFieldPath';
-import NullableLabel, { PartitioningKeyLabel, PrimaryKeyLabel } from '../ConstraintLabels';
-import MenuColumn from '../MenuColumn';
-import TypeLabel from '../TypeLabel';
-import FieldPath from './FieldPath';
-import { useEntityRegistry } from '../../../../../../../useEntityRegistry';
+
+import translateFieldPath from '@app/entityV2/dataset/profile/schema/utils/translateFieldPath';
+import NullableLabel, {
+    PartitioningKeyLabel,
+    PrimaryKeyLabel,
+} from '@app/entityV2/shared/tabs/Dataset/Schema/components/ConstraintLabels';
+import MenuColumn from '@app/entityV2/shared/tabs/Dataset/Schema/components/MenuColumn';
+import FieldPath from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/FieldPath';
+import TypeLabel from '@app/entityV2/shared/tabs/Dataset/Schema/components/TypeLabel';
+import { useAppConfig } from '@app/useAppConfig';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { SchemaField } from '@types';
 
 const FieldHeaderWrapper = styled.div`
     padding: 16px;
     display: flex;
     justify-content: space-between;
-    border-bottom: 1px solid rgb(213, 213, 213);
+    border-bottom: 1px solid ${(props) => props.theme.colors.border};
 `;
 
 const NameTypesWrapper = styled.div`
@@ -44,7 +48,7 @@ const MenuWrapper = styled.div`
 const FieldText = styled.div`
     font-size: 12px;
     line-height: 24px;
-    color: #8d95b1;
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 const CloseIcon = styled.div`
@@ -74,11 +78,11 @@ const StyledDivider = styled(Divider)`
 
 const StyledTypeLabel = styled(TypeLabel)`
     font-size: 14px;
-    color: ${colors.gray[500]};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 const StyleLink = styled(Link)`
-    color: ${colors.gray[800]};
+    color: ${(props) => props.theme.colors.text};
     font-weight: 700;
 
     &:hover {

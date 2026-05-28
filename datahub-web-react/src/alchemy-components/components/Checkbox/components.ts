@@ -1,85 +1,82 @@
-import { borders, colors, spacing, transform, zIndices, radius } from '@components/theme';
 import styled from 'styled-components';
-import { getCheckboxColor, getCheckboxHoverBackgroundColor } from './utils';
-import { formLabelTextStyles } from '../commonStyles';
 
-export const CheckboxContainer = styled.div({
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-});
+import { getCheckboxBorder, getCheckboxSize, getCheckboxTouchTarget } from '@components/components/Checkbox/utils';
+import { formLabelTextStyles } from '@components/components/commonStyles';
+import { radius, spacing } from '@components/theme';
 
-export const Label = styled.div({
+import { SizeOptions } from '@src/alchemy-components/theme/config';
+
+export const CheckboxContainer = styled.div<{ justifyContent?: 'center' | 'flex-start' | undefined; gap?: string }>(
+    ({ justifyContent, gap }) => ({
+        display: 'flex',
+        justifyContent: justifyContent ?? 'center',
+        alignItems: 'center',
+        gap,
+        padding: '0 4px',
+    }),
+);
+
+export const Label = styled.div<{ clickable?: boolean }>(({ clickable, theme }) => ({
     ...formLabelTextStyles,
-});
-
-export const Required = styled.span({
-    color: colors.red[500],
-    marginLeft: spacing.xxsm,
-});
-
-export const CheckboxBase = styled.div({
-    position: 'relative',
-    width: '30px',
-    height: '30px',
-});
-
-export const StyledCheckbox = styled.input<{
-    checked: boolean;
-    error: string;
-    disabled: boolean;
-}>(({ error, checked, disabled }) => ({
-    position: 'absolute',
-    opacity: 0,
-    height: 0,
-    width: 0,
-    '&:checked + div': {
-        backgroundColor: getCheckboxColor(checked, error, disabled, 'background'),
-    },
-    '&:checked + div:after': {
-        display: 'block',
-    },
+    color: theme.colors.text,
+    ...(clickable ? { cursor: 'pointer' } : {}),
 }));
 
-export const Checkmark = styled.div<{ intermediate?: boolean; error: string; checked: boolean; disabled: boolean }>(
-    ({ intermediate, checked, error, disabled }) => ({
-        position: 'absolute',
-        top: '4px',
-        left: '11px',
-        zIndex: zIndices.docked,
-        height: '18px',
-        width: '18px',
-        borderRadius: '3px',
-        border: `${borders['2px']} ${getCheckboxColor(checked, error, disabled, undefined)}`,
-        transition: 'all 0.2s ease-in-out',
-        cursor: 'pointer',
-        '&:after': {
-            content: '""',
-            position: 'absolute',
-            display: 'none',
-            left: !intermediate ? '5px' : '8px',
-            top: !intermediate ? '1px' : '3px',
-            width: !intermediate ? '5px' : '0px',
-            height: '10px',
-            border: 'solid white',
-            borderWidth: '0 3px 3px 0',
-            transform: !intermediate ? 'rotate(45deg)' : transform.rotate[90],
-        },
-    }),
-);
+export const Required = styled.span(({ theme }) => ({
+    color: theme.colors.textError,
+    marginLeft: spacing.xxsm,
+}));
 
-export const HoverState = styled.div<{ isHovering: boolean; error: string; checked: boolean; disabled: boolean }>(
-    ({ isHovering, error, checked }) => ({
-        width: '40px',
-        height: '40px',
-        backgroundColor: !isHovering ? 'transparent' : getCheckboxHoverBackgroundColor(checked, error),
-        position: 'absolute',
-        borderRadius: radius.full,
-        top: '-5px',
-        left: '2px',
-        zIndex: zIndices.hide,
-    }),
-);
+export const CheckboxBase = styled.div<{ $size: SizeOptions }>`
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    min-width: ${(props) => getCheckboxTouchTarget(props.$size)};
+    min-height: ${(props) => getCheckboxTouchTarget(props.$size)};
+
+    &[data-disabled='true'] {
+        cursor: not-allowed;
+    }
+`;
+
+export const HiddenInput = styled.input`
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+    pointer-events: none;
+`;
+
+export const CheckboxBox = styled.div<{
+    $checked: boolean;
+    $error: boolean;
+    $disabled: boolean;
+    $size: SizeOptions;
+}>`
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: ${(props) => getCheckboxSize(props.$size)};
+    height: ${(props) => getCheckboxSize(props.$size)};
+    border-radius: ${radius.sm};
+    border: ${(props) => getCheckboxBorder(props.$checked, props.$error, props.$disabled, props.theme?.colors)};
+    background: ${(props) => {
+        if (props.$disabled && props.$checked) return props.theme?.colors?.bgDisabled;
+        if (props.$disabled) return props.theme?.colors?.bgSurfaceDisabled;
+        if (props.$checked) return props.theme?.colors?.brandGradient;
+        return props.theme?.colors?.bg;
+    }};
+    transition: all 0.15s ease-in-out;
+    cursor: inherit;
+
+    svg {
+        color: ${(props) => {
+            if (props.$disabled) return props.theme?.colors?.iconDisabled;
+            return props.theme?.colors?.textOnFillBrand;
+        }};
+    }
+`;
 
 export const CheckboxGroupContainer = styled.div<{ isVertical?: boolean }>(({ isVertical }) => ({
     display: 'flex',

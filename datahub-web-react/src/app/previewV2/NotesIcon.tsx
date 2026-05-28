@@ -1,14 +1,15 @@
-import React from 'react';
-import styled from 'styled-components';
 import { Popover } from '@components';
 import { CampaignOutlined } from '@mui/icons-material';
-import { Post } from '../../types.generated';
-import { pluralize } from '../shared/textUtil';
-import { COLORS } from '../sharedV2/colors';
+import React from 'react';
+import styled from 'styled-components';
+
+import { pluralize } from '@app/shared/textUtil';
+
+import { Post } from '@types';
 
 const IconWrapper = styled.div<{ count: number }>`
     display: flex;
-    color: ${COLORS.blue_6};
+    color: ${(props) => props.theme.colors.iconBrand};
     font-size: 20px;
     line-height: 1;
 `;

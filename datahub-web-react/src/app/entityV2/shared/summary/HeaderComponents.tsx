@@ -1,9 +1,8 @@
+import { BookOpen } from '@phosphor-icons/react/dist/csr/BookOpen';
 import React from 'react';
 import styled from 'styled-components';
-import { ReadOutlined } from '@ant-design/icons';
-import { REDESIGN_COLORS } from '../constants';
 
-export const SUMMARY_TAB_ICON = ReadOutlined;
+export const SUMMARY_TAB_ICON = BookOpen;
 
 export const SummaryTabWrapper = styled.div`
     display: flex;
@@ -43,7 +42,7 @@ export const HeaderTitle = styled.h3`
     align-items: center;
     display: flex;
     font-size: 18px;
-    color: ${REDESIGN_COLORS.TEXT_HEADING};
+    color: ${(props) => props.theme.colors.text};
     font-weight: 500;
     margin: 0;
     overflow: hidden;

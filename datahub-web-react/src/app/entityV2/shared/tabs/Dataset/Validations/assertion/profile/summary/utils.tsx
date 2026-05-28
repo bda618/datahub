@@ -1,8 +1,37 @@
-import React from 'react';
-
-import { Typography } from 'antd';
 import { Tooltip } from '@components';
+import { Typography } from 'antd';
 import { Maybe } from 'graphql/jsutils/Maybe';
+import React from 'react';
+import { useTheme } from 'styled-components';
+
+import { DatasetAssertionDescription } from '@app/entityV2/shared/tabs/Dataset/Validations/DatasetAssertionDescription';
+import { FieldAssertionDescription } from '@app/entityV2/shared/tabs/Dataset/Validations/FieldAssertionDescription';
+import {
+    FreshnessAssertionDescription,
+    createCronText,
+    createFixedIntervalText,
+    createSinceTheLastCheckText,
+} from '@app/entityV2/shared/tabs/Dataset/Validations/FreshnessAssertionDescription';
+import { SchemaAssertionDescription } from '@app/entityV2/shared/tabs/Dataset/Validations/SchemaAssertionDescription';
+import { SqlAssertionDescription } from '@app/entityV2/shared/tabs/Dataset/Validations/SqlAssertionDescription';
+import { VolumeAssertionDescription } from '@app/entityV2/shared/tabs/Dataset/Validations/VolumeAssertionDescription';
+import { getFormattedParameterValue } from '@app/entityV2/shared/tabs/Dataset/Validations/assertionUtils';
+import {
+    getFieldDescription,
+    getFieldOperatorDescription,
+    getFieldParametersDescription,
+    getFieldTransformDescription,
+} from '@app/entityV2/shared/tabs/Dataset/Validations/fieldDescriptionUtils';
+import {
+    getIsRowCountChange,
+    getOperatorDescription,
+    getParameterDescription,
+    getValueChangeTypeDescription,
+    getVolumeTypeDescription,
+    getVolumeTypeInfo,
+} from '@app/entityV2/shared/tabs/Dataset/Validations/utils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+import { decodeSchemaField } from '@src/app/lineage/utils/columnLineageUtils';
 import {
     AssertionInfo,
     AssertionStdAggregation,
@@ -24,43 +53,15 @@ import {
     SchemaFieldRef,
     VolumeAssertionInfo,
 } from '@src/types.generated';
-import { decodeSchemaField } from '@src/app/lineage/utils/columnLineageUtils';
-import { DatasetAssertionDescription } from '../../../DatasetAssertionDescription';
-import {
-    createCronText,
-    createFixedIntervalText,
-    createSinceTheLastCheckText,
-    FreshnessAssertionDescription,
-} from '../../../FreshnessAssertionDescription';
-import { VolumeAssertionDescription } from '../../../VolumeAssertionDescription';
-import { SqlAssertionDescription } from '../../../SqlAssertionDescription';
-import { FieldAssertionDescription } from '../../../FieldAssertionDescription';
-import { SchemaAssertionDescription } from '../../../SchemaAssertionDescription';
-import { useEntityRegistry } from '../../../../../../../../useEntityRegistry';
-import { useGetUserQuery } from '../../../../../../../../../graphql/user.generated';
-import { ANTD_GRAY_V2 } from '../../../../../../constants';
-import { getFormattedParameterValue } from '../../../assertionUtils';
-import {
-    getIsRowCountChange,
-    getOperatorDescription,
-    getParameterDescription,
-    getValueChangeTypeDescription,
-    getVolumeTypeDescription,
-    getVolumeTypeInfo,
-} from '../../../utils';
-import {
-    getFieldDescription,
-    getFieldOperatorDescription,
-    getFieldParametersDescription,
-    getFieldTransformDescription,
-} from '../../../fieldDescriptionUtils';
+
+import { useGetUserQuery } from '@graphql/user.generated';
 
 /**
  * It refers the {@link getOperatorText} utility function to get plain text from html description.
  * @link getOperatorText
  * Returns the Plain Text to render for the operator portion of the Assertion Description
  */
-export const getOperatorPlainText = (
+const getOperatorPlainText = (
     op: AssertionStdOperator,
     parameters: AssertionStdParameters | undefined,
     nativeType: string | undefined,
@@ -129,7 +130,7 @@ export const getOperatorPlainText = (
  *
  * Schema assertions require an aggregation.
  */
-export const getSchemaAggregationPlainText = (
+const getSchemaAggregationPlainText = (
     aggregation: AssertionStdAggregation | undefined | null,
     fields: Array<SchemaFieldRef> | undefined | null,
 ) => {
@@ -155,7 +156,7 @@ export const getSchemaAggregationPlainText = (
  *
  * Row assertions require an aggregation.
  */
-export const getRowsAggregationPlainText = (aggregation: AssertionStdAggregation | undefined | null) => {
+const getRowsAggregationPlainText = (aggregation: AssertionStdAggregation | undefined | null) => {
     switch (aggregation) {
         case AssertionStdAggregation.RowCount:
             return 'Dataset row count is';
@@ -175,7 +176,7 @@ export const getRowsAggregationPlainText = (aggregation: AssertionStdAggregation
  * Returns the Plain Text to render for the aggregation portion of the Assertion Description
  * for Assertions on Dataset Columns
  */
-export const getColumnAggregationPlainText = (
+const getColumnAggregationPlainText = (
     aggregation: AssertionStdAggregation | undefined | null,
     field: SchemaFieldRef | undefined,
 ) => {
@@ -229,7 +230,7 @@ export const getColumnAggregationPlainText = (
  * @link getAggregationText
  * Returns the Plain Text to render for the aggregation portion of the Assertion Description
  */
-export const getAggregationPlainText = (
+const getAggregationPlainText = (
     scope: DatasetAssertionScope,
     aggregation: AssertionStdAggregation | undefined | null,
     fields: Array<SchemaFieldRef> | undefined | null,
@@ -253,7 +254,7 @@ export const getAggregationPlainText = (
  * A human-readable Plain Text description of a Dataset Assertion.
  */
 
-export const getDatasetAssertionPlainTextDescription = (datasetAssertion: DatasetAssertionInfo): string => {
+const getDatasetAssertionPlainTextDescription = (datasetAssertion: DatasetAssertionInfo): string => {
     const { scope, aggregation, fields, operator, parameters, nativeType } = datasetAssertion;
     const aggregationPlainText = getAggregationPlainText(scope, aggregation, fields);
     const operatorPlainText = getOperatorPlainText(operator, parameters || undefined, nativeType || undefined);
@@ -265,7 +266,7 @@ export const getDatasetAssertionPlainTextDescription = (datasetAssertion: Datase
  * @link getAggregationText
  * A human-readable Plain Text description of a Volume Assertion.
  */
-export const getVolumeAssertionPlainTextDescription = (assertionInfo: VolumeAssertionInfo): string => {
+const getVolumeAssertionPlainTextDescription = (assertionInfo: VolumeAssertionInfo): string => {
     const volumeType = assertionInfo.type;
     const volumeTypeInfo = getVolumeTypeInfo(assertionInfo);
     const volumeTypeDescription = getVolumeTypeDescription(volumeType);
@@ -283,7 +284,7 @@ export const getVolumeAssertionPlainTextDescription = (assertionInfo: VolumeAsse
  * @link getAggregationText
  * A human-readable Plain Text description of a Field Assertion.
  */
-export const getFieldAssertionPlainTextDescription = (assertionInfo: FieldAssertionInfo) => {
+const getFieldAssertionPlainTextDescription = (assertionInfo: FieldAssertionInfo) => {
     const field = getFieldDescription(assertionInfo);
     const transform = getFieldTransformDescription(assertionInfo);
     // Do not pluralize if this is a metric assertion since you're checking one metric, not multiple values
@@ -299,7 +300,7 @@ export const getFieldAssertionPlainTextDescription = (assertionInfo: FieldAssert
  * @link getAggregationText
  * A human-readable Plain Text description of a Schema Assertion.
  */
-export const getSchemaAssertionPlainTextDescription = (assertionInfo: SchemaAssertionInfo) => {
+const getSchemaAssertionPlainTextDescription = (assertionInfo: SchemaAssertionInfo) => {
     const { compatibility } = assertionInfo;
     const matchText = compatibility === SchemaAssertionCompatibility.ExactMatch ? 'exactly match' : 'include';
     const expectedColumnCount = assertionInfo?.fields?.length || 0;
@@ -311,7 +312,7 @@ export const getSchemaAssertionPlainTextDescription = (assertionInfo: SchemaAsse
 /**
  * A human-readable Plain Text description of an Freshness Assertion.
  */
-export const getFreshnessAssertionPlainTextDescription = (
+const getFreshnessAssertionPlainTextDescription = (
     assertionInfo: FreshnessAssertionInfo,
     monitorSchedule: CronSchedule,
 ) => {
@@ -347,7 +348,7 @@ export const getFreshnessAssertionPlainTextDescription = (
  * @param monitorSchedule
  * @returns {JSX.Element}
  */
-const useBuildPrimaryLabel = (
+export const useBuildAssertionPrimaryLabel = (
     assertionInfo?: Maybe<AssertionInfo>,
     monitorSchedule?: Maybe<CronSchedule>,
     options?: { showColumnTag?: boolean },
@@ -408,6 +409,7 @@ const useBuildPrimaryLabel = (
  * @returns {JSX.Element} if sufficient data is present
  */
 const useBuildSecondaryLabel = (assertionInfo?: Maybe<AssertionInfo>): JSX.Element | null => {
+    const theme = useTheme();
     const entityRegistry = useEntityRegistry();
 
     // 1. Fetching the most recent actor data.
@@ -490,7 +492,7 @@ const useBuildSecondaryLabel = (assertionInfo?: Maybe<AssertionInfo>): JSX.Eleme
                 </>
             }
         >
-            <Typography.Text style={{ color: ANTD_GRAY_V2['6'], fontSize: 12 }}>
+            <Typography.Text style={{ color: theme.colors.textDisabled, fontSize: 12 }}>
                 {secondaryLabelMessage}
             </Typography.Text>
         </Tooltip>
@@ -510,7 +512,7 @@ export const useBuildAssertionDescriptionLabels = (
 } => {
     // ------- Primary label with assertion description ------ //
     // IMPORTANT: if you modify this, also modify {@link #getPlainTextDescriptionFromAssertion} below
-    const primaryLabel = useBuildPrimaryLabel(assertionInfo, monitorSchedule, options);
+    const primaryLabel = useBuildAssertionPrimaryLabel(assertionInfo, monitorSchedule, options);
 
     // ----------- Try displaying secondary label showing creator/updater context ------------ //
     const secondaryLabel = useBuildSecondaryLabel(assertionInfo);
@@ -522,16 +524,45 @@ export const useBuildAssertionDescriptionLabels = (
 };
 
 /**
- * Similar to {@link #useBuildPrimaryLabel}, but returns plaintext instead of jsx.
+ * Similar to {@link #useBuildAssertionPrimaryLabel}, but returns plaintext instead of jsx.
  * Primarily used for building the search index!
  */
-export const getPlainTextDescriptionFromAssertion = (assertionInfo?: AssertionInfo): string => {
+export const getPlainTextDescriptionFromAssertion = (
+    assertionInfo?: AssertionInfo,
+    monitorSchedule?: CronSchedule,
+): string => {
     // if description is present don't generate dynamic description
     if (assertionInfo?.description) {
         return assertionInfo.description;
     }
 
-    return assertionInfo
-        ? getDatasetAssertionPlainTextDescription(assertionInfo.datasetAssertion as DatasetAssertionInfo)
-        : '';
+    let primaryLabel = '';
+    switch (assertionInfo?.type) {
+        case AssertionType.Dataset:
+            primaryLabel = getDatasetAssertionPlainTextDescription(
+                assertionInfo.datasetAssertion as DatasetAssertionInfo,
+            );
+            break;
+        case AssertionType.Freshness:
+            primaryLabel = getFreshnessAssertionPlainTextDescription(
+                assertionInfo.freshnessAssertion as FreshnessAssertionInfo,
+                monitorSchedule as CronSchedule,
+            );
+            break;
+        case AssertionType.Volume:
+            primaryLabel = getVolumeAssertionPlainTextDescription(assertionInfo.volumeAssertion as VolumeAssertionInfo);
+            break;
+        case AssertionType.Sql:
+            primaryLabel = assertionInfo.description || '';
+            break;
+        case AssertionType.Field:
+            primaryLabel = getFieldAssertionPlainTextDescription(assertionInfo.fieldAssertion as FieldAssertionInfo);
+            break;
+        case AssertionType.DataSchema:
+            primaryLabel = getSchemaAssertionPlainTextDescription(assertionInfo.schemaAssertion as SchemaAssertionInfo);
+            break;
+        default:
+            break;
+    }
+    return primaryLabel;
 };

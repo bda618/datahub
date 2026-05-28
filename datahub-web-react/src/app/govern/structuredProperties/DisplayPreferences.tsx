@@ -1,11 +1,21 @@
-import { Icon, Pill, Switch, Text } from '@src/alchemy-components';
-import { ConfirmationModal } from '@src/app/sharedV2/modals/ConfirmationModal';
-import { AllowedValue, StructuredPropertyEntity } from '@src/types.generated';
+import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import { Collapse } from 'antd';
 import React, { useState } from 'react';
+
+import {
+    CheckboxContainer,
+    CollapseHeader,
+    CompoundedItemWrapper,
+    StyledCollapse,
+    StyledFormItem,
+    StyledFormSubItem,
+    TogglesContainer,
+} from '@app/govern/structuredProperties/styledComponents';
+import { StructuredProp, canBeAssetBadge, getDisplayName } from '@app/govern/structuredProperties/utils';
+import { Checkbox, Icon, Pill, Switch, Text } from '@src/alchemy-components';
+import { ConfirmationModal } from '@src/app/sharedV2/modals/ConfirmationModal';
 import { useUpdateStructuredPropertyMutation } from '@src/graphql/structuredProperties.generated';
-import { CollapseHeader, StyledCollapse, StyledFormItem, TogglesContainer } from './styledComponents';
-import { getDisplayName, canBeAssetBadge, StructuredProp } from './utils';
+import { AllowedValue, StructuredPropertyEntity } from '@src/types.generated';
 
 const SCHEMA_FIELD_URN = 'urn:li:entityType:datahub.schemaField';
 
@@ -50,7 +60,7 @@ const DisplayPreferences = ({
             <StyledCollapse
                 ghost
                 expandIcon={({ isActive }) => (
-                    <Icon icon="ChevronRight" color="gray" size="4xl" rotate={isActive ? '90' : '0'} />
+                    <Icon icon={CaretRight} color="gray" size="4xl" rotate={isActive ? '90' : '0'} />
                 )}
                 expandIconPosition="end"
                 defaultActiveKey={[1]}
@@ -87,16 +97,38 @@ const DisplayPreferences = ({
                                 labelHoverText="If enabled, this property will appear in search filters"
                             />
                         </StyledFormItem>
-                        <StyledFormItem name={['settings', 'showInAssetSummary']}>
-                            <Switch
-                                label="Show in Asset Sidebar"
-                                size="sm"
-                                checked={formValues?.settings?.showInAssetSummary}
-                                onChange={(e) => handleDisplaySettingChange('showInAssetSummary', e.target.checked)}
-                                isDisabled={formValues?.settings?.isHidden}
-                                labelHoverText="If enabled, this property will appear in asset sidebar"
-                            />
-                        </StyledFormItem>
+                        <CompoundedItemWrapper>
+                            <StyledFormItem name={['settings', 'showInAssetSummary']}>
+                                <Switch
+                                    label="Show in Asset Sidebar"
+                                    size="sm"
+                                    checked={formValues?.settings?.showInAssetSummary}
+                                    onChange={(e) => handleDisplaySettingChange('showInAssetSummary', e.target.checked)}
+                                    isDisabled={formValues?.settings?.isHidden}
+                                    labelHoverText="If enabled, this property will appear in asset sidebar"
+                                    data-testid="structured-props-show-in-asset-summary-switch"
+                                />
+                            </StyledFormItem>
+                            {formValues?.settings?.showInAssetSummary && (
+                                <StyledFormSubItem name={['settings', 'hideInAssetSummaryWhenEmpty']}>
+                                    <CheckboxContainer>
+                                        <Checkbox
+                                            label="Hide when Empty"
+                                            isChecked={formValues?.settings?.hideInAssetSummaryWhenEmpty}
+                                            labelTooltip="If enabled, this property will only show in the asset sidebar if it's assigned to the asset"
+                                            size="sm"
+                                            gap="2px"
+                                            onCheckboxChange={(isChecked) =>
+                                                handleDisplaySettingChange('hideInAssetSummaryWhenEmpty', isChecked)
+                                            }
+                                            justifyContent="flex-start"
+                                            dataTestId="structured-props-hide-in-asset-summary-when-empty-checkbox"
+                                            shouldHandleLabelClicks
+                                        />
+                                    </CheckboxContainer>
+                                </StyledFormSubItem>
+                            )}
+                        </CompoundedItemWrapper>
                         <StyledFormItem name={['settings', 'showAsAssetBadge']}>
                             <Switch
                                 label="Show as Asset Badge"

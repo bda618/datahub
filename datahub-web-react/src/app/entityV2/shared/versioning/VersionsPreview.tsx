@@ -1,13 +1,15 @@
+import { Pill, Text } from '@components';
+import React from 'react';
+import { Link } from 'react-router-dom';
+import styled, { useTheme } from 'styled-components';
+
 import analytics, { EventType } from '@app/analytics';
 import { useEntityContext, useEntityData } from '@app/entity/shared/EntityContext';
 import { DrawerType } from '@app/entity/shared/types';
 import { VersionPill } from '@app/entityV2/shared/versioning/common';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import { colors, Pill, Text } from '@components';
+
 import { Entity, VersionSet } from '@types';
-import React from 'react';
-import { Link } from 'react-router-dom';
-import styled from 'styled-components';
 
 const Wrapper = styled.div`
     display: flex;
@@ -24,7 +26,7 @@ const Header = styled(Text)`
     gap: 6px;
     margin-bottom: 8px;
 
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.text};
     font-size: 14px;
     line-height: 1.2;
 `;
@@ -53,6 +55,7 @@ interface Props {
 }
 
 export default function VersionsPreview({ versionSet }: Props) {
+    const theme = useTheme();
     const { urn, entityType, setDrawer } = useEntityContext();
 
     const count = versionSet?.versionsSearch?.count;
@@ -72,8 +75,8 @@ export default function VersionsPreview({ versionSet }: Props) {
                 <Footer>
                     <ShowAllButton
                         size="md"
-                        color="gray"
                         weight="bold"
+                        style={{ color: theme.colors.textSecondary }}
                         onClick={() => {
                             analytics.event({
                                 type: EventType.ShowAllVersionsEvent,
@@ -101,9 +104,7 @@ const VersionPreviewEntry = styled.div<{ isViewing: boolean }>`
     gap: 8px;
     padding: 8px;
 
-    ${({ isViewing }) =>
-        isViewing &&
-        'background: linear-gradient(180deg, rgba(83, 63, 209, 0.04) -3.99%, rgba(112, 94, 228, 0.04) 53.04%, rgba(112, 94, 228, 0.04) 100%)'};
+    ${(props) => props.isViewing && `background: ${props.theme.colors.bgSelectedSubtle}`};
 `;
 
 const VersionPreviewHeader = styled.span`
@@ -117,6 +118,7 @@ interface VersionPreviewRowProps {
 }
 
 function VersionPreviewRow({ entity }: VersionPreviewRowProps) {
+    const theme = useTheme();
     const entityRegistry = useEntityRegistry();
     const { urn: entityProfileUrn } = useEntityData();
 
@@ -131,19 +133,19 @@ function VersionPreviewRow({ entity }: VersionPreviewRowProps) {
                     isLatest={versionProperties?.isLatest}
                 />
                 {!!versionProperties?.isLatest && (
-                    <Text size="md" color="gray">
+                    <Text size="md" style={{ color: theme.colors.textSecondary }}>
                         Latest
                     </Text>
                 )}
             </VersionPreviewHeader>
             {isViewing && (
-                <Text size="md" color="gray" colorLevel={1800} weight="semiBold">
+                <Text size="md" weight="semiBold" style={{ color: theme.colors.textTertiary }}>
                     Viewing
                 </Text>
             )}
             {!isViewing && (
                 <Link to={entityRegistry.getEntityUrl(entity.type, entity.urn)}>
-                    <Text size="md" color="violet" weight="semiBold">
+                    <Text size="md" color="primary" weight="semiBold">
                         View
                     </Text>
                 </Link>

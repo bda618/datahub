@@ -1,19 +1,19 @@
-import React from 'react';
-import styled from 'styled-components';
 import { MoreOutlined } from '@ant-design/icons';
 import { Table } from 'antd';
-import { SchemaMetadata } from '../../../../../../types.generated';
-import { ANTD_GRAY } from '../../../constants';
+import React from 'react';
+import styled from 'styled-components';
+
+import { SchemaMetadata } from '@types';
 
 const TitleText = styled.div`
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
     margin-bottom: 20px;
     letter-spacing; 4px;
 
 `;
 
 const ColumnHeader = styled.div`
-    color: ${ANTD_GRAY[8]};
+    color: ${(props) => props.theme.colors.textSecondary};
     letter-spacing; 4px;
 `;
 
@@ -31,7 +31,7 @@ const SummaryContainer = styled.div`
 const StyledTable = styled(Table)`
     width: 100%;
     border-radius: 8px;
-    box-shadow: 0px 0px 4px rgba(0, 0, 0, 0.1);
+    box-shadow: ${(props) => props.theme.colors.shadowXs};
     height: 100%;
 `;
 

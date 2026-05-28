@@ -1,8 +1,3 @@
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
-import { useGetLineageTimeParams } from '@app/lineage/utils/useGetLineageTimeParams';
-import React, { useContext, useEffect, useState } from 'react';
-import { Panel, useReactFlow } from 'reactflow';
-import styled from 'styled-components';
 import {
     ArrowsAltOutlined,
     CalendarOutlined,
@@ -12,14 +7,18 @@ import {
     VerticalLeftOutlined,
 } from '@ant-design/icons';
 import { Button, Divider } from 'antd';
-import { LineageNodesContext, TRANSITION_DURATION_MS } from '../common';
+import React, { useContext, useEffect, useState } from 'react';
+import { Panel, useReactFlow } from 'reactflow';
+import styled, { useTheme } from 'styled-components';
 
-import LineageSearchFilters from './LineageSearchFilters';
-import { StyledPanelButton } from './StyledPanelButton';
-import DownloadLineageScreenshotButton from './DownloadLineageScreenshotButton';
-import LineageTimeRangeControls from './LineageTimeRangeControls';
-import TabFullsizedContext from '../../shared/TabFullsizedContext';
-import { ControlPanel } from './common';
+import { useGetLineageTimeParams } from '@app/lineage/utils/useGetLineageTimeParams';
+import { LineageNodesContext, TRANSITION_DURATION_MS } from '@app/lineageV2/common';
+import DownloadLineageScreenshotButton from '@app/lineageV2/controls/DownloadLineageScreenshotButton';
+import LineageSearchFilters from '@app/lineageV2/controls/LineageSearchFilters';
+import LineageTimeRangeControls from '@app/lineageV2/controls/LineageTimeRangeControls';
+import { StyledPanelButton } from '@app/lineageV2/controls/StyledPanelButton';
+import { ControlPanel } from '@app/lineageV2/controls/common';
+import TabFullsizedContext from '@app/shared/TabFullsizedContext';
 
 const StyledPanel = styled(Panel)`
     margin-top: 80px;
@@ -44,6 +43,14 @@ const StyledExpandContractButton = styled(Button)`
     justify-content: center;
     align-items: center;
     display: flex;
+    background-color: ${(props) => props.theme.colors.bg};
+    color: ${(props) => props.theme.colors.icon};
+    border-color: ${(props) => props.theme.colors.border};
+
+    &:hover {
+        color: ${(props) => props.theme.colors.iconHover};
+        border-color: ${(props) => props.theme.colors.borderHover};
+    }
 `;
 
 const StyledDivider = styled(Divider)`
@@ -56,6 +63,7 @@ const ControlsColumn = styled.div``;
 type PanelType = 'filters' | 'timeRange';
 
 export default function LineageControls() {
+    const theme = useTheme();
     const { rootUrn, hideTransformations, showDataProcessInstances, showGhostEntities } =
         useContext(LineageNodesContext);
     const { isTabFullsize, setTabFullsize } = useContext(TabFullsizedContext);
@@ -106,8 +114,8 @@ export default function LineageControls() {
                         <FilterOutlined
                             style={{
                                 color:
-                                    hideTransformations || showDataProcessInstances || showGhostEntities
-                                        ? REDESIGN_COLORS.BLUE
+                                    hideTransformations || !showDataProcessInstances || showGhostEntities
+                                        ? theme.colors.iconSelected
                                         : undefined,
                             }}
                         />
@@ -120,7 +128,7 @@ export default function LineageControls() {
                         }
                     >
                         <CalendarOutlined
-                            style={{ color: isLineageTimeUnchanged ? undefined : REDESIGN_COLORS.BLUE }}
+                            style={{ color: isLineageTimeUnchanged ? undefined : theme.colors.textInformation }}
                         />
                         {showExpandedText ? 'Time Range' : null}
                     </StyledPanelButton>

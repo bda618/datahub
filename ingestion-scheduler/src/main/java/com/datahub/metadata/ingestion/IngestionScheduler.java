@@ -96,7 +96,8 @@ public class IngestionScheduler {
             systemOpContext,
             entityClient,
             this::scheduleNextIngestionSourceExecution,
-            this::unscheduleAll);
+            this::unscheduleAll,
+            ingestionConfiguration.getBatchRefreshCount());
 
     // Schedule a recurring batch-reload task.
     scheduledExecutorService.scheduleAtFixedRate(
@@ -220,18 +221,22 @@ public class IngestionScheduler {
     private final EntityClient entityClient;
     private final BiConsumer<Urn, DataHubIngestionSourceInfo> scheduleNextIngestionSourceExecution;
     private final Runnable unscheduleAll;
+    private final Integer batchRefreshCount;
 
     public BatchRefreshSchedulesRunnable(
         @Nonnull final OperationContext systemOpContext,
         @Nonnull final EntityClient entityClient,
         @Nonnull
             final BiConsumer<Urn, DataHubIngestionSourceInfo> scheduleNextIngestionSourceExecution,
-        @Nonnull final Runnable unscheduleAll) {
+        @Nonnull final Runnable unscheduleAll,
+        @Nonnull final Integer batchRefreshCount) {
       this.systemOpContext = systemOpContext;
       this.entityClient = Objects.requireNonNull(entityClient);
       this.scheduleNextIngestionSourceExecution =
           Objects.requireNonNull(scheduleNextIngestionSourceExecution);
       this.unscheduleAll = unscheduleAll;
+      this.batchRefreshCount =
+          Objects.requireNonNull(batchRefreshCount, "batchRefreshCount must not be null");
     }
 
     @Override
@@ -242,8 +247,8 @@ public class IngestionScheduler {
         unscheduleAll.run();
 
         int start = 0;
-        int count = 30;
-        int total = 30;
+        int count = batchRefreshCount;
+        int total = batchRefreshCount;
 
         while (start < total) {
           try {
@@ -406,9 +411,9 @@ public class IngestionScheduler {
         arguments.put(RECIPE_ARGUMENT_NAME, recipe);
         arguments.put(
             VERSION_ARGUMENT_NAME,
-            ingestionSourceInfo.getConfig().hasVersion()
-                ? ingestionSourceInfo.getConfig().getVersion()
-                : ingestionConfiguration.getDefaultCliVersion());
+            IngestionUtils.resolveIngestionCliVersion(
+                ingestionSourceInfo.getConfig().getVersion(),
+                ingestionConfiguration.getDefaultCliVersion()));
         String debugMode = "false";
         if (ingestionSourceInfo.getConfig().hasDebugMode()) {
           debugMode = ingestionSourceInfo.getConfig().isDebugMode() ? "true" : "false";

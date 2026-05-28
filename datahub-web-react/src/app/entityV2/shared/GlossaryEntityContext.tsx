@@ -1,7 +1,9 @@
 import React, { useContext } from 'react';
-import { GenericEntityProperties } from '../../entity/shared/types';
 
-export interface GlossaryEntityContextType {
+import { GenericEntityProperties } from '@app/entity/shared/types';
+import { Entity } from '@src/types.generated';
+
+interface GlossaryEntityContextType {
     isInGlossaryContext: boolean;
     entityData: GenericEntityProperties | null;
     setEntityData: (entityData: GenericEntityProperties | null) => void;
@@ -12,6 +14,10 @@ export interface GlossaryEntityContextType {
     setUrnsToUpdate: (updatdUrns: string[]) => void;
     isSidebarOpen: boolean;
     setIsSidebarOpen: (isOpen: boolean) => void;
+    nodeToNewEntity: Record<string, Entity>;
+    setNodeToNewEntity: React.Dispatch<React.SetStateAction<Record<string, Entity>>>;
+    nodeToDeletedUrn: Record<string, string>;
+    setNodeToDeletedUrn: React.Dispatch<React.SetStateAction<Record<string, string>>>;
 }
 
 export const GlossaryEntityContext = React.createContext<GlossaryEntityContextType>({
@@ -22,6 +28,10 @@ export const GlossaryEntityContext = React.createContext<GlossaryEntityContextTy
     setUrnsToUpdate: () => {},
     isSidebarOpen: true,
     setIsSidebarOpen: () => {},
+    nodeToNewEntity: {},
+    setNodeToNewEntity: () => {},
+    nodeToDeletedUrn: {},
+    setNodeToDeletedUrn: () => {},
 });
 
 export const useGlossaryEntityData = () => {
@@ -33,6 +43,10 @@ export const useGlossaryEntityData = () => {
         setUrnsToUpdate,
         isSidebarOpen,
         setIsSidebarOpen,
+        nodeToNewEntity,
+        setNodeToNewEntity,
+        nodeToDeletedUrn,
+        setNodeToDeletedUrn,
     } = useContext(GlossaryEntityContext);
     return {
         isInGlossaryContext,
@@ -42,5 +56,9 @@ export const useGlossaryEntityData = () => {
         setUrnsToUpdate,
         isSidebarOpen,
         setIsSidebarOpen,
+        nodeToNewEntity,
+        setNodeToNewEntity,
+        nodeToDeletedUrn,
+        setNodeToDeletedUrn,
     };
 };

@@ -1,28 +1,28 @@
 import React from 'react';
-
 import styled from 'styled-components';
+
+import { Actions } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/actions/Actions';
+import { CloseButton } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/shared/CloseButton';
+import { AssertionDescription } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/AssertionDescription';
+import { AssertionResultPill } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/shared/AssertionResultPill';
 import { AssertionType } from '@src/types.generated';
 
-import { Assertion, AssertionResult, DataContract } from '../../../../../../../../types.generated';
-import { AssertionDescription } from './summary/AssertionDescription';
-import { AssertionResultPill } from './summary/shared/AssertionResultPill';
-import { Actions } from './actions/Actions';
-import { CloseButton } from './shared/CloseButton';
+import { Assertion, AssertionResult, DataContract } from '@types';
 
 const Container = styled.div`
     display: flex;
     justify-content: space-between;
     align-items: start;
     padding: 20px 24px;
-    border-bottom: 1px solid #f0f0f0;
-    background-color: #fff;
+    border-bottom: 1px solid ${(props) => props.theme.colors.border};
+    background-color: ${(props) => props.theme.colors.bgSurface};
 `;
 
 const NavBar = styled.div`
     display: flex;
     align-items: center;
     justify-content: space-between;
-    border-bottom: 1px solid #f0f0f0;
+    border-bottom: 1px solid ${(props) => props.theme.colors.border};
 `;
 
 const Status = styled.div``;

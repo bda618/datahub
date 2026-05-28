@@ -1,9 +1,9 @@
-import React from 'react';
 import { ClockCircleOutlined, LineChartOutlined } from '@ant-design/icons';
+import React from 'react';
 import styled from 'styled-components';
-import LookbackWindowSelect from '../../../Stats/historical/LookbackWindowSelect';
-import { LookbackWindow } from '../../../Stats/lookbackWindows';
-import { ANTD_GRAY, REDESIGN_COLORS } from '../../../../../constants';
+
+import LookbackWindowSelect from '@app/entityV2/shared/tabs/Dataset/Stats/historical/LookbackWindowSelect';
+import { LookbackWindow } from '@app/entityV2/shared/tabs/Dataset/Stats/lookbackWindows';
 
 export enum StatsViewType {
     LATEST,
@@ -20,9 +20,9 @@ const TabContainer = styled.div`
 `;
 
 const StatsTabViewSwitch = styled.div<{ isActive: boolean }>`
-    background: ${({ isActive }) => (isActive ? `${REDESIGN_COLORS.BACKGROUND_PRIMARY_1}` : 'transperent')};
+    background: ${({ isActive, theme }) => (isActive ? `${theme.colors.buttonFillBrand}` : 'transperent')};
     border-radius: 4px;
-    color: ${({ isActive }) => (isActive ? '#fff' : '#56668E')};
+    color: ${({ isActive, theme }) => (isActive ? theme.colors.bg : theme.colors.textSecondary)};
     cursor: pointer;
     display: flex;
     font-size: 14px;
@@ -32,7 +32,9 @@ const StatsTabViewSwitch = styled.div<{ isActive: boolean }>`
     width: 180px;
     align-items: center;
     gap: 5px;
-    transition: background 0.3s ease, color 0.3s ease;
+    transition:
+        background 0.3s ease,
+        color 0.3s ease;
 `;
 
 const SwitchWrapper = styled.div`
@@ -40,7 +42,7 @@ const SwitchWrapper = styled.div`
     display: flex;
     width: 250px;
     width: 100%;
-    background: ${REDESIGN_COLORS.BACKGROUND_GRAY_3};
+    background: ${(props) => props.theme.colors.bgSurface};
 `;
 
 const ReportedAtLabel = styled.div`
@@ -48,7 +50,7 @@ const ReportedAtLabel = styled.div`
     margin: 0;
     display: flex;
     align-items: center;
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 const ActionContainer = styled.div`

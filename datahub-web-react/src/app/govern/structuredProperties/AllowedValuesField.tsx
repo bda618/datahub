@@ -1,6 +1,9 @@
 import { Icon, Text, Tooltip } from '@components';
-import { AllowedValue } from '@src/types.generated';
+import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
+import { Info } from '@phosphor-icons/react/dist/csr/Info';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React from 'react';
+
 import {
     FieldLabel,
     FlexContainer,
@@ -8,11 +11,12 @@ import {
     RowContainer,
     StyledIcon,
     ValueListContainer,
-    ValuesList,
     ValueType,
+    ValuesList,
     VerticalDivider,
-} from './styledComponents';
-import { isStringOrNumberTypeSelected, PropValueField } from './utils';
+} from '@app/govern/structuredProperties/styledComponents';
+import { PropValueField, isStringOrNumberTypeSelected } from '@app/govern/structuredProperties/utils';
+import { AllowedValue } from '@src/types.generated';
 
 interface Props {
     selectedValueType: string;
@@ -33,7 +37,7 @@ const AllowedValuesField = ({ selectedValueType, allowedValues, valueField, setS
                                 title="Define the set of valid values for this property. If none are provided, any value will be allowed"
                                 showArrow={false}
                             >
-                                <Icon icon="Info" color="violet" size="lg" />
+                                <Icon icon={Info} color="violet" size="lg" />
                             </Tooltip>
                         </FlexContainer>
                     </FieldLabel>
@@ -52,7 +56,7 @@ const AllowedValuesField = ({ selectedValueType, allowedValues, valueField, setS
                             </ValuesList>
                             <Tooltip title="Update allowed values" showArrow={false}>
                                 <StyledIcon
-                                    icon="ChevronRight"
+                                    icon={CaretRight}
                                     color="gray"
                                     onClick={() => setShowAllowedValuesDrawer(true)}
                                 />
@@ -64,7 +68,7 @@ const AllowedValuesField = ({ selectedValueType, allowedValues, valueField, setS
                             <ValueType>{valueField === 'stringValue' ? 'text' : 'number'} </ValueType>
                             value will be allowed
                             <Tooltip title="Update allowed values" showArrow={false}>
-                                <Icon icon="Add" color="gray" onClick={() => setShowAllowedValuesDrawer(true)} />
+                                <Icon icon={Plus} color="gray" onClick={() => setShowAllowedValuesDrawer(true)} />
                             </Tooltip>
                         </ValueListContainer>
                     )}

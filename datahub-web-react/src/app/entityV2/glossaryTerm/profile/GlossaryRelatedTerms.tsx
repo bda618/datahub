@@ -1,8 +1,11 @@
 import { Menu } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components/macro';
-import { useEntityData } from '../../../entity/shared/EntityContext';
-import GlossaryRelatedTermsResult, { RelatedTermTypes } from './GlossaryRelatedTermsResult';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import GlossaryRelatedTermsResult, {
+    RelatedTermTypes,
+} from '@app/entityV2/glossaryTerm/profile/GlossaryRelatedTermsResult';
 
 const DetailWrapper = styled.div`
     display: inline-flex;
@@ -11,7 +14,7 @@ const DetailWrapper = styled.div`
 `;
 
 const MenuWrapper = styled.div`
-    border-right: 2px solid #f5f5f5;
+    border-right: 2px solid ${(props) => props.theme.colors.border};
     flex-basis: 30%;
     flex-shrink: 1;
 `;

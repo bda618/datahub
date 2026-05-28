@@ -1,23 +1,24 @@
-import React from 'react';
 import { AuditOutlined } from '@ant-design/icons';
-import { REDESIGN_COLORS } from '@src/app/entity/shared/constants';
 import { Tooltip } from '@components';
+import React from 'react';
 import { Link } from 'react-router-dom';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 const DataContractLogo = styled(AuditOutlined)`
     margin-left: 8px;
     font-size: 16px;
-    color: ${REDESIGN_COLORS.BLUE};
+    color: ${(props) => props.theme.colors.iconBrand};
 `;
+
 export const DataContractBadge = ({ link }: { link: string }) => {
+    const theme = useTheme();
     return (
         <Tooltip
             title={
                 <>
                     Part of Data Contract{' '}
-                    <Link to={link} style={{ color: REDESIGN_COLORS.BLUE }}>
-                        view
+                    <Link to={link} style={{ color: theme.colors.icon }}>
+                        View
                     </Link>
                 </>
             }

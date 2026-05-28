@@ -1,11 +1,11 @@
-import React from 'react';
 import { Button, Typography } from 'antd';
+import React from 'react';
 import styled from 'styled-components';
-import { ANTD_GRAY } from '../../../constants';
-import { DataHubView } from '../../../../../../types.generated';
+
+import { DataHubView } from '@types';
 
 const StyledMatchingViewsLabel = styled.div`
-    color: ${ANTD_GRAY[8]};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 interface Props {

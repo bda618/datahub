@@ -1,6 +1,6 @@
+import ColorHash from 'color-hash';
 import React from 'react';
 import styled, { css } from 'styled-components';
-import ColorHash from 'color-hash';
 
 type Props = {
     name: string;
@@ -12,7 +12,7 @@ const generateColor = new ColorHash({
     saturation: 0.9,
 });
 
-export const StyledDiv = styled.div<{ $color: any; $colorHash?: string }>`
+const StyledDiv = styled.div<{ $color: any; $colorHash?: string }>`
     ${(props) =>
         props.$colorHash &&
         css`

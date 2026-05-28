@@ -1,18 +1,25 @@
-import { Icon, Input, SimpleSelect, TextArea } from '@src/alchemy-components';
-import { AllowedValue, PropertyCardinality, SearchResult, StructuredPropertyEntity } from '@src/types.generated';
-import { Form, FormInstance } from 'antd';
 import { Tooltip } from '@components';
+import { Info } from '@phosphor-icons/react/dist/csr/Info';
+import { Form, FormInstance } from 'antd';
 import React from 'react';
-import AdvancedOptions from './AdvancedOptions';
-import RequiredAsterisk from './RequiredAsterisk';
-import DisplayPreferences from './DisplayPreferences';
-import StructuredPropsFormSection from './StructuredPropsFormSection';
-import { FieldLabel, FlexContainer, GridFormItem, RowContainer } from './styledComponents';
-import useStructuredProp from './useStructuredProp';
-import { PropValueField, StructuredProp, valueTypes } from './utils';
+
+import AdvancedOptions from '@app/govern/structuredProperties/AdvancedOptions';
+import DisplayPreferences from '@app/govern/structuredProperties/DisplayPreferences';
+import RequiredAsterisk from '@app/govern/structuredProperties/RequiredAsterisk';
+import StructuredPropsFormSection from '@app/govern/structuredProperties/StructuredPropsFormSection';
+import {
+    FieldLabel,
+    FlexContainer,
+    GridFormItem,
+    RowContainer,
+} from '@app/govern/structuredProperties/styledComponents';
+import useStructuredProp from '@app/govern/structuredProperties/useStructuredProp';
+import { PropValueField, StructuredProp, valueTypes } from '@app/govern/structuredProperties/utils';
+import { Icon, Input, SimpleSelect, TextArea } from '@src/alchemy-components';
+import { AllowedValue, PropertyCardinality, StructuredPropertyEntity } from '@src/types.generated';
 
 interface Props {
-    selectedProperty: SearchResult | undefined;
+    selectedProperty: StructuredPropertyEntity | undefined;
     form: FormInstance;
     formValues: StructuredProp | undefined;
     setFormValues: React.Dispatch<React.SetStateAction<StructuredProp | undefined>>;
@@ -76,7 +83,7 @@ const StructuredPropsForm = ({
                         Property Type
                         <RequiredAsterisk />
                         <Tooltip title="The allowed value type of the property" showArrow={false}>
-                            <Icon icon="Info" color="violet" size="lg" />
+                            <Icon icon={Info} color="violet" size="lg" />
                         </Tooltip>
                     </FlexContainer>
                 </FieldLabel>
@@ -105,6 +112,7 @@ const StructuredPropsForm = ({
                             showDescriptions
                             data-testid="structured-props-select-input-type"
                             optionListTestId="structured-props-property-type-options-list"
+                            width="full"
                         />
                     </GridFormItem>
                 </Tooltip>

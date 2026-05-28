@@ -1,38 +1,37 @@
-import React, { useContext, useState } from 'react';
+import { BookOpen } from '@phosphor-icons/react/dist/csr/BookOpen';
 import { Col } from 'antd';
+import React, { useContext, useState } from 'react';
 import { matchPath } from 'react-router';
 import { useLocation } from 'react-router-dom';
-import styled from 'styled-components/macro';
-import { ReadOutlined } from '@ant-design/icons';
-import colors from '@src/alchemy-components/theme/foundations/colors';
-import { PageRoutes } from '../../../conf/Global';
-import { useGetGroupQuery } from '../../../graphql/group.generated';
-import { OriginType, EntityRelationshipsResult, Ownership, EntityType } from '../../../types.generated';
-import { EntityContext } from '../../entity/shared/EntityContext';
-import { EntityHead } from '../../shared/EntityHead';
-import { GenericEntityProperties } from '../../entity/shared/types';
-import { Message } from '../../shared/Message';
-import GroupMembers from './GroupMembers';
-import { RoutedTabs } from '../../shared/RoutedTabs';
-import GroupSidebar from './GroupSidebar';
-import { GroupAssets } from './GroupAssets';
-import { ErrorSection } from '../../shared/error/ErrorSection';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import NonExistentEntityPage from '../shared/entity/NonExistentEntityPage';
-import CompactContext from '../../shared/CompactContext';
-import { StyledEntitySidebarContainer, StyledSidebar } from '../shared/containers/profile/sidebar/EntityProfileSidebar';
-import EntitySidebarSectionsTab from '../shared/containers/profile/sidebar/EntitySidebarSectionsTab';
-import EntitySidebarContext from '../../sharedV2/EntitySidebarContext';
-import SidebarCollapsibleHeader from '../shared/containers/profile/sidebar/SidebarCollapsibleHeader';
-import { EntitySidebarTabs } from '../shared/containers/profile/sidebar/EntitySidebarTabs';
-import { REDESIGN_COLORS } from '../shared/constants';
+import styled, { useTheme } from 'styled-components/macro';
+
+import { EntityContext } from '@app/entity/shared/EntityContext';
+import { GenericEntityProperties } from '@app/entity/shared/types';
+import { GroupAssets } from '@app/entityV2/group/GroupAssets';
+import GroupMembers from '@app/entityV2/group/GroupMembers';
+import GroupSidebar from '@app/entityV2/group/GroupSidebar';
+import { TabType } from '@app/entityV2/group/types';
+import {
+    StyledEntitySidebarContainer,
+    StyledSidebar,
+} from '@app/entityV2/shared/containers/profile/sidebar/EntityProfileSidebar';
+import EntitySidebarSectionsTab from '@app/entityV2/shared/containers/profile/sidebar/EntitySidebarSectionsTab';
+import { EntitySidebarTabs } from '@app/entityV2/shared/containers/profile/sidebar/EntitySidebarTabs';
+import SidebarCollapsibleHeader from '@app/entityV2/shared/containers/profile/sidebar/SidebarCollapsibleHeader';
+import NonExistentEntityPage from '@app/entityV2/shared/entity/NonExistentEntityPage';
+import CompactContext from '@app/shared/CompactContext';
+import { EntityHead } from '@app/shared/EntityHead';
+import { Message } from '@app/shared/Message';
+import { RoutedTabs } from '@app/shared/RoutedTabs';
+import { ErrorSection } from '@app/shared/error/ErrorSection';
+import EntitySidebarContext from '@app/sharedV2/EntitySidebarContext';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+import { PageRoutes } from '@conf/Global';
+
+import { useGetGroupQuery } from '@graphql/group.generated';
+import { EntityRelationshipsResult, EntityType, OriginType, Ownership } from '@types';
 
 const messageStyle = { marginTop: '10%' };
-
-export enum TabType {
-    Assets = 'Owner Of',
-    Members = 'Members',
-}
 
 const ENABLED_TAB_TYPES = [TabType.Assets, TabType.Members];
 
@@ -46,7 +45,7 @@ const GroupProfileWrapper = styled.div`
         margin: 0;
     }
 
-    background-color: ${REDESIGN_COLORS.WHITE};
+    background-color: ${(props) => props.theme.colors.bg};
     border-radius: 8px;
     overflow: hidden;
     height: 100%;
@@ -58,7 +57,7 @@ const GroupProfileWrapper = styled.div`
 
 const ContentContainer = styled.div<{ isVisible: boolean }>`
     flex: 1;
-    ${(props) => props.isVisible && `border-right: 1px solid ${REDESIGN_COLORS.SIDE_BAR_BORDER_RIGHT};`}
+    ${(props) => props.isVisible && `border-right: 1px solid ${props.theme.colors.border};`}
     overflow: inherit;
 `;
 
@@ -70,17 +69,13 @@ type Props = {
     urn: string;
 };
 
-const defaultTabDisplayConfig = {
-    visible: (_, _1) => true,
-    enabled: (_, _1) => true,
-};
-
 /**
  * Responsible for reading & writing groups.
  *
  * TODO: Add use of apollo cache to improve fetching performance.
  */
 export default function GroupProfile({ urn }: Props) {
+    const theme = useTheme();
     const entityRegistry = useEntityRegistry();
     const location = useLocation();
     const isCompact = React.useContext(CompactContext);
@@ -95,10 +90,11 @@ export default function GroupProfile({ urn }: Props) {
     const finalTabs = [
         {
             name: 'About',
-            icon: ReadOutlined,
+            icon: BookOpen,
             component: EntitySidebarSectionsTab,
             display: {
-                ...defaultTabDisplayConfig,
+                visible: () => true,
+                enabled: () => true,
             },
         },
     ];
@@ -119,12 +115,13 @@ export default function GroupProfile({ urn }: Props) {
             },
             {
                 name: TabType.Members,
-                path: TabType.Members.toLocaleLowerCase(),
+                path: TabType.Members.toLocaleLowerCase(), // do not remove toLocaleLowerCase as we link to this tab elsewhere
                 content: (
                     <GroupMembers
                         urn={urn}
                         pageSize={MEMBER_PAGE_SIZE}
                         isExternalGroup={isExternalGroup}
+                        externalGroupType={externalGroupType}
                         onChangeMembers={() => {
                             setTimeout(() => refetch(), 3000);
                         }}
@@ -213,7 +210,7 @@ export default function GroupProfile({ urn }: Props) {
                         md={17}
                         sm={24}
                         xs={24}
-                        style={{ borderLeft: `1px solid ${colors.gray[100]}`, height: '100%' }}
+                        style={{ borderLeft: `1px solid ${theme.colors.border}`, height: '100%' }}
                     >
                         <RoutedTabs defaultPath={defaultTabPath} tabs={getTabs()} onTabChange={onTabChange} />
                     </Col>

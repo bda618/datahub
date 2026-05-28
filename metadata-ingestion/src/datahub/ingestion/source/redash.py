@@ -6,13 +6,14 @@ from typing import Dict, Iterable, List, Optional
 
 import dateutil.parser as dp
 from packaging import version
+from pydantic import SecretStr
 from pydantic.fields import Field
 from redash_toolbelt import Redash
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, TransparentSecretStr
 from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (  # SourceCapability,; capability,
@@ -145,7 +146,9 @@ class QualifiedNameParser:
     def get_segments(self, table_name: str) -> Dict:
         segments = table_name.split(self.split_char)
         segments.reverse()
-        self.segments_dict = dict(zip(list(reversed(self.names)), segments))
+        self.segments_dict = dict(
+            zip(list(reversed(self.names)), segments, strict=False)
+        )
         return self.segments_dict
 
     def get_full_qualified_name(self, database_name: str, table_name: str) -> str:
@@ -255,7 +258,9 @@ class RedashConfig(
     connect_uri: str = Field(
         default="http://localhost:5000", description="Redash base URL."
     )
-    api_key: str = Field(default="REDASH_API_KEY", description="Redash user API key.")
+    api_key: TransparentSecretStr = Field(
+        default=SecretStr("REDASH_API_KEY"), description="Redash user API key."
+    )
 
     # Optionals
     dashboard_patterns: AllowDenyPattern = Field(
@@ -338,7 +343,9 @@ class RedashSource(StatefulIngestionSourceBase):
         # Handle trailing slash removal
         self.config.connect_uri = self.config.connect_uri.strip("/")
 
-        self.client = Redash(self.config.connect_uri, self.config.api_key)
+        self.client = Redash(
+            self.config.connect_uri, self.config.api_key.get_secret_value()
+        )
         self.client.session.headers.update(
             {
                 "Content-Type": "application/json",
@@ -421,8 +428,9 @@ class RedashSource(StatefulIngestionSourceBase):
         return database_name
 
     def _get_datasource_urns(
-        self, data_source: Dict, sql_query_data: Dict = {}
+        self, data_source: Dict, sql_query_data: Optional[Dict] = None
     ) -> Optional[List[str]]:
+        sql_query_data = sql_query_data or {}
         platform = self._get_platform_based_on_datasource(data_source)
         database_name = self._get_database_name_based_on_datasource(data_source)
         data_source_syntax = data_source.get("syntax")
@@ -446,7 +454,7 @@ class RedashSource(StatefulIngestionSourceBase):
                 dataset_urns = sql_parser_in_tables.in_tables
                 if sql_parser_in_tables.debug_info.table_error:
                     self.report.queries_problem_parsing.add(str(query_id))
-                    self.error(
+                    self.warn(
                         logger,
                         "sql-parsing",
                         f"exception {sql_parser_in_tables.debug_info.table_error} in parsing query-{query_id}-datasource-{data_source_id}",

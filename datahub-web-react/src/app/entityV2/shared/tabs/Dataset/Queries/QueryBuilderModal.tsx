@@ -1,12 +1,16 @@
+import { message } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { Button, message, Modal, Typography } from 'antd';
-import { useCreateQueryMutation, useUpdateQueryMutation } from '../../../../../../graphql/query.generated';
-import { QueryLanguage } from '../../../../../../types.generated';
-import { QueryBuilderState } from './types';
-import ClickOutside from '../../../../../shared/ClickOutside';
-import QueryBuilderForm from './QueryBuilderForm';
-import analytics, { EventType } from '../../../../../analytics';
+
+import analytics, { EventType } from '@app/analytics';
+import QueryBuilderForm from '@app/entityV2/shared/tabs/Dataset/Queries/QueryBuilderForm';
+import { QueryBuilderState } from '@app/entityV2/shared/tabs/Dataset/Queries/types';
+import ClickOutside from '@app/shared/ClickOutside';
+import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
+import { Modal } from '@src/alchemy-components';
+
+import { useCreateQueryMutation, useUpdateQueryMutation } from '@graphql/query.generated';
+import { QueryLanguage } from '@types';
 
 const StyledModal = styled(Modal)`
     top: 4vh;
@@ -39,6 +43,7 @@ type Props = {
 export default function QueryBuilderModal({ initialState, datasetUrn, onClose, onSubmit }: Props) {
     const isUpdating = initialState?.urn !== undefined;
 
+    const [showConfirmationModal, setShowConfirmationModal] = useState(false);
     const [builderState, setBuilderState] = useState<QueryBuilderState>(initialState || DEFAULT_STATE);
     const [createQueryMutation] = useCreateQueryMutation();
     const [updateQueryMutation] = useUpdateQueryMutation();
@@ -125,49 +130,44 @@ export default function QueryBuilderModal({ initialState, datasetUrn, onClose, o
         }
     };
 
-    const confirmClose = () => {
-        Modal.confirm({
-            title: `Exit Query Editor`,
-            content: `Are you sure you want to exit the editor? Any unsaved changes will be lost.`,
-            onOk() {
-                setBuilderState(DEFAULT_STATE);
-                onClose?.();
-            },
-            onCancel() {},
-            okText: 'Yes',
-            maskClosable: true,
-            closable: true,
-        });
-    };
-
     return (
-        <ClickOutside onClickOutside={confirmClose} wrapperClassName="query-builder-modal">
+        <ClickOutside onClickOutside={() => setShowConfirmationModal(true)} wrapperClassName="query-builder-modal">
             <StyledModal
                 width={MODAL_WIDTH}
                 bodyStyle={MODAL_BODY_STYLE}
-                title={<Typography.Text>{isUpdating ? 'Edit' : 'New'} Query</Typography.Text>}
+                title={isUpdating ? 'Edit Query' : 'New Query'}
                 className="query-builder-modal"
-                visible
-                onCancel={confirmClose}
-                footer={
-                    <>
-                        <Button onClick={onClose} data-testid="query-builder-cancel-button" type="text">
-                            Cancel
-                        </Button>
-                        <Button
-                            id="createQueryButton"
-                            data-testid="query-builder-save-button"
-                            onClick={saveQuery}
-                            type="primary"
-                        >
-                            Save
-                        </Button>
-                    </>
-                }
+                open
+                onCancel={() => setShowConfirmationModal(true)}
+                buttons={[
+                    {
+                        text: 'Cancel',
+                        variant: 'text',
+                        onClick: () => onClose?.(),
+                        buttonDataTestId: 'query-builder-cancel-button',
+                    },
+                    {
+                        text: 'Save',
+                        variant: 'filled',
+                        id: 'createQueryButton',
+                        buttonDataTestId: 'query-builder-save-button',
+                        onClick: saveQuery,
+                    },
+                ]}
                 data-testid="query-builder-modal"
             >
                 <QueryBuilderForm state={builderState} updateState={setBuilderState} />
             </StyledModal>
+            <ConfirmationModal
+                isOpen={showConfirmationModal}
+                handleClose={() => setShowConfirmationModal(false)}
+                handleConfirm={() => {
+                    setBuilderState(DEFAULT_STATE);
+                    onClose?.();
+                }}
+                modalTitle="Exit Query Editor"
+                modalText="Are you sure you want to exit the editor? Any unsaved changes will be lost."
+            />
         </ClickOutside>
     );
 }

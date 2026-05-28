@@ -1,12 +1,11 @@
-import React from 'react';
 import { Typography } from 'antd';
+import React from 'react';
 import styled from 'styled-components';
 
 const AssertionTitleContainer = styled.div`
     display: flex;
     justify-content: space-between;
-    margin: 20px;
-    height: 50px;
+    align-items: center;
     div {
         border-bottom: 0px;
     }
@@ -19,7 +18,7 @@ const AssertionListTitle = styled(Typography.Title)`
 
 const SubTitle = styled(Typography.Text)`
     font-size: 14px;
-    color: #5f6685;
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 export const AssertionListTitleContainer = () => {

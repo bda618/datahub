@@ -1,24 +1,27 @@
-import { Modal, message } from 'antd';
 import { useApolloClient } from '@apollo/client';
+import { toast } from '@components';
+import { Modal } from 'antd';
+
+import analytics, { EventType } from '@app/analytics';
+import {
+    DEFAULT_PAGE_SIZE,
+    removeFromListPoliciesCache,
+    updateListPoliciesCache,
+} from '@app/permissions/policy/policyUtils';
+
+import { useCreatePolicyMutation, useDeletePolicyMutation, useUpdatePolicyMutation } from '@graphql/policy.generated';
 import {
     EntityType,
+    Maybe,
     Policy,
     PolicyMatchCriterionInput,
     PolicyMatchFilter,
     PolicyMatchFilterInput,
     PolicyState,
     PolicyType,
-    Maybe,
     PolicyUpdateInput,
     ResourceFilterInput,
-} from '../../../types.generated';
-import {
-    useCreatePolicyMutation,
-    useDeletePolicyMutation,
-    useUpdatePolicyMutation,
-} from '../../../graphql/policy.generated';
-import analytics, { EventType } from '../../analytics';
-import { DEFAULT_PAGE_SIZE, removeFromListPoliciesCache, updateListPoliciesCache } from './policyUtils';
+} from '@types';
 
 type PrivilegeOptionType = {
     type?: string;
@@ -132,7 +135,7 @@ export function usePolicy(
                         entityUrn: policy?.urn,
                         entityType: EntityType.DatahubPolicy,
                     });
-                    message.success('Successfully removed policy.');
+                    toast.success('Successfully removed policy.');
                     removeFromListPoliciesCache(client, policy?.urn, DEFAULT_PAGE_SIZE);
                     setTimeout(() => {
                         policiesRefetch();
@@ -165,7 +168,7 @@ export function usePolicy(
                 __typename: 'ListPoliciesResult',
             };
             updateListPoliciesCache(client, updatePolicies, DEFAULT_PAGE_SIZE);
-            message.success(`Successfully ${newState === PolicyState.Active ? 'activated' : 'deactivated'} policy.`);
+            toast.success(`Successfully ${newState === PolicyState.Active ? 'activated' : 'deactivated'} policy.`);
             setTimeout(() => {
                 policiesRefetch();
             }, 4000);
@@ -189,7 +192,7 @@ export function usePolicy(
                     type: EventType.UpdatePolicyEvent,
                     policyUrn: focusPolicyUrn,
                 });
-                message.success('Successfully saved policy.');
+                toast.success('Successfully saved policy.');
                 updateListPoliciesCache(client, newPolicy, DEFAULT_PAGE_SIZE);
                 setTimeout(() => {
                     policiesRefetch();
@@ -210,7 +213,7 @@ export function usePolicy(
                 analytics.event({
                     type: EventType.CreatePolicyEvent,
                 });
-                message.success('Successfully saved policy.');
+                toast.success('Successfully saved policy.');
                 setTimeout(() => {
                     policiesRefetch();
                 }, 1000);

@@ -1,13 +1,10 @@
 import React from 'react';
 import styled from 'styled-components';
-import {
-    AggregationMetadata,
-    EntityType,
-    FacetMetadata,
-    SearchAcrossLineageResults,
-} from '../../../../../../../types.generated';
-import { EntityRegistry } from '../../../../../../../entityRegistryContext';
-import { pluralize } from '../../../../../../shared/textUtil';
+
+import { pluralize } from '@app/shared/textUtil';
+import { EntityRegistry } from '@src/entityRegistryContext';
+
+import { AggregationMetadata, EntityType, FacetMetadata, SearchAcrossLineageResults } from '@types';
 
 const UNIT_SEPARATOR = '␞';
 
@@ -15,13 +12,13 @@ const SummaryText = styled.span`
     font-weight: bold;
 `;
 
-export type LineageDirectionTypeSummary = {
+type LineageDirectionTypeSummary = {
     type: string;
     count: number;
     isEntityType: boolean; // If false, this represents a sub-type.
 };
 
-export type LineageDirectionSummary = {
+type LineageDirectionSummary = {
     total: number;
     types: LineageDirectionTypeSummary[];
 };
@@ -113,7 +110,9 @@ export const getRelatedEntitySummary = (
                         {type.count}{' '}
                         {pluralize(
                             type.count,
-                            type.isEntityType ? entityRegistry.getEntityName(type.type as EntityType) ?? '' : type.type,
+                            type.isEntityType
+                                ? (entityRegistry.getEntityName(type.type as EntityType) ?? '')
+                                : type.type,
                         ).toLocaleLowerCase()}
                         {idx < summary.types.length - 1 && <>, </>}
                     </SummaryText>

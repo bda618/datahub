@@ -1,18 +1,24 @@
 import { Icon } from '@components';
-import { colors, radius, spacing, typography, borders } from '@src/alchemy-components/theme';
-import { AlignmentOptions } from '@src/alchemy-components/theme/config';
 import styled from 'styled-components';
 
+import { borders, radius, spacing, typography } from '@src/alchemy-components/theme';
+import { AlignmentOptions } from '@src/alchemy-components/theme/config';
+
 export const TableContainer = styled.div<{ isScrollable?: boolean; maxHeight?: string; isBorderless?: boolean }>(
-    ({ isScrollable, maxHeight, isBorderless }) => ({
+    ({ isScrollable, maxHeight, isBorderless, theme }) => ({
         borderRadius: isBorderless ? radius.none : radius.lg,
-        border: isBorderless ? borders.none : `1px solid ${colors.gray[1400]}`,
+        border: isBorderless ? borders.none : `1px solid ${theme.colors.border}`,
         overflow: isScrollable ? 'auto' : 'hidden',
         width: '100%',
         maxHeight: maxHeight || '100%',
 
+        '&::-webkit-scrollbar': {
+            height: '8px', // For horizontal scrollbar - visible
+            width: '0px', // For vertical scrollbar - invisible
+        },
+
         '& .selected-row': {
-            background: `${colors.gray[100]} !important`,
+            background: `${theme.colors.bgHover} !important`,
         },
     }),
 );
@@ -22,25 +28,31 @@ export const BaseTable = styled.table({
     width: '100%',
 });
 
-export const TableHeader = styled.thead({
-    backgroundColor: colors.gray[1500],
+export const TableHeader = styled.thead(({ theme }) => ({
+    backgroundColor: theme.colors.bgSurface,
     borderRadius: radius.lg,
+    borderBottom: `1px solid ${theme.colors.border}`,
     position: 'sticky',
     top: 0,
     zIndex: 100,
-});
+}));
 
-export const TableHeaderCell = styled.th<{ width?: string; shouldAddRightBorder?: boolean }>(
-    ({ width, shouldAddRightBorder }) => ({
-        padding: `${spacing.sm} ${spacing.md}`,
-        color: colors.gray[600],
-        fontSize: typography.fontSizes.sm,
-        fontWeight: typography.fontWeights.medium,
-        textAlign: 'start',
-        width: width || 'auto',
-        borderRight: shouldAddRightBorder ? `1px solid ${colors.gray[1400]}` : borders.none,
-    }),
-);
+export const TableHeaderCell = styled.th<{
+    width?: string;
+    maxWidth?: string;
+    minWidth?: string;
+    shouldAddRightBorder?: boolean;
+}>(({ width, maxWidth, minWidth, shouldAddRightBorder, theme }) => ({
+    padding: `${spacing.sm} ${spacing.md}`,
+    color: theme.colors.textSecondary,
+    fontSize: typography.fontSizes.sm,
+    fontWeight: typography.fontWeights.medium,
+    textAlign: 'start',
+    width: width || 'auto',
+    maxWidth,
+    minWidth,
+    borderRight: shouldAddRightBorder ? `1px solid ${theme.colors.border}` : borders.none,
+}));
 
 export const HeaderContainer = styled.div<{ alignment?: AlignmentOptions }>(({ alignment }) => ({
     display: 'flex',
@@ -51,40 +63,51 @@ export const HeaderContainer = styled.div<{ alignment?: AlignmentOptions }>(({ a
     justifyContent: alignment,
 }));
 
-export const TableRow = styled.tr<{ canExpand?: boolean; isRowClickable?: boolean }>(
-    ({ canExpand, isRowClickable }) => ({
-        background: canExpand ? colors.gray[100] : 'transparent',
-        cursor: isRowClickable ? 'pointer' : 'normal',
-        '&:last-child': {
-            '& td': {
-                borderBottom: 'none',
-            },
+export const TableRow = styled.tr<{
+    canExpand?: boolean;
+    isRowClickable?: boolean;
+    isFocused?: boolean;
+    canHover?: boolean;
+}>(({ canExpand, isRowClickable, isFocused, canHover, theme }) => ({
+    background: canExpand ? theme.colors.bgHover : 'transparent',
+    ...(isFocused
+        ? {
+              background: theme.colors.bgSelectedSubtle,
+          }
+        : {}),
+    '&:hover': canHover ? { backgroundColor: theme.colors.bgHover } : {},
+    cursor: isRowClickable ? 'pointer' : 'normal',
+    '&:last-child': {
+        '& td': {
+            borderBottom: 'none',
         },
+    },
 
-        '& td:first-child': {
-            fontWeight: typography.fontWeights.medium,
-            color: colors.gray[600],
-        },
-    }),
-);
+    '& td:first-child': {
+        fontWeight: typography.fontWeights.bold,
+        color: theme.colors.text,
+        fontSize: '12px',
+    },
+}));
 
 export const TableCell = styled.td<{
     width?: string;
     alignment?: AlignmentOptions;
     isGroupHeader?: boolean;
-}>(({ width, alignment, isGroupHeader }) => ({
+    isExpanded?: boolean;
+}>(({ width, alignment, isGroupHeader, theme }) => ({
     padding: isGroupHeader
         ? `${spacing.xsm} ${spacing.xsm} ${spacing.xsm} ${spacing.md}`
         : `${spacing.md} ${spacing.xsm} ${spacing.md} ${spacing.md}`,
-    borderBottom: isGroupHeader ? `1px solid ${colors.gray[200]}` : `1px solid ${colors.gray[100]}`,
-    color: colors.gray[1700],
+    borderBottom: `1px solid ${theme.colors.border}`,
+    color: theme.colors.textSecondary,
     fontSize: typography.fontSizes.md,
     fontWeight: typography.fontWeights.normal,
     overflow: 'hidden',
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap',
     maxWidth: width || 'unset',
-    textAlign: alignment || 'left',
+    textAlign: (alignment as AlignmentOptions) || 'left',
 }));
 
 export const SortIconsContainer = styled.div({
@@ -92,16 +115,16 @@ export const SortIconsContainer = styled.div({
     flexDirection: 'column',
 });
 
-export const SortIcon = styled(Icon)<{ isActive?: boolean }>(({ isActive }) => ({
+export const SortIcon = styled(Icon)<{ isActive?: boolean }>(({ isActive, theme }) => ({
     margin: '-3px',
-    stroke: isActive ? colors.violet[600] : undefined,
+    stroke: isActive ? theme.colors.borderBrand : undefined,
 
     ':hover': {
         cursor: 'pointer',
     },
 }));
 
-export const LoadingContainer = styled.div({
+export const LoadingContainer = styled.div(({ theme }) => ({
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
@@ -109,6 +132,11 @@ export const LoadingContainer = styled.div({
     height: '100%',
     width: '100%',
     gap: spacing.sm,
-    color: colors.violet[700],
+    color: theme.colors.buttonFillBrand,
     fontSize: typography.fontSizes['3xl'],
+}));
+
+export const CheckboxWrapper = styled.div({
+    display: 'flex',
+    alignItems: 'center',
 });

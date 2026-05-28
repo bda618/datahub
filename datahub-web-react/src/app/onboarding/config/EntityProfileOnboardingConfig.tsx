@@ -1,13 +1,14 @@
+import { Text } from '@components';
 import React from 'react';
-import { Typography } from 'antd';
-import { OnboardingStep } from '../OnboardingStep';
+
+import { OnboardingStep } from '@app/onboarding/OnboardingStep';
 
 // Entity profile tabs. Note that the 'rc-tab' prefix for the ID is added by the antd library and may change in the future.
-export const ENTITY_PROFILE_ENTITIES_ID = 'entity-profile-entities';
+const ENTITY_PROFILE_ENTITIES_ID = 'entity-profile-entities';
 export const ENTITY_PROFILE_PROPERTIES_ID = 'entity-profile-properties';
-export const ENTITY_PROFILE_DOCUMENTATION_ID = 'entity-profile-documentation';
+const ENTITY_PROFILE_DOCUMENTATION_ID = 'entity-profile-documentation';
 export const ENTITY_PROFILE_LINEAGE_ID = 'entity-profile-lineage';
-export const ENTITY_PROFILE_SCHEMA_ID = 'entity-profile-schema';
+const ENTITY_PROFILE_SCHEMA_ID = 'entity-profile-schema';
 
 // Entity profile sidebar
 export const ENTITY_PROFILE_OWNERS_ID = 'entity-profile-owners';
@@ -22,11 +23,11 @@ export const EntityProfileOnboardingConfig: OnboardingStep[] = [
         selector: `[id^='rc-tabs'][id$='Entities']`,
         title: 'Entities Tab',
         content: (
-            <Typography.Paragraph>
+            <Text type="div" size="md">
                 <p>
                     You can view the <strong>Entities</strong> that belong to a <strong>Container</strong> on this tab.
                 </p>
-            </Typography.Paragraph>
+            </Text>
         ),
     },
     {
@@ -34,7 +35,7 @@ export const EntityProfileOnboardingConfig: OnboardingStep[] = [
         selector: `[id^='rc-tabs'][id$='Properties']`,
         title: 'Properties Tab',
         content: (
-            <Typography.Paragraph>
+            <Text type="div" size="md">
                 <p>
                     You can view an entity&apos;s key-value <strong>Properties</strong> on this tab. These are sourced
                     from the original Data Platform.
@@ -42,7 +43,7 @@ export const EntityProfileOnboardingConfig: OnboardingStep[] = [
                 <p>
                     If this tab is disabled, <strong>Properties</strong> have not been ingested for this entity.
                 </p>
-            </Typography.Paragraph>
+            </Text>
         ),
     },
     {
@@ -50,7 +51,7 @@ export const EntityProfileOnboardingConfig: OnboardingStep[] = [
         selector: `[id^='rc-tabs'][id$='Documentation']`,
         title: 'Documentation Tab',
         content: (
-            <Typography.Paragraph>
+            <Text type="div" size="md">
                 <p>
                     You can view and edit an entity&apos;s <strong>Documentation</strong> on this tab.
                 </p>
@@ -58,7 +59,7 @@ export const EntityProfileOnboardingConfig: OnboardingStep[] = [
                     <strong>Documentation</strong> should provide descriptive information about this data asset. It can
                     also contain links to external resources.
                 </p>
-            </Typography.Paragraph>
+            </Text>
         ),
     },
     {
@@ -66,7 +67,7 @@ export const EntityProfileOnboardingConfig: OnboardingStep[] = [
         selector: `[id^='rc-tabs'][id$='Lineage']`,
         title: 'Lineage Tab',
         content: (
-            <Typography.Paragraph>
+            <Text type="div" size="md">
                 <p>
                     You can view an entity&apos;s <strong>Lineage</strong> on this tab.
                 </p>
@@ -77,7 +78,7 @@ export const EntityProfileOnboardingConfig: OnboardingStep[] = [
                 <p>
                     If this tab is disabled, <strong>Lineage</strong> have not been ingested for this entity.
                 </p>
-            </Typography.Paragraph>
+            </Text>
         ),
     },
     {
@@ -85,7 +86,7 @@ export const EntityProfileOnboardingConfig: OnboardingStep[] = [
         selector: `[id^='rc-tabs'][id$='Schema']`,
         title: 'Schema Tab',
         content: (
-            <Typography.Paragraph>
+            <Text type="div" size="md">
                 <p>
                     You can view a Dataset&apos;s <strong>Schema</strong> on this tab.
                 </p>
@@ -93,7 +94,7 @@ export const EntityProfileOnboardingConfig: OnboardingStep[] = [
                     You can also view or add <strong>Documentation</strong>, <strong>Tags</strong>, and{' '}
                     <strong>Glossary Terms</strong> for specific columns.
                 </p>
-            </Typography.Paragraph>
+            </Text>
         ),
     },
     {
@@ -101,7 +102,7 @@ export const EntityProfileOnboardingConfig: OnboardingStep[] = [
         selector: `#${ENTITY_PROFILE_OWNERS_ID}`,
         title: 'Owners',
         content: (
-            <Typography.Paragraph>
+            <Text type="div" size="md">
                 <p>
                     You can view and add <strong>Owners</strong> to this asset here.
                 </p>
@@ -109,7 +110,7 @@ export const EntityProfileOnboardingConfig: OnboardingStep[] = [
                     <strong>Owners</strong> are <strong>Users</strong> or <strong>Groups</strong> who are responsible
                     for managing this asset.
                 </p>
-            </Typography.Paragraph>
+            </Text>
         ),
     },
     {
@@ -117,7 +118,7 @@ export const EntityProfileOnboardingConfig: OnboardingStep[] = [
         selector: `#${ENTITY_PROFILE_TAGS_ID}`,
         title: 'Tags',
         content: (
-            <Typography.Paragraph>
+            <Text type="div" size="md">
                 <p>
                     You can view and add <strong>Tags</strong> to this asset here.
                 </p>
@@ -127,12 +128,12 @@ export const EntityProfileOnboardingConfig: OnboardingStep[] = [
                 </p>
                 <p>
                     Learn more about <strong>Tags</strong>{' '}
-                    <a target="_blank" rel="noreferrer noopener" href="https://datahubproject.io/docs/tags">
+                    <a target="_blank" rel="noreferrer noopener" href="https://docs.datahub.com/docs/tags">
                         {' '}
                         here.{' '}
                     </a>
                 </p>
-            </Typography.Paragraph>
+            </Text>
         ),
     },
     {
@@ -140,7 +141,7 @@ export const EntityProfileOnboardingConfig: OnboardingStep[] = [
         selector: `#${ENTITY_PROFILE_GLOSSARY_TERMS_ID}`,
         title: 'Glossary Terms',
         content: (
-            <Typography.Paragraph>
+            <Text type="div" size="md">
                 <p>
                     You can view and add <strong>Glossary Terms</strong> to this asset here.
                 </p>
@@ -154,13 +155,13 @@ export const EntityProfileOnboardingConfig: OnboardingStep[] = [
                     <a
                         target="_blank"
                         rel="noreferrer noopener"
-                        href="https://datahubproject.io/docs/glossary/business-glossary"
+                        href="https://docs.datahub.com/docs/glossary/business-glossary"
                     >
                         {' '}
                         here.
                     </a>
                 </p>
-            </Typography.Paragraph>
+            </Text>
         ),
     },
     {
@@ -168,7 +169,7 @@ export const EntityProfileOnboardingConfig: OnboardingStep[] = [
         selector: `#${ENTITY_PROFILE_DOMAINS_ID}`,
         title: 'Domain',
         content: (
-            <Typography.Paragraph>
+            <Text type="div" size="md">
                 <p>
                     You can view and set this asset&apos;s <strong>Domain</strong> here.
                 </p>
@@ -178,12 +179,12 @@ export const EntityProfileOnboardingConfig: OnboardingStep[] = [
                 </p>
                 <p>
                     Learn more about <strong>Domains</strong>{' '}
-                    <a target="_blank" rel="noreferrer noopener" href="https://datahubproject.io/docs/domains">
+                    <a target="_blank" rel="noreferrer noopener" href="https://docs.datahub.com/docs/domains">
                         {' '}
                         here.
                     </a>
                 </p>
-            </Typography.Paragraph>
+            </Text>
         ),
     },
     {
@@ -191,13 +192,13 @@ export const EntityProfileOnboardingConfig: OnboardingStep[] = [
         selector: `#${ENTITY_PROFILE_V2_SIDEBAR_ID}`,
         title: 'Introducing the Asset Sidebar',
         content: (
-            <Typography.Paragraph>
+            <Text type="div" size="md">
                 <p>
                     The asset sidebar is a vertically organized set of important information about an asset. It shows up
                     on the right side of the screen when you view an asset, a search result, a lineage entry and a host
                     of other places.
                 </p>
-            </Typography.Paragraph>
+            </Text>
         ),
     },
 ];

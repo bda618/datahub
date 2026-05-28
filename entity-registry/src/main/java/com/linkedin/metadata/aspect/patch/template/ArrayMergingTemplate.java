@@ -41,14 +41,29 @@ public interface ArrayMergingTemplate<T extends RecordTemplate> extends Template
                 JsonNode nodeClone = node.deepCopy();
                 if (!keyFields.isEmpty()) {
                   for (String keyField : keyFields) {
-                    String key;
+                    String key = "";
                     // if the keyField has a unit separator, we are working with a nested key
                     if (keyField.contains(UNIT_SEPARATOR_DELIMITER)) {
                       String[] keyParts = keyField.split(UNIT_SEPARATOR_DELIMITER);
-                      JsonNode keyObject = node.get(keyParts[0]);
-                      key = keyObject.get(keyParts[1]).asText();
+                      JsonNode keyObject = node;
+
+                      // Traverse through all parts of the key path
+                      try {
+                        for (int i = 0; i < keyParts.length - 1; i++) {
+                          keyObject = keyObject.get(keyParts[i]);
+                        }
+
+                        // Get the final key value, defaulting to empty string if not found
+                        JsonNode finalKeyNode = keyObject.get(keyParts[keyParts.length - 1]);
+                        key = finalKeyNode != null ? finalKeyNode.asText() : "";
+                      } catch (NullPointerException | IllegalArgumentException e) {
+                        // If any part of the path is missing, use an empty string
+                        key = "";
+                      }
                     } else {
-                      key = node.get(keyField).asText();
+                      // Get the key, defaulting to empty string if not found
+                      JsonNode keyNode = node.get(keyField);
+                      key = keyNode != null ? keyNode.asText() : "";
                     }
                     keyValue =
                         keyValue.get(key) == null
@@ -57,7 +72,10 @@ public interface ArrayMergingTemplate<T extends RecordTemplate> extends Template
                   }
                 } else {
                   // No key fields, assume String array
-                  nodeClone = instance.objectNode().set(((TextNode) node).asText(), node);
+                  nodeClone =
+                      instance
+                          .objectNode()
+                          .set(node instanceof TextNode ? ((TextNode) node).asText() : "", node);
                 }
                 keyValue.setAll((ObjectNode) nodeClone);
               });
@@ -85,6 +103,11 @@ public interface ArrayMergingTemplate<T extends RecordTemplate> extends Template
       return transformedNode;
     }
     ObjectNode rebasedNode = transformedNode.deepCopy();
+    // fieldNode is null when the entire array field was removed by the patch.
+    // Return an empty array rather than NPE.
+    if (fieldNode == null || fieldNode.isNull()) {
+      return rebasedNode.set(arrayFieldName, instance.arrayNode());
+    }
     ObjectNode mapNode = (ObjectNode) fieldNode;
     ArrayNode arrayNode;
 
@@ -100,6 +123,11 @@ public interface ArrayMergingTemplate<T extends RecordTemplate> extends Template
 
   default ArrayNode mergeToArray(JsonNode mapNode, List<String> keyFields) {
     if (keyFields.isEmpty()) {
+      // When a plain add sets an array at an entity-key level (e.g. /tags/<urn> with
+      // value [{...}]), the leaf ArrayNode's elements must be expanded into the result.
+      if (mapNode instanceof ArrayNode) {
+        return instance.arrayNode().addAll((ArrayNode) mapNode);
+      }
       return instance.arrayNode().add(mapNode);
     } else {
       ArrayNode mergingArray = instance.arrayNode();

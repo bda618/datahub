@@ -2,9 +2,11 @@ package com.linkedin.metadata.aspect.batch;
 
 import static com.linkedin.metadata.Constants.ASPECT_LATEST_VERSION;
 
+import com.datahub.authorization.AuthorizationSession;
 import com.linkedin.metadata.aspect.ReadItem;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.SystemAspect;
+import com.linkedin.metadata.aspect.plugins.hooks.MCPObserver;
 import com.linkedin.metadata.aspect.plugins.hooks.MutationHook;
 import com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection;
 import com.linkedin.mxe.SystemMetadata;
@@ -21,7 +23,10 @@ import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * A batch of aspects in the context of either an MCP or MCL write path to a data store. The item is
@@ -29,6 +34,8 @@ import org.apache.commons.lang3.StringUtils;
  * SystemMetadata} and record/message created time
  */
 public interface AspectsBatch {
+  Logger log = LoggerFactory.getLogger(AspectsBatch.class);
+
   Collection<? extends BatchItem> getItems();
 
   Collection<? extends BatchItem> getInitialItems();
@@ -91,7 +98,7 @@ public interface AspectsBatch {
       Collection<ChangeMCP> changeMCPS, @Nonnull RetrieverContext retrieverContext) {
     for (MutationHook mutationHook :
         retrieverContext.getAspectRetriever().getEntityRegistry().getAllMutationHooks()) {
-      mutationHook.applyWriteMutation(changeMCPS, retrieverContext);
+      mutationHook.applyWriteMutation(changeMCPS, retrieverContext).count();
     }
   }
 
@@ -104,18 +111,25 @@ public interface AspectsBatch {
 
   default <T extends BatchItem> ValidationExceptionCollection validateProposed(
       Collection<T> mcpItems) {
-    return validateProposed(mcpItems, getRetrieverContext());
+    return validateProposed(mcpItems, getRetrieverContext(), null);
+  }
+
+  default <T extends BatchItem> ValidationExceptionCollection validateProposed(
+      Collection<T> mcpItems, @Nullable AuthorizationSession session) {
+    return validateProposed(mcpItems, getRetrieverContext(), session);
   }
 
   static <T extends BatchItem> ValidationExceptionCollection validateProposed(
-      Collection<T> mcpItems, @Nonnull RetrieverContext retrieverContext) {
+      Collection<T> mcpItems,
+      @Nonnull RetrieverContext retrieverContext,
+      @Nullable AuthorizationSession session) {
     ValidationExceptionCollection exceptions = ValidationExceptionCollection.newCollection();
     retrieverContext
         .getAspectRetriever()
         .getEntityRegistry()
         .getAllAspectPayloadValidators()
         .stream()
-        .flatMap(validator -> validator.validateProposed(mcpItems, retrieverContext))
+        .flatMap(validator -> validator.validateProposed(mcpItems, retrieverContext, session))
         .forEach(exceptions::addException);
     return exceptions;
   }
@@ -155,6 +169,29 @@ public interface AspectsBatch {
       Collection<MCLItem> items, @Nonnull RetrieverContext retrieverContext) {
     return retrieverContext.getAspectRetriever().getEntityRegistry().getAllMCPSideEffects().stream()
         .flatMap(mcpSideEffect -> mcpSideEffect.postApply(items, retrieverContext));
+  }
+
+  default void applyMCPObservers(Collection<? extends BatchItem> items) {
+    applyMCPObservers(items, getRetrieverContext());
+  }
+
+  static void applyMCPObservers(
+      Collection<? extends BatchItem> items, @Nonnull RetrieverContext retrieverContext) {
+    for (MCPObserver observer :
+        retrieverContext.getAspectRetriever().getEntityRegistry().getAllMCPObservers()) {
+      try {
+        observer.apply(items, retrieverContext);
+      } catch (VirtualMachineError e) {
+        throw e;
+      } catch (Throwable t) {
+        // Belt-and-suspenders around the per-observer apply call. observer.apply() is final and
+        // already catches; this loop guarantees one bad observer cannot stop dispatch to the rest.
+        log.warn(
+            "MCPObserver dispatch failed for {}; ingest continuing.",
+            observer == null ? "null" : observer.getClass().getName(),
+            t);
+      }
+    }
   }
 
   default Stream<MCLItem> applyMCLSideEffects(Collection<MCLItem> items) {

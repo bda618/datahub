@@ -1,26 +1,27 @@
 import { Divider, Typography } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
-import { useGetDataProfilesLazyQuery } from '../../../../../../../graphql/dataset.generated';
-import { Message } from '../../../../../../shared/Message';
-import { formatBytes } from '../../../../../../shared/formatNumber';
-import { getFixedLookbackWindow } from '../../../../../../shared/time/timeUtils';
-import { ANTD_GRAY } from '../../../../constants';
+
+import { FULL_TABLE_PARTITION_KEYS } from '@app/entityV2/shared/tabs/Dataset/Stats/constants';
+import ProfilingRunsChart from '@app/entityV2/shared/tabs/Dataset/Stats/historical/charts/ProfilingRunsChart';
+import StatChart from '@app/entityV2/shared/tabs/Dataset/Stats/historical/charts/StatChart';
+import PrefixedSelect from '@app/entityV2/shared/tabs/Dataset/Stats/historical/shared/PrefixedSelect';
+import { LookbackWindow } from '@app/entityV2/shared/tabs/Dataset/Stats/lookbackWindows';
 import {
     computeAllFieldPaths,
     computeChartTickInterval,
     extractChartValuesFromFieldProfiles,
     extractChartValuesFromTableProfiles,
-} from '../../../../utils';
-import { FULL_TABLE_PARTITION_KEYS } from '../constants';
-import { LookbackWindow } from '../lookbackWindows';
-import ProfilingRunsChart from './charts/ProfilingRunsChart';
-import StatChart from './charts/StatChart';
-import PrefixedSelect from './shared/PrefixedSelect';
+} from '@app/entityV2/shared/utils';
+import { Message } from '@app/shared/Message';
+import { formatBytes } from '@app/shared/formatNumber';
+import { getFixedLookbackWindow } from '@app/shared/time/timeUtils';
+
+import { useGetDataProfilesLazyQuery } from '@graphql/dataset.generated';
 
 // TODO: Reuse stat sections.
 const StatSection = styled.div`
-    border-bottom: 1px solid ${ANTD_GRAY[4.5]};
+    border-bottom: 1px solid ${(props) => props.theme.colors.border};
     padding: 16px 20px;
     margin-top: 12px;
 `;
@@ -37,7 +38,7 @@ const ChartRow = styled.div`
 `;
 
 const ChartDivider = styled(Divider)<{ height: number; width: number }>`
-    background-color: ${ANTD_GRAY[0]};
+    background-color: ${(props) => props.theme.colors.bg};
     height: ${(props) => props.height}px;
     width: ${(props) => props.width}px;
     margin: 20px;
@@ -47,7 +48,7 @@ const getLookbackWindowSize = (window: LookbackWindow) => {
     return window.windowSize;
 };
 
-export type Props = {
+type Props = {
     urn: string;
     lookbackWindow: LookbackWindow;
 };

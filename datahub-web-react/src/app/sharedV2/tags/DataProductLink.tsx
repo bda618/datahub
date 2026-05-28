@@ -1,13 +1,14 @@
+import { CloseOutlined } from '@ant-design/icons';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-import { CloseOutlined } from '@ant-design/icons';
-import { DataProduct as DataProductEntity, EntityType } from '../../../types.generated';
-import { IconStyleType } from '../../entity/Entity';
-import { HoverEntityTooltip } from '../../recommendations/renderer/component/HoverEntityTooltip';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import { ANTD_GRAY } from '../../entity/shared/constants';
-import { useEmbeddedProfileLinkProps } from '../../shared/useEmbeddedProfileLinkProps';
+
+import { IconStyleType } from '@app/entity/Entity';
+import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
+import { useEmbeddedProfileLinkProps } from '@app/shared/useEmbeddedProfileLinkProps';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { DataProduct as DataProductEntity, EntityType } from '@types';
 
 const DataProductLinkContainer = styled(Link)`
     display: inline-block;
@@ -24,7 +25,7 @@ const CloseButton = styled.div`
         cursor: pointer;
     }
     && {
-        color: ${ANTD_GRAY[7]};
+        color: ${(props) => props.theme.colors.icon};
     }
 `;
 
@@ -34,8 +35,10 @@ const StyledCloseOutlined = styled(CloseOutlined)`
     }
 `;
 
-const IconWrapper = styled.span`
+const IconWrapper = styled.div`
+    display: flex;
     margin-right: 6px;
+    color: ${(props) => props.theme.colors.text};
 `;
 
 const StyledTag = styled.div<{ fontSize?: number }>`
@@ -62,7 +65,7 @@ function DataProductContent({ dataProduct, name, closable, onClose, tagStyle, fo
     return (
         <StyledTag style={tagStyle} fontSize={fontSize}>
             <IconWrapper>
-                {entityRegistry.getIcon(EntityType.DataProduct, fontSize || 10, IconStyleType.ACCENT, ANTD_GRAY[9])}
+                {entityRegistry.getIcon(EntityType.DataProduct, fontSize || 10, IconStyleType.ACCENT)}
             </IconWrapper>
             {displayName}
             {closable && (
@@ -74,7 +77,7 @@ function DataProductContent({ dataProduct, name, closable, onClose, tagStyle, fo
     );
 }
 
-export type Props = {
+type Props = {
     dataProduct: DataProductEntity;
     name?: string;
     closable?: boolean;

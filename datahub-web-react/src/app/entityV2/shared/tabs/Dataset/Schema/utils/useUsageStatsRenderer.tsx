@@ -1,20 +1,13 @@
-import { geekblue } from '@ant-design/colors';
-import QueryStatsOutlinedIcon from '@mui/icons-material/QueryStatsOutlined';
-import { useBaseEntity } from '@src/app/entity/shared/EntityContext';
 import { Tooltip } from '@components';
+import QueryStatsOutlinedIcon from '@mui/icons-material/QueryStatsOutlined';
 import React from 'react';
 import styled from 'styled-components';
-import { UsageQueryResult } from '../../../../../../../types.generated';
-// import { ReactComponent as LineageDisabledIcon } from '../../../../../../../images/lineage-disabled-icon.svg';
-import { GetDatasetQuery } from '../../../../../../../graphql/dataset.generated';
-import { FieldPopularity } from '../components/SchemaFieldDrawer/FieldPopularity';
 
-export const UsageBar = styled.div<{ width: number }>`
-    width: ${(props) => props.width}px;
-    height: 4px;
-    background-color: ${geekblue[3]};
-    border-radius: 2px;
-`;
+import { FieldPopularity } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/FieldPopularity';
+import { useBaseEntity } from '@src/app/entity/shared/EntityContext';
+
+import { GetDatasetQuery } from '@graphql/dataset.generated';
+import { UsageQueryResult } from '@types';
 
 const IconsContainer = styled.div`
     display: flex;
@@ -28,7 +21,7 @@ const IconWrapper = styled.div<{ hasStats: boolean; isFieldSelected: boolean }>`
         width: 18px;
         height: 18px;
         color: ${(props) => {
-            return props.hasStats ? '#533fd1' : '#C6C0E0';
+            return props.hasStats ? props.theme.colors.iconBrand : props.theme.colors.chartsBrandBase;
         }};
         opacity: ${(props) => (props.isFieldSelected && !props.hasStats ? '0.5' : '')};
     }

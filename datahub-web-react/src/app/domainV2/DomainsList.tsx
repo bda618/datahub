@@ -1,29 +1,31 @@
-import React, { useEffect, useState } from 'react';
-import { Button, Empty, Pagination, Typography } from 'antd';
-import { useLocation } from 'react-router';
-import styled from 'styled-components';
-import * as QueryString from 'query-string';
 import { PlusOutlined } from '@ant-design/icons';
+import { Button, Empty, Pagination, Typography } from 'antd';
+import * as QueryString from 'query-string';
 import { AlignType } from 'rc-table/lib/interface';
-import { EntityType } from '../../types.generated';
-import { useListDomainsQuery } from '../../graphql/domain.generated';
-import CreateDomainModal from './CreateDomainModal';
-import { Message } from '../shared/Message';
-import TabToolbar from '../entity/shared/components/styled/TabToolbar';
-import { SearchBar } from '../search/SearchBar';
-import { useEntityRegistry } from '../useEntityRegistry';
-import { scrollToTop } from '../shared/searchUtils';
-import { addToListDomainsCache, removeFromListDomainsCache } from './utils';
-import { OnboardingTour } from '../onboarding/OnboardingTour';
-import { DOMAINS_INTRO_ID, DOMAINS_CREATE_DOMAIN_ID } from '../onboarding/config/DomainsOnboardingConfig';
-import { getElasticCappedTotalValueText } from '../entity/shared/constants';
-import { StyledTable } from '../entity/shared/components/styled/StyledTable';
-import { DomainOwnersColumn, DomainListMenuColumn, DomainNameColumn } from './DomainListColumns';
-import DomainIcon from './DomainIcon';
+import React, { useEffect, useState } from 'react';
+import { useLocation } from 'react-router';
+import styled, { useTheme } from 'styled-components';
+
+import CreateDomainModal from '@app/domainV2/CreateDomainModal';
+import DomainIcon from '@app/domainV2/DomainIcon';
+import { DomainListMenuColumn, DomainNameColumn, DomainOwnersColumn } from '@app/domainV2/DomainListColumns';
+import { addToListDomainsCache, removeFromListDomainsCache } from '@app/domainV2/utils';
+import { StyledTable } from '@app/entity/shared/components/styled/StyledTable';
+import TabToolbar from '@app/entity/shared/components/styled/TabToolbar';
+import { getElasticCappedTotalValueText } from '@app/entity/shared/constants';
+import { OnboardingTour } from '@app/onboarding/OnboardingTour';
+import { DOMAINS_CREATE_DOMAIN_ID, DOMAINS_INTRO_ID } from '@app/onboarding/config/DomainsOnboardingConfig';
+import { SearchBar } from '@app/search/SearchBar';
+import { Message } from '@app/shared/Message';
+import { scrollToTop } from '@app/shared/searchUtils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useListDomainsQuery } from '@graphql/domain.generated';
+import { EntityType } from '@types';
 
 const DomainsContainer = styled.div``;
 
-export const DomainsPaginationContainer = styled.div`
+const DomainsPaginationContainer = styled.div`
     display: flex;
     justify-content: center;
     padding: 12px;
@@ -42,6 +44,7 @@ const DEFAULT_PAGE_SIZE = 25;
 
 export const DomainsList = () => {
     const entityRegistry = useEntityRegistry();
+    const theme = useTheme();
     const location = useLocation();
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
     const paramsQuery = (params?.query as string) || undefined;
@@ -93,7 +96,7 @@ export const DomainsList = () => {
                 <DomainIcon
                     style={{
                         fontSize: 12,
-                        color: '#BFBFBF',
+                        color: theme.colors.icon,
                     }}
                 />,
             ),
@@ -195,6 +198,7 @@ export const DomainsList = () => {
                                     },
                                     ownership: null,
                                     entities: null,
+                                    institutionalMemory: null,
                                 },
                                 pageSize,
                             );

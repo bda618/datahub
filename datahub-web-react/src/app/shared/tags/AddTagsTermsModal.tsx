@@ -1,29 +1,35 @@
-import React, { useRef, useState } from 'react';
-import { message, Button, Modal, Select, Typography, Tag as CustomTag, Form, Empty } from 'antd';
 import { LoadingOutlined } from '@ant-design/icons';
+import { Tag as CustomTag, Empty, Form, Select, Typography, message } from 'antd';
+import React, { useRef, useState } from 'react';
 import styled from 'styled-components';
 
-import { useGetAutoCompleteResultsLazyQuery } from '../../../graphql/search.generated';
-import { EntityType, Tag, Entity, ResourceRefInput } from '../../../types.generated';
-import CreateTagModal from './CreateTagModal';
+import analytics, { EntityActionType, EventType } from '@app/analytics';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { FORBIDDEN_URN_CHARS_REGEX, handleBatchError } from '@app/entity/shared/utils';
+import GlossaryBrowser from '@app/glossary/GlossaryBrowser/GlossaryBrowser';
+import ParentEntities from '@app/search/filters/ParentEntities';
+import { getParentEntities } from '@app/search/filters/utils';
+import ClickOutside from '@app/shared/ClickOutside';
+import { ENTER_KEY_CODE } from '@app/shared/constants';
+import { useGetRecommendations } from '@app/shared/recommendation';
+import CreateTagModal from '@app/shared/tags/CreateTagModal';
+import { TagTermLabel } from '@app/shared/tags/TagTermLabel';
+import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
+import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
+import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';
+import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+import { Modal } from '@src/alchemy-components';
+import { getModalDomContainer } from '@utils/focus';
+
 import {
     useBatchAddTagsMutation,
     useBatchAddTermsMutation,
     useBatchRemoveTagsMutation,
     useBatchRemoveTermsMutation,
-} from '../../../graphql/mutations.generated';
-import { useEnterKeyListener } from '../useEnterKeyListener';
-import GlossaryBrowser from '../../glossary/GlossaryBrowser/GlossaryBrowser';
-import ClickOutside from '../ClickOutside';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import { useGetRecommendations } from '../recommendation';
-import { FORBIDDEN_URN_CHARS_REGEX, handleBatchError } from '../../entity/shared/utils';
-import { TagTermLabel } from './TagTermLabel';
-import { ENTER_KEY_CODE } from '../constants';
-import { getModalDomContainer } from '../../../utils/focus';
-import ParentEntities from '../../search/filters/ParentEntities';
-import { getParentEntities } from '../../search/filters/utils';
-import { ANTD_GRAY } from '../../entity/shared/constants';
+} from '@graphql/mutations.generated';
+import { useGetAutoCompleteResultsLazyQuery } from '@graphql/search.generated';
+import { DataHubPageModuleType, Entity, EntityType, ResourceRefInput, Tag } from '@types';
 
 export enum OperationType {
     ADD,
@@ -60,7 +66,10 @@ export const BrowserWrapper = styled.div<{
 }>`
     background-color: white;
     border-radius: 5px;
-    box-shadow: 0 3px 6px -4px rgb(0 0 0 / 12%), 0 6px 16px 0 rgb(0 0 0 / 8%), 0 9px 28px 8px rgb(0 0 0 / 5%);
+    box-shadow:
+        0 3px 6px -4px rgb(0 0 0 / 12%),
+        0 6px 16px 0 rgb(0 0 0 / 8%),
+        0 9px 28px 8px rgb(0 0 0 / 5%);
     max-height: ${(props) => (props.maxHeight ? props.maxHeight : '380')}px;
     overflow: auto;
     position: absolute;
@@ -120,6 +129,7 @@ export default function EditTagTermsModal({
     onOkOverride,
 }: EditTagsModalProps) {
     const entityRegistry = useEntityRegistry();
+    const { reloadByKeyType } = useReloadableContext();
     const [inputValue, setInputValue] = useState('');
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [disableAction, setDisableAction] = useState(false);
@@ -166,7 +176,7 @@ export default function EditTagTermsModal({
         const tagOrTermComponent = <TagTermLabel entity={entity} />;
         return (
             <Select.Option data-testid="tag-term-option" value={entity.urn} key={entity.urn} name={displayName}>
-                <SearchResultContainer>
+                <SearchResultContainer data-testid={`tag-term-option-${displayName}`}>
                     <ParentEntities parentEntities={getParentEntities(entity) || []} />
                     {tagOrTermComponent}
                 </SearchResultContainer>
@@ -279,6 +289,32 @@ export default function EditTagTermsModal({
         setSelectedTags(selectedTags.filter((term) => term.urn !== urn));
     };
 
+    const sendAnalytics = () => {
+        const isSchemaField = resources[0].subResource;
+
+        let eventType;
+        if (isSchemaField) {
+            eventType =
+                type === EntityType.Tag ? EntityActionType.UpdateSchemaTags : EntityActionType.UpdateSchemaTerms;
+        } else {
+            eventType = type === EntityType.Tag ? EntityActionType.UpdateTags : EntityActionType.UpdateTerms;
+        }
+        const isBatchAdd = resources.length > 1;
+        if (isBatchAdd)
+            analytics.event({
+                type: EventType.BatchEntityActionEvent,
+                actionType: eventType,
+                entityUrns: resources.map((resource) => resource.resourceUrn),
+            });
+        else
+            analytics.event({
+                type: EventType.EntityActionEvent,
+                actionType: eventType,
+                entityType: type,
+                entityUrn: resources[0].resourceUrn,
+            });
+    };
+
     const batchAddTags = () => {
         batchAddTagsMutation({
             variables: {
@@ -294,6 +330,7 @@ export default function EditTagTermsModal({
                         content: `Added ${type === EntityType.GlossaryTerm ? 'Terms' : 'Tags'}!`,
                         duration: 2,
                     });
+                    sendAnalytics();
                 }
             })
             .catch((e) => {
@@ -324,6 +361,13 @@ export default function EditTagTermsModal({
                         content: `Added ${type === EntityType.GlossaryTerm ? 'Terms' : 'Tags'}!`,
                         duration: 2,
                     });
+                    sendAnalytics();
+                    // Reload modules
+                    // Assets - to updated assets on terms summary tab
+                    reloadByKeyType(
+                        [getReloadableKeyType(ReloadableKeyTypeNamespace.MODULE, DataHubPageModuleType.Assets)],
+                        3000,
+                    );
                 }
             })
             .catch((e) => {
@@ -384,6 +428,12 @@ export default function EditTagTermsModal({
                         content: `Removed ${type === EntityType.GlossaryTerm ? 'Terms' : 'Tags'}!`,
                         duration: 2,
                     });
+                    // Reload modules
+                    // Assets - to updated assets on terms summary tab
+                    reloadByKeyType(
+                        [getReloadableKeyType(ReloadableKeyTypeNamespace.MODULE, DataHubPageModuleType.Assets)],
+                        3000,
+                    );
                 }
             })
             .catch((e) => {
@@ -464,22 +514,21 @@ export default function EditTagTermsModal({
             title={`${operationType === OperationType.ADD ? 'Add' : 'Remove'} ${entityRegistry.getEntityName(type)}s`}
             open={open}
             onCancel={onCloseModal}
-            footer={
-                <>
-                    <Button onClick={onCloseModal} type="text">
-                        Cancel
-                    </Button>
-                    <Button
-                        type="primary"
-                        id="addTagButton"
-                        data-testid="add-tag-term-from-modal-btn"
-                        onClick={onOk}
-                        disabled={urns.length === 0 || disableAction}
-                    >
-                        Add
-                    </Button>
-                </>
-            }
+            buttons={[
+                {
+                    text: 'Cancel',
+                    variant: 'text',
+                    onClick: onCloseModal,
+                },
+                {
+                    text: 'Add',
+                    id: 'addTagButton',
+                    buttonDataTestId: 'add-tag-term-from-modal-btn',
+                    variant: 'filled',
+                    disabled: urns.length === 0 || disableAction,
+                    onClick: onOk,
+                },
+            ]}
             getContainer={getModalDomContainer}
         >
             <Form component={false}>

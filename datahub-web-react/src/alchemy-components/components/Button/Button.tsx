@@ -1,20 +1,17 @@
+import { LoadingOutlined } from '@ant-design/icons';
+import { Icon } from '@components';
 import React from 'react';
 
-import { LoadingOutlined } from '@ant-design/icons';
-
-import { Icon } from '@components';
-
-import { ButtonBase } from './components';
-import { ButtonProps, ButtonPropsDefaults } from './types';
+import { ButtonBase } from '@components/components/Button/components';
+import { ButtonProps, ButtonPropsDefaults } from '@components/components/Button/types';
 
 export const buttonDefaults: ButtonPropsDefaults = {
     variant: 'filled',
-    color: 'violet',
+    color: 'primary',
     size: 'md',
     iconPosition: 'left',
     isCircle: false,
     isLoading: false,
-    isDisabled: false,
     isActive: false,
 };
 
@@ -24,10 +21,8 @@ export const Button = ({
     size = buttonDefaults.size,
     icon, // default undefined
     iconPosition = buttonDefaults.iconPosition,
-    iconSize,
     isCircle = buttonDefaults.isCircle,
     isLoading = buttonDefaults.isLoading,
-    isDisabled = buttonDefaults.isDisabled,
     isActive = buttonDefaults.isActive,
     children,
     ...props
@@ -39,7 +34,7 @@ export const Button = ({
         isCircle,
         isLoading,
         isActive,
-        isDisabled,
+        hasChildren: !!children,
     };
 
     if (isLoading) {
@@ -50,11 +45,12 @@ export const Button = ({
         );
     }
 
+    // Prefer `icon.size` over `size` for icon size
     return (
         <ButtonBase {...styleProps} {...props}>
-            {icon && iconPosition === 'left' && <Icon icon={icon} size={iconSize || size} />}
+            {icon && iconPosition === 'left' && <Icon size={size} {...icon} />}
             {!isCircle && children}
-            {icon && iconPosition === 'right' && <Icon icon={icon} size={iconSize || size} />}
+            {icon && iconPosition === 'right' && <Icon size={size} {...icon} />}
         </ButtonBase>
     );
 };

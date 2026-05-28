@@ -1,40 +1,26 @@
+import { Pill, Tooltip } from '@components';
 import { Typography } from 'antd';
-import { Tooltip } from '@components';
 import React, { useEffect, useMemo } from 'react';
 import { useHistory } from 'react-router';
 import styled from 'styled-components';
-import { Domain } from '../../../../types.generated';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { RotatingTriangle } from '../../../sharedV2/sidebar/components';
-import useListDomains from '../../useListDomains';
-import useToggle from '../../../shared/useToggle';
-import { BodyContainer, BodyGridExpander } from '../../../shared/components';
-import { useDomainsContext as useDomainsContextV2 } from '../../DomainsContext';
-import { DomainColoredIcon } from '../../../entityV2/shared/links/DomainColoredIcon';
-import { REDESIGN_COLORS, SEARCH_COLORS } from '../../../entityV2/shared/constants';
 
-const Count = styled.div`
-    color: ${REDESIGN_COLORS.BLACK};
-    font-size: 12px;
-    padding-left: 8px;
-    padding-right: 8px;
-    margin-left: 8px;
-    border-radius: 11px;
-    background-color: ${REDESIGN_COLORS.SIDE_BAR};
-    width: 20%;
-    height: 22px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    max-width: 32px;
-    transition: opacity 0.3s ease; /* add a smooth transition effect */
-`;
+import { useDomainsContext as useDomainsContextV2 } from '@app/domainV2/DomainsContext';
+import { DomainNavigatorVariant } from '@app/domainV2/nestedDomains/types';
+import useScrollDomains from '@app/domainV2/useScrollDomains';
+import { DomainColoredIcon } from '@app/entityV2/shared/links/DomainColoredIcon';
+import Loading from '@app/shared/Loading';
+import { BodyContainer, BodyGridExpander } from '@app/shared/components';
+import useToggle from '@app/shared/useToggle';
+import { RotatingTriangle } from '@app/sharedV2/sidebar/components';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { Domain } from '@types';
 
 const NameWrapper = styled(Typography.Text)<{ $isSelected: boolean; $addLeftPadding: boolean }>`
     flex: 1;
     padding: 2px;
-    ${(props) => props.$isSelected && `color: ${SEARCH_COLORS.TITLE_PURPLE};`}
-    ${(props) => props.$addLeftPadding && 'padding-left: 20px;'}
+    ${(props) => props.$isSelected && `color: ${props.theme.colors.textSelected};`}
+    ${(props) => props.$addLeftPadding && 'padding-left: 22px;'}
 
     &:hover {
         cursor: pointer;
@@ -50,7 +36,7 @@ const DisplayName = styled.span<{ $isSelected: boolean }>`
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    color: ${(props) => (props.$isSelected ? REDESIGN_COLORS.TITLE_PURPLE : REDESIGN_COLORS.BODY_TEXT_GREY)};
+    color: ${(props) => (props.$isSelected ? props.theme.colors.textSelected : props.theme.colors.textSecondary)};
 `;
 
 const ButtonWrapper = styled.span<{ $addLeftPadding: boolean; $isSelected: boolean }>`
@@ -60,7 +46,7 @@ const ButtonWrapper = styled.span<{ $addLeftPadding: boolean; $isSelected: boole
     svg {
         font-size: 16px !important;
         color: ${(props) =>
-            props.$isSelected ? REDESIGN_COLORS.TITLE_PURPLE : REDESIGN_COLORS.BODY_TEXT_GREY} !important;
+            props.$isSelected ? props.theme.colors.iconBrand : props.theme.colors.textSecondary} !important;
     }
 
     .ant-btn {
@@ -69,30 +55,30 @@ const ButtonWrapper = styled.span<{ $addLeftPadding: boolean; $isSelected: boole
     }
 `;
 
-const RowWrapper = styled.div<{ $isSelected: boolean; isOpen?: boolean }>`
+const RowWrapper = styled.div<{ $isSelected: boolean; isOpen?: boolean; $variant: DomainNavigatorVariant }>`
     align-items: center;
     display: flex;
     width: 100%;
-    border-bottom: 1px solid ${REDESIGN_COLORS.COLD_GREY_TEXT_BLUE_1};
-    padding: 12px;
-    ${(props) => props.isOpen && `background-color: ${REDESIGN_COLORS.SECTION_BACKGROUND};`}
-    ${(props) => props.$isSelected && `background-color: ${REDESIGN_COLORS.LIGHT_TEXT_DARK_BACKGROUND};`}
+    border-bottom: ${(props) => (props.$variant === 'select' ? 'none' : `1px solid ${props.theme.colors.border}`)};
+    padding: ${({ $variant }) => ($variant === 'select' ? '6px' : '12px')};
+    ${(props) => props.isOpen && `background-color: ${props.theme.colors.bgSurface};`}
+    ${(props) => props.$isSelected && `background-color: ${props.theme.colors.bgSurfaceBrand};`}
     &:hover {
-        background-color: ${REDESIGN_COLORS.COLD_GREY_TEXT_BLUE_1};
+        background-color: ${(props) => props.theme.colors.bgHover};
         ${ButtonWrapper} {
             svg {
-                color: ${REDESIGN_COLORS.TITLE_PURPLE} !important;
+                color: ${(props) => props.theme.colors.iconBrand} !important;
             }
         }
         ${DisplayName} {
-            color: ${REDESIGN_COLORS.TITLE_PURPLE};
+            color: ${(props) => props.theme.colors.textHover};
         }
     }
 `;
 
 const StyledExpander = styled(BodyGridExpander)<{ paddingLeft: number }>`
     padding-left: 0px;
-    background: ${REDESIGN_COLORS.SECTION_BACKGROUND};
+    background: ${(props) => props.theme.colors.bgSurface};
     display: flex;
     width: 100%;
     overflow: auto;
@@ -109,6 +95,10 @@ const Text = styled.div`
     width: 80%;
 `;
 
+const LoadingWrapper = styled.div`
+    padding: 16px;
+`;
+
 interface Props {
     domain: Domain;
     numDomainChildren: number;
@@ -117,6 +107,7 @@ interface Props {
     selectDomainOverride?: (domain: Domain) => void;
     unhideSidebar?: () => void;
     $paddingLeft?: number;
+    variant?: DomainNavigatorVariant;
 }
 
 export default function DomainNode({
@@ -127,6 +118,7 @@ export default function DomainNode({
     selectDomainOverride,
     unhideSidebar,
     $paddingLeft = 0,
+    variant = 'select',
 }: Props) {
     const shouldHideDomain = domainUrnToHide === domain.urn;
     const history = useHistory();
@@ -136,7 +128,10 @@ export default function DomainNode({
         initialValue: false,
         closeDelay: 250,
     });
-    const { sortedDomains } = useListDomains({ parentDomain: domain.urn, skip: !isOpen || shouldHideDomain });
+    const { domains, loading, scrollRef } = useScrollDomains({
+        parentDomain: domain.urn,
+        skip: !isOpen || shouldHideDomain,
+    });
     const isOnEntityPage = entityData && entityData.urn === domain.urn;
     const displayName = entityRegistry.getDisplayName(domain.type, isOnEntityPage ? entityData : domain);
     const isInSelectMode = !!selectDomainOverride;
@@ -169,15 +164,15 @@ export default function DomainNode({
 
     if (shouldHideDomain) return null;
 
-    const finalNumChildren = sortedDomains?.length ?? numDomainChildren;
-    const hasDomainChildren = !!finalNumChildren;
+    const hasDomainChildren = !!numDomainChildren;
 
     return (
         <>
             <RowWrapper
-                data-testid="domain-list-item"
+                data-testid="domain-options-list"
                 $isSelected={isDomainNodeSelected && !isCollapsed}
                 isOpen={isOpen && !isClosing}
+                $variant={variant}
             >
                 {!isCollapsed && hasDomainChildren && (
                     <ButtonWrapper
@@ -197,7 +192,7 @@ export default function DomainNode({
                         $isSelected={isDomainNodeSelected}
                         $addLeftPadding={!isCollapsed && !hasDomainChildren}
                     >
-                        <Text>
+                        <Text data-testid={`domain-option-${displayName}`}>
                             <Tooltip
                                 placement="right"
                                 title={isCollapsed && displayName}
@@ -210,23 +205,34 @@ export default function DomainNode({
                                 {!isCollapsed && displayName}
                             </DisplayName>
                         </Text>
-                        {!isCollapsed && hasDomainChildren && <Count>{finalNumChildren}</Count>}
+                        {!isCollapsed && hasDomainChildren && <Pill label={`${numDomainChildren}`} size="sm" />}
                     </NameWrapper>
                 </Tooltip>
             </RowWrapper>
             <StyledExpander isOpen={isOpen && !isClosing} paddingLeft={paddingLeft}>
                 <BodyContainer style={{ width: '100%' }}>
-                    {sortedDomains?.map((childDomain) => (
-                        <DomainNode
-                            key={domain.urn}
-                            domain={childDomain as Domain}
-                            numDomainChildren={childDomain.children?.total || 0}
-                            domainUrnToHide={domainUrnToHide}
-                            selectDomainOverride={selectDomainOverride}
-                            unhideSidebar={unhideSidebar}
-                            $paddingLeft={paddingLeft}
-                        />
-                    ))}
+                    {isOpen && (
+                        <>
+                            {domains?.map((childDomain) => (
+                                <DomainNode
+                                    key={domain.urn}
+                                    domain={childDomain as Domain}
+                                    numDomainChildren={childDomain.children?.total || 0}
+                                    domainUrnToHide={domainUrnToHide}
+                                    selectDomainOverride={selectDomainOverride}
+                                    unhideSidebar={unhideSidebar}
+                                    $paddingLeft={paddingLeft}
+                                    variant={variant}
+                                />
+                            ))}
+                            {loading && (
+                                <LoadingWrapper>
+                                    <Loading height={16} marginTop={0} />
+                                </LoadingWrapper>
+                            )}
+                            {domains.length > 0 && <div ref={scrollRef} />}
+                        </>
+                    )}
                 </BodyContainer>
             </StyledExpander>
         </>

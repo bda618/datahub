@@ -1,8 +1,15 @@
 import { Icon, Text } from '@components';
-import { StructuredPropertyEntity } from '@src/types.generated';
+import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import { Collapse } from 'antd';
 import React from 'react';
-import { CollapseHeader, RowContainer, StyledCollapse, StyledLabel } from './styledComponents';
+
+import {
+    CollapseHeader,
+    RowContainer,
+    StyledCollapse,
+    StyledLabel,
+} from '@app/govern/structuredProperties/styledComponents';
+import { StructuredPropertyEntity } from '@src/types.generated';
 
 interface Props {
     propEntity: StructuredPropertyEntity;
@@ -13,7 +20,7 @@ const ViewAdvancedOptions = ({ propEntity }: Props) => {
         <StyledCollapse
             ghost
             expandIcon={({ isActive }) => (
-                <Icon icon="ChevronRight" color="gray" size="4xl" rotate={isActive ? '90' : '0'} />
+                <Icon icon={CaretRight} color="gray" size="4xl" rotate={isActive ? '90' : '0'} />
             )}
             expandIconPosition="end"
             defaultActiveKey={[]}

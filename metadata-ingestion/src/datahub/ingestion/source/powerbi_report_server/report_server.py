@@ -13,7 +13,7 @@ from requests.exceptions import ConnectionError
 from requests_ntlm import HttpNtlmAuth
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, TransparentSecretStr
 from datahub.configuration.source_common import (
     EnvConfigMixin,
 )
@@ -52,7 +52,6 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 from datahub.metadata.com.linkedin.pegasus2avro.common import ChangeAuditStamps
 from datahub.metadata.schema_classes import (
     BrowsePathsClass,
-    ChangeTypeClass,
     CorpUserInfoClass,
     CorpUserKeyClass,
     DashboardInfoClass,
@@ -70,7 +69,9 @@ LOGGER = logging.getLogger(__name__)
 
 class PowerBiReportServerAPIConfig(StatefulIngestionConfigBase, EnvConfigMixin):
     username: str = pydantic.Field(description="Windows account username")
-    password: str = pydantic.Field(description="Windows account password")
+    password: TransparentSecretStr = pydantic.Field(
+        description="Windows account password"
+    )
     workstation_name: str = pydantic.Field(
         default="localhost", description="Workstation name"
     )
@@ -154,7 +155,7 @@ class PowerBiReportServerAPI:
         self.__config: PowerBiReportServerAPIConfig = config
         self.__auth: HttpNtlmAuth = HttpNtlmAuth(
             f"{self.__config.workstation_name}\\{self.__config.username}",
-            self.__config.password,
+            self.__config.password.get_secret_value(),
         )
 
     @property
@@ -196,7 +197,7 @@ class PowerBiReportServerAPI:
         }
 
         reports: List[Any] = []
-        for report_type in report_types_mapping.keys():
+        for report_type in report_types_mapping:
             report_get_endpoint: str = API_ENDPOINTS[report_type]
             # Replace place holders
             report_get_endpoint_http = report_get_endpoint.format(
@@ -214,7 +215,7 @@ class PowerBiReportServerAPI:
 
             if response_dict.get("value"):
                 reports.extend(
-                    report_types_mapping[report_type].parse_obj(report)
+                    report_types_mapping[report_type].model_validate(report)
                     for report in response_dict.get("value")
                 )
 
@@ -243,20 +244,14 @@ class Mapper:
 
     @staticmethod
     def new_mcp(
-        entity_type,
         entity_urn,
-        aspect_name,
         aspect,
-        change_type=ChangeTypeClass.UPSERT,
     ):
         """
         Create MCP
         """
         return MetadataChangeProposalWrapper(
-            entityType=entity_type,
-            changeType=change_type,
             entityUrn=entity_urn,
-            aspectName=aspect_name,
             aspect=aspect,
         )
 
@@ -343,17 +338,13 @@ class Mapper:
         )
 
         info_mcp = self.new_mcp(
-            entity_type=Constant.DASHBOARD,
             entity_urn=dashboard_urn,
-            aspect_name=Constant.DASHBOARD_INFO,
             aspect=dashboard_info_cls,
         )
 
         # removed status mcp
         removed_status_mcp = self.new_mcp(
-            entity_type=Constant.DASHBOARD,
             entity_urn=dashboard_urn,
-            aspect_name=Constant.STATUS,
             aspect=StatusClass(removed=False),
         )
 
@@ -365,9 +356,7 @@ class Mapper:
 
         # Dashboard key
         dashboard_key_mcp = self.new_mcp(
-            entity_type=Constant.DASHBOARD,
             entity_urn=dashboard_urn,
-            aspect_name=Constant.DASHBOARD_KEY,
             aspect=dashboard_key_cls,
         )
 
@@ -378,9 +367,7 @@ class Mapper:
         ownership = OwnershipClass(owners=owners)
         # Dashboard owner MCP
         owner_mcp = self.new_mcp(
-            entity_type=Constant.DASHBOARD,
             entity_urn=dashboard_urn,
-            aspect_name=Constant.OWNERSHIP,
             aspect=ownership,
         )
 
@@ -396,9 +383,7 @@ class Mapper:
             ]
         )
         browse_path_mcp = self.new_mcp(
-            entity_type=Constant.DASHBOARD,
             entity_urn=dashboard_urn,
-            aspect_name=Constant.BROWSERPATH,
             aspect=browse_path,
         )
 
@@ -429,27 +414,21 @@ class Mapper:
             )
 
             info_mcp = self.new_mcp(
-                entity_type=Constant.CORP_USER,
                 entity_urn=user_urn,
-                aspect_name=Constant.CORP_USER_INFO,
                 aspect=user_info_instance,
             )
             user_mcps.append(info_mcp)
 
             # removed status mcp
             status_mcp = self.new_mcp(
-                entity_type=Constant.CORP_USER,
                 entity_urn=user_urn,
-                aspect_name=Constant.STATUS,
                 aspect=StatusClass(removed=False),
             )
             user_mcps.append(status_mcp)
             user_key = CorpUserKeyClass(username=user.username)
 
             user_key_mcp = self.new_mcp(
-                entity_type=Constant.CORP_USER,
                 entity_urn=user_urn,
-                aspect_name=Constant.CORP_USER_KEY,
                 aspect=user_key,
             )
             user_mcps.append(user_key_mcp)
@@ -502,25 +481,13 @@ class PowerBiReportServerDashboardSourceReport(StaleEntityRemovalSourceReport):
 @capability(SourceCapability.OWNERSHIP, "Enabled by default")
 class PowerBiReportServerDashboardSource(StatefulIngestionSourceBase):
     """
-    Use this plugin to connect to [PowerBI Report Server](https://powerbi.microsoft.com/en-us/report-server/).
-    It extracts the following:
+    Source that extracts metadata from PowerBI Report Server via REST API.
 
-    Metadata that can be ingested:
-       - report name
-       - report description
-       - ownership(can add existing users in DataHub as owners)
-       - transfer folders structure to DataHub as it is in Report Server
-       - webUrl to report in Report Server
-
-    Due to limits of PBIRS REST API, it's impossible to ingest next data for now:
-       - tiles info
-       - datasource of report
-       - dataset of report
-
-    Next types of report can be ingested:
-       - PowerBI report(.pbix)
-       - Paginated report(.rdl)
-       - Linked report
+    Implementation notes:
+    - Uses HttpNtlmAuth for Windows authentication
+    - Supports PowerBI reports (.pbix), Paginated reports (.rdl), and Linked reports
+    - Uses PowerBiReportServerAPI client for REST API calls
+    - Implements stateful ingestion with StaleEntityRemovalHandler
     """
 
     source_config: PowerBiReportServerDashboardSourceConfig
@@ -540,7 +507,7 @@ class PowerBiReportServerDashboardSource(StatefulIngestionSourceBase):
 
     @classmethod
     def create(cls, config_dict, ctx):
-        config = PowerBiReportServerDashboardSourceConfig.parse_obj(config_dict)
+        config = PowerBiReportServerDashboardSourceConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:

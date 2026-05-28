@@ -1,4 +1,3 @@
-import React from 'react';
 import {
     CheckOutlined,
     ClockCircleOutlined,
@@ -6,29 +5,35 @@ import {
     ExclamationCircleFilled,
     StopOutlined,
 } from '@ant-design/icons';
-import { Assertion, AssertionType, DataContract, DataContractState } from '../../../../../../../types.generated';
-import { ANTD_GRAY } from '../../../../constants';
-import { FAILURE_COLOR_HEX, SUCCESS_COLOR_HEX, WARNING_COLOR_HEX } from '../acrylUtils';
-import { DataContractCategoryType } from './builder/types';
-import { AssertionStatusSummary } from '../acrylTypes';
+import React from 'react';
 
-export const getContractSummaryIcon = (state: DataContractState, summary: AssertionStatusSummary) => {
+import { AssertionStatusSummary } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylTypes';
+import { DataContractCategoryType } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/builder/types';
+import ColorTheme from '@src/conf/theme/colorThemes/types';
+
+import { Assertion, AssertionType, DataContract, DataContractState } from '@types';
+
+export const getContractSummaryIcon = (
+    state: DataContractState,
+    summary: AssertionStatusSummary,
+    colors: ColorTheme,
+) => {
     if (state === DataContractState.Pending) {
-        return <ClockCircleOutlined style={{ color: ANTD_GRAY[6], fontSize: 28 }} />;
+        return <ClockCircleOutlined style={{ color: colors.iconDisabled, fontSize: 28 }} />;
     }
     if (summary.total === 0) {
-        return <StopOutlined style={{ color: ANTD_GRAY[6], fontSize: 28 }} />;
+        return <StopOutlined style={{ color: colors.iconDisabled, fontSize: 28 }} />;
     }
     if (summary.passing === summary.total) {
-        return <CheckOutlined style={{ color: SUCCESS_COLOR_HEX, fontSize: 28 }} />;
+        return <CheckOutlined style={{ color: colors.iconSuccess, fontSize: 28 }} />;
     }
     if (summary.failing > 0) {
-        return <CloseOutlined style={{ color: FAILURE_COLOR_HEX, fontSize: 28 }} />;
+        return <CloseOutlined style={{ color: colors.iconError, fontSize: 28 }} />;
     }
     if (summary.erroring > 0) {
-        return <ExclamationCircleFilled style={{ color: WARNING_COLOR_HEX, fontSize: 28 }} />;
+        return <ExclamationCircleFilled style={{ color: colors.iconWarning, fontSize: 28 }} />;
     }
-    return <StopOutlined style={{ color: ANTD_GRAY[6], fontSize: 28 }} />;
+    return <StopOutlined style={{ color: colors.iconDisabled, fontSize: 28 }} />;
 };
 
 export const getContractSummaryTitle = (state: DataContractState, summary: AssertionStatusSummary) => {

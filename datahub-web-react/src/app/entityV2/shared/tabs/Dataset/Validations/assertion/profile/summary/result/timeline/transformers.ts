@@ -1,4 +1,12 @@
 import { Maybe } from 'graphql/jsutils/Maybe';
+
+import {
+    AssertionDataPoint,
+    AssertionResultChartData,
+} from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/timeline/charts/types';
+import { tryGetPrimaryMetricValueFromAssertionRunEvent } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/shared/resultExtractionUtils';
+import { getFieldMetricTypeReadableLabel } from '@app/entityV2/shared/tabs/Dataset/Validations/fieldDescriptionUtils';
+
 import {
     Assertion,
     AssertionInfo,
@@ -6,17 +14,14 @@ import {
     AssertionType,
     FieldAssertionInfo,
     FieldAssertionType,
-} from '../../../../../../../../../../../types.generated';
-import { AssertionDataPoint, AssertionResultChartData } from './charts/types';
-import { getFieldMetricTypeReadableLabel } from '../../../../../fieldDescriptionUtils';
-import { tryGetPrimaryMetricValueFromAssertionRunEvent } from '../../shared/resultExtractionUtils';
+} from '@types';
 
 /**
  * Gets the Y value that we should be plotting on the graph from the assertion run event
  * @param runEvent
  * @returns {number | undefined}
  */
-export const tryGetYValueForChartFromAssertionRunEvent = (): number | undefined => {
+const tryGetYValueForChartFromAssertionRunEvent = (): number | undefined => {
     return tryGetPrimaryMetricValueFromAssertionRunEvent();
 };
 
@@ -25,7 +30,7 @@ export const tryGetYValueForChartFromAssertionRunEvent = (): number | undefined 
  * @param runEvents
  * @returns {AssertionDataPoint[]}
  */
-export const getAssertionDataPointsFromRunEvents = (runEvents: AssertionRunEvent[]): AssertionDataPoint[] => {
+const getAssertionDataPointsFromRunEvents = (runEvents: AssertionRunEvent[]): AssertionDataPoint[] => {
     return (
         runEvents
             .filter((runEvent) => !!runEvent.result)
@@ -57,7 +62,7 @@ export const getAssertionDataPointsFromRunEvents = (runEvents: AssertionRunEvent
  * @param assertionInfo
  * @returns {number | undefined}
  */
-export const tryGetYAxisLabelForChartFromAssertionInfo = (
+const tryGetYAxisLabelForChartFromAssertionInfo = (
     assertionInfo?: AssertionInfo | Maybe<AssertionInfo>,
 ): string | undefined => {
     let label: string | undefined;

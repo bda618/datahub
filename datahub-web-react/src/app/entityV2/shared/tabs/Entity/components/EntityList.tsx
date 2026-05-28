@@ -1,11 +1,13 @@
-import React from 'react';
 import { List, Pagination, Typography } from 'antd';
+import React from 'react';
 import styled from 'styled-components';
-import { useEntityRegistry } from '../../../../../useEntityRegistry';
-import { PreviewType } from '../../../../Entity';
-import { EntityType } from '../../../../../../types.generated';
-import { SearchCfg } from '../../../../../../conf';
-import { Message } from '../../../../../shared/Message';
+
+import { PreviewType } from '@app/entityV2/Entity';
+import { Message } from '@app/shared/Message';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+import { SearchCfg } from '@src/conf';
+
+import { EntityType } from '@types';
 
 const ScrollWrapper = styled.div`
     overflow: auto;
@@ -14,12 +16,12 @@ const ScrollWrapper = styled.div`
     &::-webkit-scrollbar {
         height: 12px;
         width: 5px;
-        background: #f2f2f2;
+        background: ${(props) => props.theme.colors.scrollbarTrack};
     }
     &::-webkit-scrollbar-thumb {
-        background: #cccccc;
+        background: ${(props) => props.theme.colors.scrollbarThumb};
         -webkit-border-radius: 1ex;
-        -webkit-box-shadow: 0px 1px 2px rgba(0, 0, 0, 0.75);
+        -webkit-box-shadow: ${(props) => props.theme.colors.shadowXs};
     }
 `;
 
@@ -38,7 +40,7 @@ const StyledList = styled(List)`
         margin-left: -20px;
         border-bottom: none;
         padding-bottom: 0px;
-        padding-top: 15px;
+        padding-top: 0px;
     }
 ` as typeof List;
 
@@ -50,7 +52,7 @@ const PaginationInfoContainer = styled.span`
     padding: 8px;
     padding-left: 16px;
     border-top: 1px solid;
-    border-color: ${(props) => props.theme.styles['border-color-base']};
+    border-color: ${(props) => props.theme.colors.border};
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -104,7 +106,6 @@ export const EntityList = ({
         <>
             <ScrollWrapper>
                 <StyledList
-                    bordered
                     dataSource={entities}
                     header={title || `${entities.length || 0} ${entityRegistry.getCollectionName(type)}`}
                     renderItem={(item) => (

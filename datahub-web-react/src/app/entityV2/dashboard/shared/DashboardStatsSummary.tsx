@@ -1,24 +1,24 @@
-import React from 'react';
-import styled from 'styled-components';
-import { Typography } from 'antd';
+import { ClockCircleOutlined, EyeOutlined, QuestionCircleOutlined, TeamOutlined } from '@ant-design/icons';
 import { Popover, Tooltip } from '@components';
-import { ClockCircleOutlined, EyeOutlined, TeamOutlined, QuestionCircleOutlined } from '@ant-design/icons';
-import { formatNumber, formatNumberWithoutAbbreviation } from '../../../shared/formatNumber';
-import { ANTD_GRAY } from '../../shared/constants';
-import { toLocalDateTimeString, toRelativeTimeString } from '../../../shared/time/timeUtils';
-import { StatsSummary } from '../../shared/components/styled/StatsSummary';
-import { PercentileLabel } from '../../shared/stats/PercentileLabel';
-import { countFormatter, needsFormatting } from '../../../../utils/formatter';
-import ExpandingStat from '../../dataset/shared/ExpandingStat';
+import { Typography } from 'antd';
+import React from 'react';
+import styled, { useTheme } from 'styled-components';
+
+import ExpandingStat from '@app/entityV2/dataset/shared/ExpandingStat';
+import { StatsSummary } from '@app/entityV2/shared/components/styled/StatsSummary';
+import { PercentileLabel } from '@app/entityV2/shared/stats/PercentileLabel';
+import { formatNumber, formatNumberWithoutAbbreviation } from '@app/shared/formatNumber';
+import { toLocalDateTimeString, toRelativeTimeString } from '@app/shared/time/timeUtils';
+import { countFormatter, needsFormatting } from '@utils/formatter';
 
 const StatText = styled.span`
-    color: ${ANTD_GRAY[8]};
+    color: ${(props) => props.theme.colors.textSecondary};
     @media (min-width: 1024px) {
         white-space: nowrap;
 `;
 
 const HelpIcon = styled(QuestionCircleOutlined)`
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
     padding-left: 4px;
 `;
 
@@ -43,6 +43,7 @@ export const DashboardStatsSummary = ({
     lastUpdatedMs,
     createdMs,
 }: Props) => {
+    const theme = useTheme();
     // acryl-main only.
     const effectiveViewCount = (!!viewCountLast30Days && viewCountLast30Days) || viewCount;
     const effectiveViewCountText = (!!viewCountLast30Days && 'views last month') || 'views';
@@ -52,7 +53,7 @@ export const DashboardStatsSummary = ({
             <ExpandingStat
                 disabled={!needsFormatting(chartCount)}
                 render={(isExpanded) => (
-                    <StatText color={ANTD_GRAY[8]}>
+                    <StatText>
                         <b>{isExpanded ? formatNumberWithoutAbbreviation(chartCount) : countFormatter(chartCount)}</b>{' '}
                         charts
                     </StatText>
@@ -62,7 +63,7 @@ export const DashboardStatsSummary = ({
             undefined,
         (!!effectiveViewCount && (
             <StatText>
-                <EyeOutlined style={{ marginRight: 8, color: ANTD_GRAY[7] }} />
+                <EyeOutlined style={{ marginRight: 8, color: theme.colors.textTertiary }} />
                 {formatNumber(effectiveViewCount)} {effectiveViewCountText}
                 {!!viewCountPercentileLast30Days && (
                     <Typography.Text type="secondary">
@@ -77,7 +78,7 @@ export const DashboardStatsSummary = ({
             undefined,
         (!!uniqueUserCountLast30Days && (
             <StatText>
-                <TeamOutlined style={{ marginRight: 8, color: ANTD_GRAY[7] }} />
+                <TeamOutlined style={{ marginRight: 8, color: theme.colors.textTertiary }} />
                 {formatNumber(uniqueUserCountLast30Days)} users
                 {!!uniqueUserPercentileLast30Days && (
                     <Typography.Text type="secondary">
@@ -105,7 +106,7 @@ export const DashboardStatsSummary = ({
                 }
             >
                 <StatText>
-                    <ClockCircleOutlined style={{ marginRight: 8, color: ANTD_GRAY[7] }} />
+                    <ClockCircleOutlined style={{ marginRight: 8, color: theme.colors.textTertiary }} />
                     Changed {toRelativeTimeString(lastUpdatedMs)}
                 </StatText>
             </Popover>

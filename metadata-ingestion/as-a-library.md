@@ -1,3 +1,7 @@
+---
+description: "Use DataHub's Python emitters to construct and push metadata events programmatically from CI/CD pipelines, custom scripts, and orchestrators."
+---
+
 # Python Emitter
 
 In some cases, you might want to construct Metadata events directly and use programmatic ways to emit that metadata to DataHub. Use-cases are typically push-based and include emitting metadata events from CI/CD pipelines, custom orchestrators etc.
@@ -33,7 +37,7 @@ from datahub.emitter.rest_emitter import DatahubRestEmitter
 # Create an emitter to DataHub over REST
 emitter = DatahubRestEmitter(gms_server="http://localhost:8080", extra_headers={})
 
-# For Acryl, you will want to point to your Acryl server's GMS endpoint
+# For DataHub Cloud, you will want to point to your DataHub Cloud's server's GMS endpoint
 # emitter = DatahubRestEmitter(gms_server="https://<your-domain>.acryl.io/gms", token="<your token>", extra_headers={})
 
 # Test the connection

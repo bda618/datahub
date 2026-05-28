@@ -1,16 +1,16 @@
-import { useEntityContext } from '@src/app/entity/shared/EntityContext';
 import { Button } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { DataProduct, EntityType } from '../../../../types.generated';
-import { useEntityRegistryV2 } from '../../../useEntityRegistry';
-import { PreviewType } from '../../Entity';
-import EditDataProductModal from './EditDataProductModal';
-import { REDESIGN_COLORS } from '../../shared/constants';
-import useDeleteEntity from '../../shared/EntityDropdown/useDeleteEntity';
+
+import { PreviewType } from '@app/entityV2/Entity';
+import EditDataProductModal from '@app/entityV2/domain/DataProductsTab/EditDataProductModal';
+import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { useEntityContext } from '@src/app/entity/shared/EntityContext';
+
+import { DataProduct, EntityType } from '@types';
 
 const TransparentButton = styled(Button)`
-    color: ${REDESIGN_COLORS.RED_ERROR};
+    color: ${(props) => props.theme.colors.textError};
     font-size: 12px;
     box-shadow: none;
     border: none;
@@ -24,7 +24,7 @@ const TransparentButton = styled(Button)`
     &:hover {
         transition: 0.15s;
         opacity: 0.9;
-        color: ${REDESIGN_COLORS.RED_ERROR};
+        color: ${(props) => props.theme.colors.textError};
     }
 `;
 
@@ -32,8 +32,8 @@ const ResultWrapper = styled.div`
     padding: 20px;
     display: flex;
     align-items: center;
-    border: 1px solid #ebecf0;
-    background: ${REDESIGN_COLORS.WHITE};
+    border: 1px solid ${(props) => props.theme.colors.border};
+    background: ${(props) => props.theme.colors.bg};
     border-radius: 10px;
 
     &:hover ${TransparentButton} {
@@ -62,10 +62,8 @@ export default function DataProductResult({ dataProduct, onUpdateDataProduct, se
         setDeletedDataProductUrns((currentUrns) => [...currentUrns, dataProduct.urn]);
     }
 
-    const { onDeleteEntity } = useDeleteEntity(dataProduct.urn, dataProduct.type, dataProduct, deleteDataProduct);
-
     function onDeleteDataProduct() {
-        onDeleteEntity();
+        deleteDataProduct();
         setTimeout(() => refetch(), 3000);
     }
 

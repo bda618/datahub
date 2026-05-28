@@ -1,9 +1,11 @@
-import { Button, Checkbox, Modal, Typography } from 'antd';
-import React from 'react';
+import { Button, Checkbox, Typography } from 'antd';
+import React, { useState } from 'react';
 import styled from 'styled-components';
+
+import { EntityAndType } from '@app/entity/shared/types';
+import { SearchSelectActions } from '@app/entityV2/shared/components/styled/search/SearchSelectActions';
+import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 import { useEntityFormContext } from '@src/app/entity/shared/entityForm/EntityFormContext';
-import { EntityAndType } from '../../../../../entity/shared/types';
-import { SearchSelectActions } from './SearchSelectActions';
 
 const CheckboxContainer = styled.div`
     display: flex;
@@ -21,6 +23,10 @@ const CancelButton = styled(Button)`
         margin-left: 8px;
         padding: 0px;
     }
+`;
+
+const SelectionText = styled(Typography.Text)`
+    white-space: nowrap;
 `;
 
 const StyledCheckbox = styled(Checkbox)`
@@ -68,20 +74,12 @@ export const SearchSelectBar = ({
     setAreAllEntitiesSelected,
 }: Props) => {
     const { isInFormContext } = useEntityFormContext();
+
+    const [showClearSelectionModal, setShowClearSelectionModal] = useState(false);
     const selectedEntityCount = selectedEntities.length;
     const onClickCancel = () => {
         if (selectedEntityCount > 0) {
-            Modal.confirm({
-                title: `Exit Selection`,
-                content: `Are you sure you want to exit? ${selectedEntityCount} selection(s) will be cleared.`,
-                onOk() {
-                    onCancel?.();
-                },
-                onCancel() {},
-                okText: 'Yes',
-                maskClosable: true,
-                closable: true,
-            });
+            setShowClearSelectionModal(true);
         } else {
             onCancel?.();
         }
@@ -96,15 +94,16 @@ export const SearchSelectBar = ({
                         onChangeSelectAll(e.target.checked as boolean);
                         setAreAllEntitiesSelected?.(false);
                     }}
+                    id="search-select-bar"
                     disabled={limit !== undefined && limit > 0}
                 />
-                <Typography.Text strong type="secondary">
+                <SelectionText strong type="secondary">
                     {areAllEntitiesSelected ? (
                         <>All {totalResults} assets selected</>
                     ) : (
                         <>{selectedEntityCount} selected</>
                     )}
-                </Typography.Text>
+                </SelectionText>
                 {areAllEntitiesSelected && (
                     <StyledButton
                         type="text"
@@ -128,6 +127,13 @@ export const SearchSelectBar = ({
                     )}
                 </ActionsContainer>
             )}
+            <ConfirmationModal
+                isOpen={showClearSelectionModal}
+                handleClose={() => setShowClearSelectionModal(false)}
+                handleConfirm={() => onCancel?.()}
+                modalTitle="Exit Selection"
+                modalText={`Are you sure you want to exit? ${selectedEntityCount} selection(s) will be cleared.`}
+            />
         </>
     );
 };

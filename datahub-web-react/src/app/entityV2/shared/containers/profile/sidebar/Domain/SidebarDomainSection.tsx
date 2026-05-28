@@ -1,17 +1,24 @@
+import { toast } from '@components';
+import { PencilSimple } from '@phosphor-icons/react/dist/csr/PencilSimple';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { Modal, message } from 'antd';
-import AddRoundedIcon from '@mui/icons-material/AddRounded';
-import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
-import { EMPTY_MESSAGES } from '../../../../constants';
-import { useEntityData, useMutationUrn, useRefetch } from '../../../../../../entity/shared/EntityContext';
-import { SetDomainModal } from './SetDomainModal';
-import { useUnsetDomainMutation } from '../../../../../../../graphql/mutations.generated';
-import { DomainLink } from '../../../../../../sharedV2/tags/DomainLink';
-import { ENTITY_PROFILE_DOMAINS_ID } from '../../../../../../onboarding/config/EntityProfileOnboardingConfig';
-import { SidebarSection } from '../SidebarSection';
-import SectionActionButton from '../SectionActionButton';
-import EmptySectionText from '../EmptySectionText';
+
+import { useEntityData, useMutationUrn, useRefetch } from '@app/entity/shared/EntityContext';
+import { EMPTY_MESSAGES } from '@app/entityV2/shared/constants';
+import { SetDomainModal } from '@app/entityV2/shared/containers/profile/sidebar/Domain/SetDomainModal';
+import EmptySectionText from '@app/entityV2/shared/containers/profile/sidebar/EmptySectionText';
+import SectionActionButton from '@app/entityV2/shared/containers/profile/sidebar/SectionActionButton';
+import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
+import { ENTITY_PROFILE_DOMAINS_ID } from '@app/onboarding/config/EntityProfileOnboardingConfig';
+import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
+import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
+import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';
+import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';
+import { DomainLink } from '@app/sharedV2/tags/DomainLink';
+
+import { useUnsetDomainMutation } from '@graphql/mutations.generated';
+import { DataHubPageModuleType, EntityType } from '@types';
 
 const Content = styled.div`
     display: flex;
@@ -38,41 +45,43 @@ interface Props {
 
 export const SidebarDomainSection = ({ readOnly, properties }: Props) => {
     const updateOnly = properties?.updateOnly;
-    const { entityData } = useEntityData();
+    const { entityData, entityType } = useEntityData();
     const refetch = useRefetch();
     const urn = useMutationUrn();
     const [unsetDomainMutation] = useUnsetDomainMutation();
     const [showModal, setShowModal] = useState(false);
+    const [domainToRemove, setDomainToRemove] = useState<string | undefined>();
     const domain = entityData?.domain?.domain;
+
+    const { reloadByKeyType } = useReloadableContext();
 
     const canEditDomains = !!entityData?.privileges?.canEditDomains;
 
     const removeDomain = (urnToRemoveFrom) => {
         unsetDomainMutation({ variables: { entityUrn: urnToRemoveFrom } })
             .then(() => {
-                message.success({ content: 'Removed Domain.', duration: 2 });
+                toast.success('Removed Domain.', { duration: 2 });
                 refetch?.();
+                // Reload modules
+                // Assets - as assets module in domain summary tab could be updated
+                reloadByKeyType(
+                    [getReloadableKeyType(ReloadableKeyTypeNamespace.MODULE, DataHubPageModuleType.Assets)],
+                    3000,
+                );
+                // DataProduct - as data products module in domain summary tab could be updated
+                if (entityType === EntityType.DataProduct) {
+                    reloadByKeyType(
+                        [getReloadableKeyType(ReloadableKeyTypeNamespace.MODULE, DataHubPageModuleType.DataProducts)],
+                        3000,
+                    );
+                }
             })
             .catch((e: unknown) => {
-                message.destroy();
+                toast.destroy();
                 if (e instanceof Error) {
-                    message.error({ content: `Failed to remove domain: \n ${e.message || ''}`, duration: 3 });
+                    toast.error(`Failed to remove domain: \n ${e.message || ''}`, { duration: 3 });
                 }
             });
-    };
-
-    const onRemoveDomain = (urnToRemoveFrom) => {
-        Modal.confirm({
-            title: `Confirm Domain Removal`,
-            content: `Are you sure you want to remove this domain?`,
-            onOk() {
-                removeDomain(urnToRemoveFrom);
-            },
-            onCancel() {},
-            okText: 'Yes',
-            maskClosable: true,
-            closable: true,
-        });
     };
 
     return (
@@ -89,7 +98,7 @@ export const SidebarDomainSection = ({ readOnly, properties }: Props) => {
                                     readOnly={readOnly}
                                     onClose={(e) => {
                                         e.preventDefault();
-                                        onRemoveDomain(entityData?.domain?.associatedUrn);
+                                        setDomainToRemove(entityData?.domain?.associatedUrn);
                                     }}
                                     fontSize={12}
                                 />
@@ -102,12 +111,13 @@ export const SidebarDomainSection = ({ readOnly, properties }: Props) => {
                 }
                 extra={
                     <SectionActionButton
-                        button={domain ? <EditOutlinedIcon /> : <AddRoundedIcon />}
+                        icon={domain ? PencilSimple : Plus}
                         onClick={(event) => {
                             setShowModal(true);
                             event.stopPropagation();
                         }}
                         actionPrivilege={canEditDomains}
+                        dataTestId="set-domain-button"
                     />
                 }
             />
@@ -120,6 +130,16 @@ export const SidebarDomainSection = ({ readOnly, properties }: Props) => {
                     }}
                 />
             )}
+            <ConfirmationModal
+                isOpen={!!domainToRemove}
+                handleClose={() => setDomainToRemove(undefined)}
+                handleConfirm={() => {
+                    removeDomain(domainToRemove);
+                    setDomainToRemove(undefined);
+                }}
+                modalTitle="Confirm Domain Removal"
+                modalText="Are you sure you want to remove this domain?"
+            />
         </div>
     );
 };

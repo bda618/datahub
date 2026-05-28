@@ -1,14 +1,13 @@
-import ViewInPlatform from '@app/entityV2/shared/externalUrl/ViewInPlatform';
 import React, { useContext } from 'react';
 import styled from 'styled-components';
-import { Typography } from 'antd';
-import EntitySidebarContext from '../../../../../sharedV2/EntitySidebarContext';
-import { REDESIGN_COLORS } from '../../../constants';
-import { EntitySidebarTab } from '../../../types';
-import { TitleAction } from './TitleAction';
-import MoreOptionsMenuAction from '../../../EntityDropdown/MoreOptionsMenuAction';
-import { EntityMenuItems } from '../../../EntityDropdown/EntityMenuActions';
-import { useEntityData, useRefetch } from '../../../../../entity/shared/EntityContext';
+
+import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
+import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
+import MoreOptionsMenuAction from '@app/entityV2/shared/EntityDropdown/MoreOptionsMenuAction';
+import { TitleAction } from '@app/entityV2/shared/containers/profile/sidebar/TitleAction';
+import ViewInPlatform from '@app/entityV2/shared/externalUrl/ViewInPlatform';
+import { EntitySidebarTab } from '@app/entityV2/shared/types';
+import EntitySidebarContext from '@app/sharedV2/EntitySidebarContext';
 
 const Controls = styled.div<{ isCollapsed: boolean }>`
     display: flex;
@@ -16,7 +15,7 @@ const Controls = styled.div<{ isCollapsed: boolean }>`
     justify-content: ${(props) => (props.isCollapsed ? 'center' : 'space-between')};
     height: 56px;
     padding: 8px 20px 5px 20px;
-    border-bottom: 1px solid #d5d5d5;
+    border-bottom: 1px solid ${(props) => props.theme.colors.border};
 `;
 
 const Title = styled.div`
@@ -24,22 +23,21 @@ const Title = styled.div`
     flex-direction: column;
     align-items: start;
     justify-content: center;
-    gap: 2px;
     width: 100%;
 `;
 
-const TabTitle = styled(Typography.Text)`
+const TabTitle = styled.span`
     font-size: 14px;
     font-weight: 800;
     line-height: 20px;
-    color: ${REDESIGN_COLORS.HEADING_COLOR};
+    color: ${(props) => props.theme.colors.text};
 `;
 
-const TitleDescription = styled(Typography.Text)`
-    font-size: 10px;
+// eslint-disable-next-line @typescript-eslint/naming-convention
+const _TitleDescription = styled.span`
+    font-size: 12px;
     font-weight: 400;
-    color: ${REDESIGN_COLORS.HEADING_COLOR};
-    opacity: 0.5;
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 const Top = styled.div`
@@ -51,7 +49,7 @@ const Top = styled.div`
 const RightActions = styled.div`
     display: flex;
     align-items: center;
-    gap: 3px;
+    gap: 8px;
 `;
 
 interface Props {
@@ -62,10 +60,8 @@ interface Props {
 export default function SidebarCollapsibleHeader({ currentTab, headerDropdownItems }: Props) {
     const { isClosed, forLineage, separateSiblings } = useContext(EntitySidebarContext);
 
-    const currentTabName = currentTab?.name === 'About' ? 'Summary' : currentTab?.name;
-    const currentTabDescription = currentTab?.description;
+    const currentTabName = currentTab?.name;
     const actionType = currentTab?.properties?.actionType;
-    const icon = currentTab?.icon;
 
     const { urn, entityType, entityData } = useEntityData();
     const refetch = useRefetch();
@@ -77,7 +73,7 @@ export default function SidebarCollapsibleHeader({ currentTab, headerDropdownIte
                     <Top>
                         <TabTitle>{currentTabName}</TabTitle>
                         <RightActions>
-                            {actionType && <TitleAction actionType={actionType} icon={icon} />}
+                            {actionType && <TitleAction actionType={actionType} />}
                             {forLineage && (
                                 <ViewInPlatform hideSiblingActions={separateSiblings} urn={urn} data={entityData} />
                             )}
@@ -93,8 +89,6 @@ export default function SidebarCollapsibleHeader({ currentTab, headerDropdownIte
                             )}
                         </RightActions>
                     </Top>
-
-                    {currentTabDescription && <TitleDescription> {currentTabDescription}</TitleDescription>}
                 </Title>
             )}
         </Controls>

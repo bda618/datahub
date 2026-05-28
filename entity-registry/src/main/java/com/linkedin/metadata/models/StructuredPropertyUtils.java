@@ -87,6 +87,54 @@ public class StructuredPropertyUtils {
   }
 
   /**
+   * Extracts the entity type name from an entity type URN.
+   *
+   * <p>Entity type URNs may come in two formats:
+   *
+   * <ul>
+   *   <li>{@code urn:li:entityType:dataset} - legacy format without datahub prefix
+   *   <li>{@code urn:li:entityType:datahub.dataset} - current format with datahub prefix
+   * </ul>
+   *
+   * <p>This method normalizes both formats to return just the entity type name (e.g., "dataset").
+   *
+   * @param entityTypeUrn the entity type URN to extract the name from
+   * @return the entity type name (e.g., "dataset", "dataFlow"), or null if the URN is null
+   */
+  @Nullable
+  public static String getEntityTypeId(@Nullable final Urn entityTypeUrn) {
+    if (entityTypeUrn == null) {
+      return null;
+    }
+    String entityTypeId = entityTypeUrn.getId();
+    // Handle both "datahub.dataset" and "dataset" formats
+    if (entityTypeId.startsWith("datahub.")) {
+      entityTypeId = entityTypeId.substring("datahub.".length());
+    }
+    return entityTypeId;
+  }
+
+  /**
+   * Checks if the given entity type URN matches the specified entity type name.
+   *
+   * <p>This method handles both URN formats:
+   *
+   * <ul>
+   *   <li>{@code urn:li:entityType:dataset}
+   *   <li>{@code urn:li:entityType:datahub.dataset}
+   * </ul>
+   *
+   * @param entityTypeUrn the entity type URN to check
+   * @param entityTypeName the entity type name to match against (e.g., "dataset")
+   * @return true if the URN represents the specified entity type, false otherwise
+   */
+  public static boolean entityTypeMatches(
+      @Nullable final Urn entityTypeUrn, @Nonnull final String entityTypeName) {
+    String extractedType = getEntityTypeId(entityTypeUrn);
+    return entityTypeName.equals(extractedType);
+  }
+
+  /**
    * Given a structured property input field or facet name, return a valid structured property facet
    * name
    *
@@ -306,6 +354,70 @@ public class StructuredPropertyUtils {
                     && new Status(entry.getValue().get(STATUS_ASPECT_NAME).data()).isRemoved())
         .map(Map.Entry::getKey)
         .collect(Collectors.toSet());
+  }
+
+  /**
+   * Returns property URNs whose structured property entity does not exist (hard-deleted) or has no
+   * {@code propertyDefinition} aspect.
+   */
+  @Nonnull
+  public static Set<Urn> getMissingPropertyDefinitionUrns(
+      @Nonnull Set<Urn> propertyUrns, @Nonnull AspectRetriever aspectRetriever) {
+    if (propertyUrns.isEmpty()) {
+      return Collections.emptySet();
+    }
+
+    final Map<Urn, Boolean> existsMap = aspectRetriever.entityExists(propertyUrns);
+    final Set<Urn> existing =
+        propertyUrns.stream()
+            .filter(urn -> Boolean.TRUE.equals(existsMap.get(urn)))
+            .collect(Collectors.toSet());
+
+    final Set<Urn> missing = new HashSet<>(propertyUrns);
+    missing.removeAll(existing);
+
+    if (!existing.isEmpty()) {
+      final Map<Urn, Map<String, Aspect>> definitionAspects =
+          aspectRetriever.getLatestAspectObjects(
+              existing, ImmutableSet.of(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME));
+      existing.stream()
+          .filter(
+              propertyUrn ->
+                  !definitionAspects
+                      .getOrDefault(propertyUrn, Collections.emptyMap())
+                      .containsKey(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME))
+          .forEach(missing::add);
+    }
+
+    return missing;
+  }
+
+  /**
+   * Removes assignments whose property definition is missing. Returns the filtered aspect and the
+   * dropped property URNs.
+   */
+  @Nonnull
+  public static Pair<StructuredProperties, Set<Urn>> filterMissingPropertyDefinitions(
+      @Nonnull StructuredProperties structuredProperties,
+      @Nonnull AspectRetriever aspectRetriever) {
+    if (!structuredProperties.hasProperties() || structuredProperties.getProperties().isEmpty()) {
+      return Pair.of(structuredProperties, Collections.emptySet());
+    }
+
+    final Set<Urn> missingPropertyUrns =
+        getMissingPropertyDefinitionUrns(
+            structuredProperties.getProperties().stream()
+                .map(StructuredPropertyValueAssignment::getPropertyUrn)
+                .collect(Collectors.toSet()),
+            aspectRetriever);
+
+    if (missingPropertyUrns.isEmpty()) {
+      return Pair.of(structuredProperties, Collections.emptySet());
+    }
+
+    final Pair<StructuredPropertyValueAssignmentArray, Boolean> filtered =
+        filterValueAssignment(structuredProperties.getProperties(), missingPropertyUrns);
+    return Pair.of(structuredProperties.setProperties(filtered.getFirst()), missingPropertyUrns);
   }
 
   /**

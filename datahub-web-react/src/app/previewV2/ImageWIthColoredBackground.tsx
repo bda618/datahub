@@ -1,8 +1,8 @@
 import ColorThief from 'colorthief';
 import React from 'react';
-import styled from 'styled-components';
-import { getLighterRGBColor } from '../sharedV2/icons/colorUtils';
-import { REDESIGN_COLORS } from '../entityV2/shared/constants';
+import styled, { useTheme } from 'styled-components';
+
+import { getLighterRGBColor } from '@app/sharedV2/icons/colorUtils';
 
 type Props = {
     src: string;
@@ -36,6 +36,7 @@ const DEFAULT_BORDER_RADIUS = 4;
 
 // TODO: Make this the default component for platform icons
 const ImageWithColoredBackground = ({ src, alt, imgSize, backgroundSize, borderRadius }: Props) => {
+    const theme = useTheme();
     const imgRef = React.useRef<HTMLImageElement>(null);
     const [platformBackground, setPlatformBackground] = React.useState<string | undefined>(undefined);
 
@@ -58,7 +59,7 @@ const ImageWithColoredBackground = ({ src, alt, imgSize, backgroundSize, borderR
                 const img = imgRef.current;
                 if (img) {
                     img.removeAttribute('crossOrigin');
-                    setPlatformBackground(REDESIGN_COLORS.BACKGROUND_GREY);
+                    setPlatformBackground(theme.colors.bgSurface);
                 }
             }}
         />

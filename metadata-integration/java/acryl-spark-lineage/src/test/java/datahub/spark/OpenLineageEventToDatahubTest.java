@@ -1,8 +1,13 @@
 package datahub.spark;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import com.linkedin.common.FabricType;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.dataprocess.RunResultType;
+import com.linkedin.dataset.FineGrainedLineage;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import datahub.spark.conf.SparkAppContext;
@@ -21,14 +26,15 @@ import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Stream;
-import junit.framework.TestCase;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.tuple.Triple;
-import org.junit.Assert;
+import org.junit.jupiter.api.Test;
 
-public class OpenLineageEventToDatahubTest extends TestCase {
+public class OpenLineageEventToDatahubTest {
+  @Test
   public void testGenerateUrnFromStreamingDescriptionFile() throws URISyntaxException {
     Config datahubConfig =
         ConfigFactory.parseMap(
@@ -52,6 +58,7 @@ public class OpenLineageEventToDatahubTest extends TestCase {
     assertEquals("/tmp/streaming_output", urn.get().getDatasetNameEntity());
   }
 
+  @Test
   public void testGenerateUrnFromStreamingDescriptionS3File() throws URISyntaxException {
     Config datahubConfig =
         ConfigFactory.parseMap(
@@ -74,6 +81,7 @@ public class OpenLineageEventToDatahubTest extends TestCase {
     assertEquals("bucket/streaming_output", urn.get().getDatasetNameEntity());
   }
 
+  @Test
   public void testGenerateUrnFromStreamingDescriptionS3AFile() throws URISyntaxException {
     Config datahubConfig =
         ConfigFactory.parseMap(
@@ -97,6 +105,7 @@ public class OpenLineageEventToDatahubTest extends TestCase {
     assertEquals("bucket/streaming_output", urn.get().getDatasetNameEntity());
   }
 
+  @Test
   public void testGenerateUrnFromStreamingDescriptionGCSFile() throws URISyntaxException {
     Config datahubConfig =
         ConfigFactory.parseMap(
@@ -120,6 +129,7 @@ public class OpenLineageEventToDatahubTest extends TestCase {
     assertEquals("bucket/streaming_output", urn.get().getDatasetNameEntity());
   }
 
+  @Test
   public void testGenerateUrnFromStreamingDescriptionDeltaFile() throws URISyntaxException {
     Config datahubConfig =
         ConfigFactory.parseMap(
@@ -143,6 +153,7 @@ public class OpenLineageEventToDatahubTest extends TestCase {
     assertEquals("/tmp/streaming_output", urn.get().getDatasetNameEntity());
   }
 
+  @Test
   public void testGenerateUrnFromStreamingDescriptionGCSWithPathSpec()
       throws InstantiationException, IllegalArgumentException, URISyntaxException {
     Config datahubConfig =
@@ -171,10 +182,11 @@ public class OpenLineageEventToDatahubTest extends TestCase {
             sparkLineageConfBuilder.build());
     assert (urn.isPresent());
 
-    Assert.assertEquals(
+    assertEquals(
         "urn:li:dataset:(urn:li:dataPlatform:gcs,my-bucket/foo/tests,PROD)", urn.get().toString());
   }
 
+  @Test
   public void testGcsDataset() throws URISyntaxException {
     OpenLineage.OutputDataset outputDataset =
         new OpenLineage.OutputDatasetBuilder()
@@ -198,6 +210,7 @@ public class OpenLineageEventToDatahubTest extends TestCase {
         urn.get().getDatasetNameEntity());
   }
 
+  @Test
   public void testGcsDatasetWithoutSlashInName() throws URISyntaxException {
     OpenLineage.OutputDataset outputDataset =
         new OpenLineage.OutputDatasetBuilder()
@@ -221,6 +234,7 @@ public class OpenLineageEventToDatahubTest extends TestCase {
         urn.get().getDatasetNameEntity());
   }
 
+  @Test
   public void testRemoveFilePrefixFromPath() throws URISyntaxException {
     OpenLineage.OutputDataset outputDataset =
         new OpenLineage.OutputDatasetBuilder()
@@ -241,6 +255,7 @@ public class OpenLineageEventToDatahubTest extends TestCase {
     assertEquals("/tmp/streaming_output/file.txt", urn.get().getDatasetNameEntity());
   }
 
+  @Test
   public void testRemoveFilePrefixFromPathWithPlatformInstance() throws URISyntaxException {
     Config datahubConfig =
         ConfigFactory.parseMap(
@@ -270,6 +285,7 @@ public class OpenLineageEventToDatahubTest extends TestCase {
         "my-platfrom-instance./tmp/streaming_output/file.txt", urn.get().getDatasetNameEntity());
   }
 
+  @Test
   public void testOpenlineageDatasetWithPathSpec() throws URISyntaxException {
     Config datahubConfig =
         ConfigFactory.parseMap(
@@ -309,6 +325,7 @@ public class OpenLineageEventToDatahubTest extends TestCase {
         urn.get().getDatasetNameEntity());
   }
 
+  @Test
   public void testOpenlineageTableDataset() throws URISyntaxException {
     // https://openlineage.io/docs/spec/naming#dataset-naming
     Stream<Triple<String, String, String>> testCases =
@@ -384,6 +401,7 @@ public class OpenLineageEventToDatahubTest extends TestCase {
         });
   }
 
+  @Test
   public void testProcessOlEvent() throws URISyntaxException, IOException {
     OpenLineage.OutputDataset outputDataset =
         new OpenLineage.OutputDatasetBuilder()
@@ -408,6 +426,7 @@ public class OpenLineageEventToDatahubTest extends TestCase {
     assertNotNull(datahubJob);
   }
 
+  @Test
   public void testProcessOlFailedEvent() throws URISyntaxException, IOException {
 
     Config datahubConfig = ConfigFactory.empty();
@@ -430,6 +449,7 @@ public class OpenLineageEventToDatahubTest extends TestCase {
         RunResultType.FAILURE, datahubJob.getDataProcessInstanceRunEvent().getResult().getType());
   }
 
+  @Test
   public void testProcessOlEventWithSetFlowname() throws URISyntaxException, IOException {
     DatahubOpenlineageConfig.DatahubOpenlineageConfigBuilder builder =
         DatahubOpenlineageConfig.builder();
@@ -459,6 +479,7 @@ public class OpenLineageEventToDatahubTest extends TestCase {
         RunResultType.FAILURE, datahubJob.getDataProcessInstanceRunEvent().getResult().getType());
   }
 
+  @Test
   public void testProcessOlEventWithSetDatasetFabricType() throws URISyntaxException, IOException {
     DatahubOpenlineageConfig.DatahubOpenlineageConfigBuilder builder =
         DatahubOpenlineageConfig.builder();
@@ -486,6 +507,7 @@ public class OpenLineageEventToDatahubTest extends TestCase {
     }
   }
 
+  @Test
   public void testProcessGlueOlEvent() throws URISyntaxException, IOException {
     DatahubOpenlineageConfig.DatahubOpenlineageConfigBuilder builder =
         DatahubOpenlineageConfig.builder();
@@ -513,6 +535,7 @@ public class OpenLineageEventToDatahubTest extends TestCase {
     }
   }
 
+  @Test
   public void testProcess_OL17_GlueOlEvent() throws URISyntaxException, IOException {
     DatahubOpenlineageConfig.DatahubOpenlineageConfigBuilder builder =
         DatahubOpenlineageConfig.builder();
@@ -540,6 +563,7 @@ public class OpenLineageEventToDatahubTest extends TestCase {
     }
   }
 
+  @Test
   public void testProcessGlueOlEventSymlinkDisabled() throws URISyntaxException, IOException {
     DatahubOpenlineageConfig.DatahubOpenlineageConfigBuilder builder =
         DatahubOpenlineageConfig.builder();
@@ -568,6 +592,7 @@ public class OpenLineageEventToDatahubTest extends TestCase {
     }
   }
 
+  @Test
   public void testProcessGlueOlEventWithHiveAlias() throws URISyntaxException, IOException {
     DatahubOpenlineageConfig.DatahubOpenlineageConfigBuilder builder =
         DatahubOpenlineageConfig.builder();
@@ -596,6 +621,7 @@ public class OpenLineageEventToDatahubTest extends TestCase {
     }
   }
 
+  @Test
   public void testProcessRedshiftOutput() throws URISyntaxException, IOException {
     DatahubOpenlineageConfig.DatahubOpenlineageConfigBuilder builder =
         DatahubOpenlineageConfig.builder();
@@ -628,6 +654,7 @@ public class OpenLineageEventToDatahubTest extends TestCase {
     }
   }
 
+  @Test
   public void testProcessRedshiftOutputWithPlatformInstance()
       throws URISyntaxException, IOException {
     DatahubOpenlineageConfig.DatahubOpenlineageConfigBuilder builder =
@@ -662,6 +689,7 @@ public class OpenLineageEventToDatahubTest extends TestCase {
     }
   }
 
+  @Test
   public void testProcessRedshiftOutputWithPlatformSpecificPlatformInstance()
       throws URISyntaxException, IOException {
     DatahubOpenlineageConfig.DatahubOpenlineageConfigBuilder builder =
@@ -707,6 +735,7 @@ public class OpenLineageEventToDatahubTest extends TestCase {
     }
   }
 
+  @Test
   public void testProcessRedshiftOutputWithPlatformSpecificEnv()
       throws URISyntaxException, IOException {
     DatahubOpenlineageConfig.DatahubOpenlineageConfigBuilder builder =
@@ -748,6 +777,7 @@ public class OpenLineageEventToDatahubTest extends TestCase {
     }
   }
 
+  @Test
   public void testProcessRedshiftOutputLowercasedUrns() throws URISyntaxException, IOException {
     DatahubOpenlineageConfig.DatahubOpenlineageConfigBuilder builder =
         DatahubOpenlineageConfig.builder();
@@ -782,6 +812,7 @@ public class OpenLineageEventToDatahubTest extends TestCase {
     }
   }
 
+  @Test
   public void testProcessGCSInputsOutputs() throws URISyntaxException, IOException {
     DatahubOpenlineageConfig.DatahubOpenlineageConfigBuilder builder =
         DatahubOpenlineageConfig.builder();
@@ -815,6 +846,7 @@ public class OpenLineageEventToDatahubTest extends TestCase {
     }
   }
 
+  @Test
   public void testProcessMappartitionJob() throws URISyntaxException, IOException {
     DatahubOpenlineageConfig.DatahubOpenlineageConfigBuilder builder =
         DatahubOpenlineageConfig.builder();
@@ -841,5 +873,264 @@ public class OpenLineageEventToDatahubTest extends TestCase {
           dataset.getUrn().toString());
     }
     assertEquals(0, datahubJob.getOutSet().size());
+  }
+
+  @Test
+  public void testCaptureTransformOption() throws URISyntaxException, IOException {
+    DatahubOpenlineageConfig.DatahubOpenlineageConfigBuilder builder =
+        DatahubOpenlineageConfig.builder();
+    builder.fabricType(FabricType.DEV);
+    builder.lowerCaseDatasetUrns(true);
+    builder.materializeDataset(true);
+    builder.includeSchemaMetadata(true);
+    builder.isSpark(true);
+    builder.captureColumnLevelLineage(true);
+    builder.includeIndirectColumnLineage(true);
+
+    String olEvent =
+        IOUtils.toString(
+            this.getClass().getResourceAsStream("/ol_events/sample_spark_with_transformation.json"),
+            StandardCharsets.UTF_8);
+
+    OpenLineage.RunEvent runEvent = OpenLineageClientUtils.runEventFromJson(olEvent);
+    DatahubJob datahubJob = OpenLineageToDataHub.convertRunEventToJob(runEvent, builder.build());
+
+    assertNotNull(datahubJob);
+
+    assertEquals(1, datahubJob.getInSet().size());
+    for (DatahubDataset dataset : datahubJob.getInSet()) {
+      assertEquals(
+          "urn:li:dataset:(urn:li:dataPlatform:file,/spark-test/people.parquet,DEV)",
+          dataset.getUrn().toString());
+    }
+    for (DatahubDataset dataset : datahubJob.getOutSet()) {
+      assertEquals(
+          "urn:li:dataset:(urn:li:dataPlatform:file,/spark-test/result_test,DEV)",
+          dataset.getUrn().toString());
+
+      // With include_indirect=true, DIRECT and INDIRECT transformations are merged into the
+      // single FineGrainedLineage entry per downstream column (back-compat with the
+      // pre-fix emission shape).
+      assertEquals(
+          "DIRECT:IDENTITY,INDIRECT:FILTER",
+          Objects.requireNonNull(dataset.getLineage().getFineGrainedLineages())
+              .get(0)
+              .getTransformOperation());
+    }
+  }
+
+  @Test
+  public void testIncludeIndirectColumnLineageDisabled() throws URISyntaxException, IOException {
+    // When include_indirect=false:
+    //   - "name" output has one INDIRECT-only contributor (people.parquet.age, filter) and one
+    //     DIRECT contributor (people.parquet.name). The INDIRECT-only contributor must drop.
+    //   - "age" output has a single MIXED contributor (people.parquet.age with both
+    //     DIRECT:IDENTITY and INDIRECT:FILTER). Mixed contributors must NOT be dropped.
+    DatahubOpenlineageConfig.DatahubOpenlineageConfigBuilder builder =
+        DatahubOpenlineageConfig.builder();
+    builder.fabricType(FabricType.DEV);
+    builder.lowerCaseDatasetUrns(true);
+    builder.materializeDataset(true);
+    builder.includeSchemaMetadata(true);
+    builder.isSpark(true);
+    builder.captureColumnLevelLineage(true);
+    builder.includeIndirectColumnLineage(false);
+
+    String olEvent =
+        IOUtils.toString(
+            this.getClass().getResourceAsStream("/ol_events/sample_spark_with_transformation.json"),
+            StandardCharsets.UTF_8);
+
+    OpenLineage.RunEvent runEvent = OpenLineageClientUtils.runEventFromJson(olEvent);
+    DatahubJob datahubJob = OpenLineageToDataHub.convertRunEventToJob(runEvent, builder.build());
+
+    assertNotNull(datahubJob);
+    for (DatahubDataset dataset : datahubJob.getOutSet()) {
+      List<FineGrainedLineage> fglines =
+          Objects.requireNonNull(dataset.getLineage().getFineGrainedLineages());
+
+      FineGrainedLineage nameEntry =
+          fglines.stream()
+              .filter(fgl -> fgl.getDownstreams().get(0).toString().endsWith(",name)"))
+              .findFirst()
+              .orElseThrow(AssertionError::new);
+      assertEquals(
+          1,
+          nameEntry.getUpstreams().size(),
+          "INDIRECT-only contributor (age) must be dropped from the name column's upstreams");
+      // Transformation tags are preserved even when the contributing URN is dropped, so the
+      // user can still tell the SQL involved a filter even though we don't list the filter
+      // column as an upstream.
+      assertEquals("DIRECT:IDENTITY,INDIRECT:FILTER", nameEntry.getTransformOperation());
+
+      // Mixed DIRECT+INDIRECT contributor must be kept — guards against isIndirectOnly
+      // incorrectly returning true when the field also has a DIRECT role.
+      FineGrainedLineage ageEntry =
+          fglines.stream()
+              .filter(fgl -> fgl.getDownstreams().get(0).toString().endsWith(",age)"))
+              .findFirst()
+              .orElseThrow(AssertionError::new);
+      assertEquals(
+          1,
+          ageEntry.getUpstreams().size(),
+          "Mixed DIRECT+INDIRECT contributor (age) must NOT be dropped from the age column's upstreams");
+      assertEquals("DIRECT:IDENTITY,INDIRECT:FILTER", ageEntry.getTransformOperation());
+    }
+  }
+
+  @Test
+  public void testCaptureSQLJobFacet() throws URISyntaxException, IOException {
+    DatahubOpenlineageConfig.DatahubOpenlineageConfigBuilder builder =
+        DatahubOpenlineageConfig.builder();
+    builder.fabricType(FabricType.DEV);
+    builder.lowerCaseDatasetUrns(true);
+    builder.materializeDataset(true);
+    builder.includeSchemaMetadata(true);
+    builder.isSpark(true);
+    builder.captureColumnLevelLineage(true);
+    builder.includeIndirectColumnLineage(true);
+
+    String olEvent =
+        IOUtils.toString(
+            this.getClass().getResourceAsStream("/ol_events/sample_spark_with_sql_facet.json"),
+            StandardCharsets.UTF_8);
+
+    OpenLineage.RunEvent runEvent = OpenLineageClientUtils.runEventFromJson(olEvent);
+    DatahubJob datahubJob = OpenLineageToDataHub.convertRunEventToJob(runEvent, builder.build());
+
+    assertNotNull(datahubJob);
+
+    assertEquals(1, datahubJob.getInSet().size());
+    for (DatahubDataset dataset : datahubJob.getInSet()) {
+      assertEquals(
+          "urn:li:dataset:(urn:li:dataPlatform:file,/spark-test/people.parquet,DEV)",
+          dataset.getUrn().toString());
+    }
+    for (DatahubDataset dataset : datahubJob.getOutSet()) {
+      assertEquals(
+          "urn:li:dataset:(urn:li:dataPlatform:file,/spark-test/result_test,DEV)",
+          dataset.getUrn().toString());
+
+      String transformOperation =
+          Objects.requireNonNull(dataset.getLineage().getFineGrainedLineages())
+              .get(0)
+              .getTransformOperation();
+      assertNotNull(transformOperation);
+      // Format: "-- <transformations>\n<SQL>"
+      assertTrue(
+          transformOperation.contains("SELECT age, name FROM people WHERE age > 18"),
+          "Transform operation should contain SQL query, got: " + transformOperation);
+      assertTrue(
+          transformOperation.contains("DIRECT:IDENTITY")
+              && transformOperation.contains("INDIRECT:FILTER"),
+          "Transform operation should contain both DIRECT and INDIRECT transformations, got: "
+              + transformOperation);
+      assertTrue(
+          transformOperation.startsWith("-- ") && transformOperation.contains("\n"),
+          "Transform operation should prefix transformations with '-- ' before SQL, got: "
+              + transformOperation);
+    }
+  }
+
+  @Test
+  public void testFlinkJobEvent() throws URISyntaxException, IOException {
+    DatahubOpenlineageConfig.DatahubOpenlineageConfigBuilder builder =
+        DatahubOpenlineageConfig.builder();
+    builder.fabricType(FabricType.DEV);
+    builder.lowerCaseDatasetUrns(true);
+    builder.materializeDataset(true);
+    builder.includeSchemaMetadata(true);
+    builder.isSpark(false);
+
+    String olEvent =
+        IOUtils.toString(
+            this.getClass().getResourceAsStream("/ol_events/flink_job_test.json"),
+            StandardCharsets.UTF_8);
+
+    OpenLineage.RunEvent runEvent = OpenLineageClientUtils.runEventFromJson(olEvent);
+    DatahubJob datahubJob = OpenLineageToDataHub.convertRunEventToJob(runEvent, builder.build());
+
+    assertNotNull(datahubJob);
+
+    assertEquals(1, datahubJob.getInSet().size());
+    for (DatahubDataset dataset : datahubJob.getInSet()) {
+      assertEquals(
+          "urn:li:dataset:(urn:li:dataPlatform:kafka,lineage-test-topic-json,DEV)",
+          dataset.getUrn().toString());
+    }
+    for (DatahubDataset dataset : datahubJob.getOutSet()) {
+      assertEquals(
+          "urn:li:dataset:(urn:li:dataPlatform:kafka,lineage-test-topic-json-flinkoutput,DEV)",
+          dataset.getUrn().toString());
+    }
+  }
+
+  @Test
+  public void testDebeziumJobEvent() throws URISyntaxException, IOException {
+    DatahubOpenlineageConfig.DatahubOpenlineageConfigBuilder builder =
+        DatahubOpenlineageConfig.builder();
+    builder.fabricType(FabricType.DEV);
+    builder.lowerCaseDatasetUrns(true);
+    builder.materializeDataset(true);
+    builder.includeSchemaMetadata(true);
+    builder.isSpark(false);
+    builder.usePatch(true);
+
+    String olEvent =
+        IOUtils.toString(
+            this.getClass().getResourceAsStream("/ol_events/debezium_event.json"),
+            StandardCharsets.UTF_8);
+
+    OpenLineage.RunEvent runEvent = OpenLineageClientUtils.runEventFromJson(olEvent);
+    DatahubJob datahubJob = OpenLineageToDataHub.convertRunEventToJob(runEvent, builder.build());
+
+    assertNotNull(datahubJob);
+
+    assertEquals(0, datahubJob.getInSet().size());
+    for (DatahubDataset dataset : datahubJob.getOutSet()) {
+      assertEquals(
+          "urn:li:dataset:(urn:li:dataPlatform:kafka,debezium.public.product,DEV)",
+          dataset.getUrn().toString());
+    }
+  }
+
+  @Test
+  public void testDatabricksMergeIntoStartEvent() throws URISyntaxException, IOException {
+    DatahubOpenlineageConfig.DatahubOpenlineageConfigBuilder builder =
+        DatahubOpenlineageConfig.builder();
+    builder.fabricType(FabricType.PROD);
+    builder.materializeDataset(true);
+    builder.includeSchemaMetadata(true);
+    builder.isSpark(true);
+
+    String olEvent =
+        IOUtils.toString(
+            this.getClass().getResourceAsStream("/ol_events/databricks_mergeinto_start_event.json"),
+            StandardCharsets.UTF_8);
+
+    OpenLineage.RunEvent runEvent = OpenLineageClientUtils.runEventFromJson(olEvent);
+    DatahubJob datahubJob = OpenLineageToDataHub.convertRunEventToJob(runEvent, builder.build());
+
+    assertNotNull(datahubJob);
+    assertEquals("my-docuemnt-merge-job", datahubJob.getDataFlowInfo().getName());
+    assertEquals("my-docuemnt-merge-job", datahubJob.getJobInfo().getName());
+
+    assertEquals(1, datahubJob.getInSet().size());
+    for (DatahubDataset dataset : datahubJob.getInSet()) {
+      assertEquals(
+          "urn:li:dataset:(urn:li:dataPlatform:hive,documentraw.document,PROD)",
+          dataset.getUrn().toString());
+    }
+
+    // This test verifies the bug: outputs should be present but the converter returns empty outSet
+    // "Expected at least one output dataset but found none. This indicates the bug where outputs
+    // are not being processed correctly for MERGE INTO START events."
+    assertTrue(datahubJob.getOutSet().size() > 0);
+
+    for (DatahubDataset dataset : datahubJob.getOutSet()) {
+      assertEquals(
+          "urn:li:dataset:(urn:li:dataPlatform:hive,documentraw.document,PROD)",
+          dataset.getUrn().toString());
+    }
   }
 }

@@ -1,34 +1,36 @@
+import { Image, Typography } from 'antd';
+import { Maybe } from 'graphql/jsutils/Maybe';
 import React from 'react';
 import styled from 'styled-components';
-import { Typography, Image } from 'antd';
-import { Maybe } from 'graphql/jsutils/Maybe';
-import { Container, Dataset, Entity } from '../../../../../../../types.generated';
-import { ANTD_GRAY } from '../../../../constants';
-import ContainerLink from './ContainerLink';
-import DatasetLink from './DatasetLink';
-import {
-    StyledRightOutlined,
-    ParentNodesWrapper as ParentContainersWrapper,
-    Ellipsis,
-    StyledTooltip,
-} from './ParentNodesView';
-import ParentEntities from '../../../../../../search/filters/ParentEntities';
-import { useIsShowSeparateSiblingsEnabled } from '../../../../../../useAppConfig';
 
-export const LogoIcon = styled.span`
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import ContainerLink from '@app/entity/shared/containers/profile/header/PlatformContent/ContainerLink';
+import DatasetLink from '@app/entity/shared/containers/profile/header/PlatformContent/DatasetLink';
+import {
+    Ellipsis,
+    ParentNodesWrapper as ParentContainersWrapper,
+    StyledRightOutlined,
+    StyledTooltip,
+} from '@app/entity/shared/containers/profile/header/PlatformContent/ParentNodesView';
+import ParentEntities from '@app/search/filters/ParentEntities';
+import { useIsShowSeparateSiblingsEnabled } from '@app/useAppConfig';
+
+import { Container, Dataset, Entity } from '@types';
+
+const LogoIcon = styled.span`
     display: flex;
     gap: 4px;
     margin-right: 8px;
 `;
 
-export const PreviewImage = styled(Image)`
+const PreviewImage = styled(Image)`
     max-height: 17px;
     width: auto;
     object-fit: contain;
     background-color: transparent;
 `;
 
-export const PlatformContentWrapper = styled.div`
+const PlatformContentWrapper = styled.div`
     display: flex;
     align-items: center;
     margin: 0 8px 6px 0;
@@ -36,7 +38,7 @@ export const PlatformContentWrapper = styled.div`
     flex: 1;
 `;
 
-export const PlatformText = styled(Typography.Text)`
+const PlatformText = styled(Typography.Text)`
     font-size: 12px;
     line-height: 20px;
     font-weight: 700;
@@ -53,7 +55,7 @@ const PlatformDivider = styled.div`
     vertical-align: text-top;
 `;
 
-export function getParentContainerNames(containers?: Maybe<Container>[] | null) {
+function getParentContainerNames(containers?: Maybe<Container>[] | null) {
     let parentNames = '';
     if (containers) {
         [...containers].reverse().forEach((container, index) => {

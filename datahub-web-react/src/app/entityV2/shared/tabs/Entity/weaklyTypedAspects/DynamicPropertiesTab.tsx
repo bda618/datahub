@@ -1,10 +1,9 @@
-import React from 'react';
 import { Typography } from 'antd';
+import React from 'react';
 import styled from 'styled-components';
 
-import { StyledTable } from '../../../components/styled/StyledTable';
-import { ANTD_GRAY } from '../../../constants';
-import TableValueElement from './TableValueElement';
+import { StyledTable } from '@app/entityV2/shared/components/styled/StyledTable';
+import TableValueElement from '@app/entityV2/shared/tabs/Entity/weaklyTypedAspects/TableValueElement';
 
 type Props = {
     payload: string | undefined | null;
@@ -13,7 +12,7 @@ type Props = {
 const NameText = styled(Typography.Text)`
     font-weight: 600;
     font-size: 12px;
-    color: ${ANTD_GRAY[9]};
+    color: ${(props) => props.theme.colors.text};
 `;
 
 export default function DynamicTabularTab({ payload: rawPayload }: Props) {

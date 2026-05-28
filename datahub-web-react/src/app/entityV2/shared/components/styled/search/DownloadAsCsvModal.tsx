@@ -1,14 +1,39 @@
-import React, { useState } from 'react';
+import { ExclamationCircleFilled, LoadingOutlined } from '@ant-design/icons';
+import { Modal, Text } from '@components';
+import { Input, Spin, notification } from 'antd';
+import React, { useContext, useState } from 'react';
 import { useLocation } from 'react-router';
-import { Button, Input, Modal, Spin, notification } from 'antd';
-import { LoadingOutlined } from '@ant-design/icons';
-import { AndFilterInput } from '../../../../../../types.generated';
-import { getSearchCsvDownloadHeader, transformResultsToCsvRow } from './downloadAsCsvUtil';
-import { downloadRowsAsCsv } from '../../../../../search/utils/csvUtils';
-import { useEntityRegistry } from '../../../../../useEntityRegistry';
-import { useEntityData } from '../../../../../entity/shared/EntityContext';
-import analytics, { EventType } from '../../../../../analytics';
-import { DownloadSearchResultsInput, DownloadSearchResults } from '../../../../../search/utils/types';
+import styled, { useTheme } from 'styled-components';
+
+import analytics, { EventType } from '@app/analytics';
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import {
+    getSearchCsvDownloadHeader,
+    transformResultsToCsvRow,
+} from '@app/entityV2/shared/components/styled/search/downloadAsCsvUtil';
+import { LineageTabContext } from '@app/entityV2/shared/tabs/Lineage/LineageTabContext';
+import { downloadRowsAsCsv } from '@app/search/utils/csvUtils';
+import { DownloadSearchResults, DownloadSearchResultsInput } from '@app/search/utils/types';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { AndFilterInput, LineageSearchPath } from '@types';
+
+const ImpactAnalysisWarning = styled.div`
+    gap: 8px;
+    padding: 8px;
+    display: flex;
+    align-items: center;
+    color: ${(props) => props.theme.colors.textWarning};
+    background-color: ${(props) => props.theme.colors.bgSurfaceWarning};
+    margin-bottom: 16px;
+    border-radius: 8px;
+`;
+
+const SubText = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 6px;
+`;
 
 type Props = {
     downloadSearchResults: (input: DownloadSearchResultsInput) => Promise<DownloadSearchResults | null | undefined>;
@@ -21,7 +46,7 @@ type Props = {
     setShowDownloadAsCsvModal: (showDownloadAsCsvModal: boolean) => any;
 };
 
-const SEARCH_PAGE_SIZE_FOR_DOWNLOAD = 200;
+const SEARCH_PAGE_SIZE_FOR_DOWNLOAD = 100;
 const DOWNLOAD_NOTIFICATION_KEY = 'download-csv-notification';
 const formatTime = (seconds: number) => {
     if (seconds < 60) return `${Math.round(seconds)}s`;
@@ -40,6 +65,8 @@ export default function DownloadAsCsvModal({
     showDownloadAsCsvModal,
     setShowDownloadAsCsvModal,
 }: Props) {
+    const { lineageSearchPath } = useContext(LineageTabContext);
+    const theme = useTheme();
     const { entityData: entitySearchIsEmbeddedWithin } = useEntityData();
     const location = useLocation();
 
@@ -48,13 +75,17 @@ export default function DownloadAsCsvModal({
     );
     const entityRegistry = useEntityRegistry();
     const openNotification = (currentCount = 0, estimatedTimeRemaining?: number) => {
-        let description =
-            totalResults && currentCount < totalResults
-                ? `Downloading ${currentCount} of ${totalResults} entities...`
-                : 'Creating CSV to download';
+        // Scroll Across Entities gives max 10k as total but results can go further than that
+        const hasMoreThanLimit = totalResults === 10000;
+        let description = totalResults
+            ? `Downloading ${currentCount} of ${hasMoreThanLimit ? '10,000+' : totalResults} entities...`
+            : 'Creating CSV to download';
 
         if (estimatedTimeRemaining !== undefined) {
-            description += `\nEstimated time remaining: ${formatTime(estimatedTimeRemaining)}`;
+            // Show estimate only if the count is less than 10k entities
+            if (!hasMoreThanLimit) {
+                description += `\nEstimated time remaining: ${formatTime(estimatedTimeRemaining)}`;
+            }
         }
 
         notification.info({
@@ -164,25 +195,39 @@ export default function DownloadAsCsvModal({
             centered
             onCancel={() => setShowDownloadAsCsvModal(false)}
             title="Download as..."
-            visible={showDownloadAsCsvModal}
-            footer={
-                <>
-                    <Button onClick={() => setShowDownloadAsCsvModal(false)} type="text">
-                        Close
-                    </Button>
-                    <Button
-                        data-testid="csv-modal-download-button"
-                        onClick={() => {
-                            setShowDownloadAsCsvModal(false);
-                            triggerCsvDownload(saveAsTitle);
-                        }}
-                        disabled={saveAsTitle.length === 0}
-                    >
-                        Download
-                    </Button>
-                </>
-            }
+            open={showDownloadAsCsvModal}
+            buttons={[
+                {
+                    text: 'Close',
+                    variant: 'text',
+                    onClick: () => setShowDownloadAsCsvModal(false),
+                },
+                {
+                    text: 'Download',
+                    onClick: () => {
+                        setShowDownloadAsCsvModal(false);
+                        triggerCsvDownload(saveAsTitle);
+                    },
+                    variant: 'filled',
+                    disabled: saveAsTitle.length === 0,
+                    buttonDataTestId: 'csv-modal-download-button',
+                },
+            ]}
         >
+            {lineageSearchPath === LineageSearchPath.Lightning && (
+                <ImpactAnalysisWarning data-testid="lightning-cache-warning">
+                    <ExclamationCircleFilled style={{ color: theme.colors.iconWarning, fontSize: 16 }} />
+                    <div>
+                        <Text weight="bold" style={{ lineHeight: 'normal' }}>
+                            Results may vary
+                        </Text>
+                        <SubText>
+                            Search results include referenced assets even if they don&apos;t exist. We&apos;ll only
+                            download the assets that exist in DataHub.
+                        </SubText>
+                    </div>
+                </ImpactAnalysisWarning>
+            )}
             <Input
                 data-testid="download-as-csv-input"
                 placeholder="datahub.csv"

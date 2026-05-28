@@ -1,11 +1,12 @@
 import { Input } from 'antd';
 import React, { Dispatch, SetStateAction } from 'react';
 import styled from 'styled-components';
-import { onClickPreventSelect } from '../common';
+
+import { onClickPreventSelect } from '@app/lineageV2/common';
 
 const SearchInput = styled(Input)`
     border-radius: 4px;
-    border: 0.5px solid #d9d9d9;
+    border: 0.5px solid ${(props) => props.theme.colors.border};
     cursor: text;
     font-size: 10px;
     height: 22px;
@@ -14,7 +15,7 @@ const SearchInput = styled(Input)`
 
     :focus,
     :hover {
-        border: 0.5px solid #1890ff;
+        border: 0.5px solid ${(props) => props.theme.colors.borderBrand};
         box-shadow: none;
         outline: none;
     }

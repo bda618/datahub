@@ -1,10 +1,12 @@
 import { MoreOutlined } from '@ant-design/icons';
+import { Modal, Tooltip } from '@components';
+import { Form, Input, Typography, message } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
-import { message, Button, Input, Modal, Typography, Form } from 'antd';
-import { Tooltip } from '@components';
-import { useUpdateCorpUserPropertiesMutation } from '../../../graphql/user.generated';
-import { useAppConfig } from '../../useAppConfig';
+
+import { useAppConfig } from '@app/useAppConfig';
+
+import { useUpdateCorpUserPropertiesMutation } from '@graphql/user.generated';
 
 const StyledInput = styled(Input)`
     margin-bottom: 20px;
@@ -34,7 +36,7 @@ type Props = {
     editModalData: PropsData;
 };
 /** Regex Validations */
-export const USER_NAME_REGEX = new RegExp('^[a-zA-Z ]*$');
+const USER_NAME_REGEX = new RegExp('^[a-zA-Z ]*$');
 
 export default function UserEditProfileModal({ visible, onClose, onSave, editModalData }: Props) {
     const { config } = useAppConfig();
@@ -91,12 +93,15 @@ export default function UserEditProfileModal({ visible, onClose, onSave, editMod
                     phone: '',
                     urn: '',
                 });
+                onClose();
             })
             .catch((e) => {
                 message.destroy();
                 message.error({ content: `Failed to Save changes!: \n ${e.message || ''}`, duration: 3 });
+                // Reset form state to original values so the rejected input is discarded
+                setData({ ...editModalData });
+                form.setFieldsValue({ ...editModalData });
             });
-        onClose();
     };
 
     return (
@@ -104,16 +109,20 @@ export default function UserEditProfileModal({ visible, onClose, onSave, editMod
             title="Edit Profile"
             open={visible}
             onCancel={onClose}
-            footer={
-                <>
-                    <Button onClick={onClose} type="text">
-                        Cancel
-                    </Button>
-                    <Button type="primary" id="editUserButton" onClick={onSaveChanges} disabled={saveButtonEnabled}>
-                        Save Changes
-                    </Button>
-                </>
-            }
+            buttons={[
+                {
+                    text: 'Cancel',
+                    variant: 'text',
+                    onClick: onClose,
+                },
+                {
+                    text: 'Save Changes',
+                    variant: 'filled',
+                    id: 'editUserButton',
+                    disabled: saveButtonEnabled,
+                    onClick: onSaveChanges,
+                },
+            ]}
         >
             <Form
                 form={form}

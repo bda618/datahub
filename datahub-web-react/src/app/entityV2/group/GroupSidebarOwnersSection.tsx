@@ -1,9 +1,11 @@
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React, { useState } from 'react';
-import { PlusOutlined } from '@ant-design/icons';
-import GroupOwnerSidebarSectionContent from './GroupOwnerSidebarSectionContent';
-import SectionActionButton from '../shared/containers/profile/sidebar/SectionActionButton';
-import { SidebarSection } from '../shared/containers/profile/sidebar/SidebarSection';
-import { Ownership } from '../../../types.generated';
+
+import GroupOwnerSidebarSectionContent from '@app/entityV2/group/GroupOwnerSidebarSectionContent';
+import SectionActionButton from '@app/entityV2/shared/containers/profile/sidebar/SectionActionButton';
+import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
+
+import { Ownership } from '@types';
 
 type Props = {
     ownership: Ownership;
@@ -29,11 +31,12 @@ export const GroupSidebarOwnersSection = ({ ownership, refetch, urn }: Props) =>
             }
             extra={
                 <SectionActionButton
-                    button={<PlusOutlined />}
+                    icon={Plus}
                     onClick={(event) => {
                         setShowAddOwnerModal(true);
                         event.stopPropagation();
                     }}
+                    dataTestId="add-owners-sidebar-button"
                 />
             }
         />

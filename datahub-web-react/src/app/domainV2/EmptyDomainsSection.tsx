@@ -2,7 +2,6 @@ import { PlusOutlined } from '@ant-design/icons';
 import { Button, Empty, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
-import { ANTD_GRAY } from '../entity/shared/constants';
 
 const EmptyDomainContainer = styled.div`
     display: flex;
@@ -20,7 +19,7 @@ const StyledEmpty = styled(Empty)`
         max-height: 75vh;
         &::-webkit-scrollbar {
             width: 5px;
-            background: #d6d6d6;
+            background: ${(props) => props.theme.colors.bgSurface};
         }
     }
     padding: 20px;
@@ -34,7 +33,7 @@ const StyledButton = styled(Button)`
 `;
 
 const IconContainer = styled.span`
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.icon};
     font-size: 40px;
 `;
 

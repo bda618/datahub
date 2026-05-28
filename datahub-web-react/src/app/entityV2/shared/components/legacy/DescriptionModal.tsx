@@ -1,16 +1,14 @@
-import { Typography, Modal, Button, Form } from 'antd';
+import { Editor, Modal } from '@components';
+import { Form, Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { Editor } from '../../tabs/Documentation/components/editor/Editor';
-import { ANTD_GRAY } from '../../constants';
+
+import { EditorProps } from '@components/components/Editor/types';
+import { ModalButton } from '@components/components/Modal/Modal';
 
 const FormLabel = styled(Typography.Text)`
     font-size: 10px;
     font-weight: bold;
-`;
-
-const StyledEditor = styled(Editor)`
-    border: 1px solid ${ANTD_GRAY[4.5]};
 `;
 
 const StyledViewer = styled(Editor)`
@@ -23,6 +21,13 @@ const OriginalDocumentation = styled(Form.Item)`
     margin-bottom: 12px;
 `;
 
+const EditorContainer = styled.div`
+    height: 200px;
+    overflow: auto;
+    border: 1px solid ${(props) => props.theme.colors.border};
+    border-radius: 12px;
+`;
+
 type Props = {
     title: string;
     description?: string;
@@ -31,6 +36,7 @@ type Props = {
     onClose: () => void;
     onSubmit: (description: string) => void;
     isAddDesc?: boolean;
+    editorProps?: Partial<EditorProps>;
 };
 
 export default function UpdateDescriptionModal({
@@ -41,8 +47,24 @@ export default function UpdateDescriptionModal({
     onClose,
     onSubmit,
     isAddDesc,
+    editorProps,
 }: Props) {
     const [updatedDesc, setDesc] = useState(description || original || '');
+
+    const buttons: ModalButton[] = [
+        {
+            text: 'Cancel',
+            variant: 'text',
+            onClick: onClose,
+        },
+        {
+            text: 'Publish',
+            onClick: () => onSubmit(updatedDesc),
+            variant: 'filled',
+            disabled: updatedDesc === description,
+            buttonDataTestId: 'description-modal-update-button',
+        },
+    ];
 
     return (
         <Modal
@@ -51,19 +73,7 @@ export default function UpdateDescriptionModal({
             width={900}
             onCancel={onClose}
             okText={isAddDesc ? 'Submit' : 'Update'}
-            footer={
-                <>
-                    <Button onClick={onClose}>Cancel</Button>
-                    <Button
-                        type="primary"
-                        onClick={() => onSubmit(updatedDesc)}
-                        disabled={updatedDesc === description}
-                        data-testid="description-modal-update-button"
-                    >
-                        Publish
-                    </Button>
-                </>
-            }
+            buttons={buttons}
         >
             <Form layout="vertical">
                 {!isAddDesc && description && original && (
@@ -77,7 +87,15 @@ export default function UpdateDescriptionModal({
                     </OriginalDocumentation>
                 )}
                 <Form.Item>
-                    <StyledEditor content={updatedDesc} onChange={setDesc} />
+                    <EditorContainer>
+                        <Editor
+                            content={updatedDesc}
+                            onChange={setDesc}
+                            dataTestId="description-editor"
+                            hideBorder
+                            {...editorProps}
+                        />
+                    </EditorContainer>
                 </Form.Item>
             </Form>
         </Modal>

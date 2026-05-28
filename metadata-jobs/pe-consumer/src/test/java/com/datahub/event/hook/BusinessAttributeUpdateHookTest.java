@@ -37,7 +37,6 @@ import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.timeline.data.ChangeCategory;
 import com.linkedin.metadata.timeline.data.ChangeOperation;
 import com.linkedin.metadata.utils.GenericRecordUtils;
-import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.PlatformEvent;
 import com.linkedin.mxe.PlatformEventHeader;
 import com.linkedin.platform.event.v1.EntityChangeEvent;
@@ -46,7 +45,6 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RetrieverContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URISyntaxException;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -138,7 +136,7 @@ public class BusinessAttributeUpdateHookTest {
 
     // 2 pages = 2 ingest proposals
     Mockito.verify(mockUpdateIndicesService, Mockito.times(2))
-        .handleChangeEvent(any(OperationContext.class), any(MetadataChangeLog.class));
+        .handleChangeEvents(any(OperationContext.class), any(List.class));
   }
 
   @Test
@@ -244,7 +242,7 @@ public class BusinessAttributeUpdateHookTest {
                   any(Filter.class),
                   isNull(),
                   any(Filter.class),
-                  eq(Arrays.asList(BUSINESS_ATTRIBUTE_OF)),
+                  eq(Set.of(BUSINESS_ATTRIBUTE_OF)),
                   any(RelationshipFilter.class),
                   eq(Edge.EDGE_SORT_CRITERION),
                   nullable(String.class),

@@ -7,6 +7,8 @@ import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.trace.MCLTraceReader;
 import com.linkedin.metadata.trace.MCPFailedTraceReader;
 import com.linkedin.metadata.trace.MCPTraceReader;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
+import com.linkedin.metadata.utils.metrics.MicrometerMetricsRegistry;
 import com.linkedin.mxe.Topics;
 import jakarta.annotation.Nonnull;
 import jakarta.annotation.PreDestroy;
@@ -20,7 +22,7 @@ import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
+import org.springframework.boot.kafka.autoconfigure.KafkaProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
@@ -80,8 +82,12 @@ public class KafkaTraceReaderFactory {
   private ExecutorService traceExecutorService;
 
   @Bean("traceExecutorService")
-  public ExecutorService traceExecutorService() {
+  public ExecutorService traceExecutorService(MetricUtils metricUtils) {
     traceExecutorService = Executors.newFixedThreadPool(threadPoolSize);
+    if (metricUtils != null) {
+      MicrometerMetricsRegistry.registerExecutorMetrics(
+          "api-trace", this.traceExecutorService, metricUtils.getRegistry());
+    }
     return traceExecutorService;
   }
 

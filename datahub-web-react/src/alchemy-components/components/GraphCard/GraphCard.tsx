@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { CardContainer } from '../Card/components';
-import { Loader } from '../Loader';
-import { PageTitle } from '../PageTitle';
-import { Text } from '../Text';
+
+import { CardContainer } from '@components/components/Card/components';
+import MoreInfoModal from '@components/components/GraphCard/MoreInfoModal';
 import {
     ControlsContainer,
     EmptyMessageContainer,
@@ -11,9 +10,11 @@ import {
     GraphCardHeader,
     GraphContainer,
     LoaderContainer,
-} from './components';
-import { GraphCardProps } from './types';
-import MoreInfoModal from './MoreInfoModal';
+} from '@components/components/GraphCard/components';
+import { GraphCardProps } from '@components/components/GraphCard/types';
+import { Loader } from '@components/components/Loader';
+import { PageTitle } from '@components/components/PageTitle';
+import { Text } from '@components/components/Text';
 
 const EmptyMessageWrapper = styled.div`
     text-align: center;
@@ -37,6 +38,10 @@ export function GraphCard({
     isEmpty,
     emptyContent,
     moreInfoModalContent,
+    showHeader = true,
+    showEmptyMessageHeader = true,
+    emptyMessage = 'No stats collected for this asset at the moment.',
+    dataTestId,
 }: GraphCardProps) {
     const [showInfoModal, setShowInfoModal] = useState<boolean>(false);
 
@@ -45,11 +50,13 @@ export function GraphCard({
     };
 
     return (
-        <CardContainer maxWidth={width}>
-            <GraphCardHeader>
-                <PageTitle title={title} subTitle={subTitle} variant="sectionHeader" />
-                <ControlsContainer>{renderControls?.()}</ControlsContainer>
-            </GraphCardHeader>
+        <CardContainer maxWidth={width} data-testid={dataTestId}>
+            {showHeader && (
+                <GraphCardHeader>
+                    <PageTitle title={title} subTitle={subTitle} variant="sectionHeader" />
+                    <ControlsContainer>{renderControls?.()}</ControlsContainer>
+                </GraphCardHeader>
+            )}
 
             {loading && (
                 <LoaderContainer $height={graphHeight}>
@@ -66,12 +73,14 @@ export function GraphCard({
                         (emptyContent || (
                             <EmptyMessageContainer>
                                 <EmptyMessageWrapper>
-                                    <Text size="2xl" weight="bold" color="gray">
-                                        No Data
-                                    </Text>
-                                    <Text color="gray">No stats collected for this asset at the moment.</Text>
+                                    {showEmptyMessageHeader && (
+                                        <Text size="2xl" weight="bold">
+                                            No Data
+                                        </Text>
+                                    )}
+                                    <Text>{emptyMessage}</Text>
                                     {moreInfoModalContent && (
-                                        <LinkText color="violet" onClick={() => setShowInfoModal(true)}>
+                                        <LinkText color="primary" onClick={() => setShowInfoModal(true)}>
                                             More info
                                         </LinkText>
                                     )}

@@ -1,17 +1,19 @@
 import { LoadingOutlined } from '@ant-design/icons';
-import { DBT_URN } from '@app/ingest/source/builder/constants';
-import { useGetLineageTimeParams } from '@app/lineage/utils/useGetLineageTimeParams';
-import { LineageFilter, LineageNodesContext, useIgnoreSchemaFieldStatus } from '@app/lineageV2/common';
-import computeOrFilters from '@app/lineageV2/LineageFilterNode/computeOrFilters';
-import { DEGREE_FILTER_NAME } from '@app/search/utils/constants';
 import { Input, Text } from '@components';
-import { useSearchAcrossLineageNamesQuery } from '@graphql/lineage.generated';
-import { EntityType } from '@types';
 import { Spin } from 'antd';
 import React, { useContext, useEffect, useState } from 'react';
 import { usePrevious } from 'react-js-cron/dist/cjs/utils';
 import { useDebounce } from 'react-use';
 import styled from 'styled-components';
+
+import { DBT_URN } from '@app/ingest/source/builder/constants';
+import { useGetLineageTimeParams } from '@app/lineage/utils/useGetLineageTimeParams';
+import computeOrFilters from '@app/lineageV2/LineageFilterNode/computeOrFilters';
+import { LineageFilter, LineageNodesContext, useIgnoreSchemaFieldStatus } from '@app/lineageV2/common';
+import { DEGREE_FILTER_NAME } from '@app/search/utils/constants';
+
+import { useSearchAcrossLineageNamesQuery } from '@graphql/lineage.generated';
+import { EntityType } from '@types';
 
 const SearchLine = styled.div`
     display: flex;
@@ -107,10 +109,11 @@ export default function LineageFilterSearch({ data, numMatches, setNumMatches }:
                     errorOnHover
                     value={inputValue}
                     setValue={setInputValue}
+                    inputTestId="search-input"
                 />
                 <LoadingWrapper>{loading && <Spin indicator={<LoadingOutlined />} />}</LoadingWrapper>
             </SearchLine>
-            <SearchMatchesText type="div" size="xs" color="gray">
+            <SearchMatchesText type="div" size="xs" data-testid="matches">
                 {searchQuery.length >= 3 && (!loading || !!numMatches) && `${numMatches} matches`}
             </SearchMatchesText>
         </>

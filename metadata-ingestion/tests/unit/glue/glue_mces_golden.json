@@ -19,6 +19,11 @@
             "qualifiedName": "arn:aws:glue:us-west-2:123412341234:database/flights-database",
             "env": "PROD"
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -30,6 +35,11 @@
         "json": {
             "removed": false
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -41,6 +51,11 @@
         "json": {
             "platform": "urn:li:dataPlatform:glue"
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -54,6 +69,27 @@
                 "Database"
             ]
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:0b9f1f731ecf6743be6207fec3dc9cba",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -73,6 +109,11 @@
             "qualifiedName": "arn:aws:glue:us-west-2:123412341234:database/test-database",
             "env": "PROD"
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -84,6 +125,11 @@
         "json": {
             "removed": false
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -95,6 +141,11 @@
         "json": {
             "platform": "urn:li:dataPlatform:glue"
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -108,6 +159,27 @@
                 "Database"
             ]
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:bdf4342ea6899d162eae685bfe9074a7",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -127,6 +199,11 @@
             "qualifiedName": "arn:aws:glue:us-west-2:000000000000:database/empty-database",
             "env": "PROD"
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -138,6 +215,11 @@
         "json": {
             "removed": false
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -149,6 +231,11 @@
         "json": {
             "platform": "urn:li:dataPlatform:glue"
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -162,6 +249,71 @@
                 "Database"
             ]
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:110bc08849d1c1bde5fc345dab5c3ae7",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,flights-database.avro,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1623248255000,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "operationType": "CREATE",
+            "lastUpdatedTimestamp": 1623248255000
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,flights-database.avro,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1623326611000,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "operationType": "UPDATE",
+            "lastUpdatedTimestamp": 1623326611000
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -200,6 +352,12 @@
                         },
                         "name": "avro",
                         "qualifiedName": "arn:aws:glue:us-west-2:123412341234:table/flights-database/avro",
+                        "created": {
+                            "time": 1623248255000
+                        },
+                        "lastModified": {
+                            "time": 1623326611000
+                        },
                         "tags": []
                     }
                 },
@@ -234,8 +392,7 @@
                                 },
                                 "nativeDataType": "int",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"int\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=string].flightdate",
@@ -247,8 +404,7 @@
                                 },
                                 "nativeDataType": "string",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=string].uniquecarrier",
@@ -260,8 +416,7 @@
                                 },
                                 "nativeDataType": "string",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=int].airlineid",
@@ -273,8 +428,7 @@
                                 },
                                 "nativeDataType": "int",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"int\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=string].carrier",
@@ -286,8 +440,7 @@
                                 },
                                 "nativeDataType": "string",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=string].flightnum",
@@ -299,8 +452,7 @@
                                 },
                                 "nativeDataType": "string",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=string].origin",
@@ -312,8 +464,7 @@
                                 },
                                 "nativeDataType": "string",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=string].year",
@@ -326,8 +477,7 @@
                                 },
                                 "nativeDataType": "string",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             }
                         ]
                     }
@@ -366,6 +516,11 @@
                 }
             ]
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -379,6 +534,11 @@
                 "Table"
             ]
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -390,6 +550,54 @@
         "json": {
             "container": "urn:li:container:0b9f1f731ecf6743be6207fec3dc9cba"
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,flights-database.avro,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:0b9f1f731ecf6743be6207fec3dc9cba",
+                    "urn": "urn:li:container:0b9f1f731ecf6743be6207fec3dc9cba"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,test-database.test_jsons_markers,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1622635619000,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "operationType": "CREATE",
+            "lastUpdatedTimestamp": 1622635619000
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -427,6 +635,12 @@
                         },
                         "name": "test_jsons_markers",
                         "qualifiedName": "arn:aws:glue:us-west-2:795586375822:table/test-database/test_jsons_markers",
+                        "created": {
+                            "time": 1622635619000
+                        },
+                        "lastModified": {
+                            "time": 1622635619000
+                        },
                         "tags": []
                     }
                 },
@@ -464,8 +678,7 @@
                                 },
                                 "nativeDataType": "array<struct<name:string,position:array<double>,location:array<double>>>",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"array<struct<name:string,position:array<double>,location:array<double>>>\"}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=array].[type=struct].markers.[type=string].name",
@@ -477,8 +690,7 @@
                                 },
                                 "nativeDataType": "string",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=array].[type=struct].markers.[type=array].[type=double].position",
@@ -494,8 +706,7 @@
                                 },
                                 "nativeDataType": "array<double>",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"array<double>\"}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=array].[type=struct].markers.[type=array].[type=double].location",
@@ -511,8 +722,7 @@
                                 },
                                 "nativeDataType": "array<double>",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"array<double>\"}"
+                                "isPartOfKey": false
                             }
                         ]
                     }
@@ -551,6 +761,11 @@
                 }
             ]
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -564,6 +779,11 @@
                 "Table"
             ]
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -575,6 +795,54 @@
         "json": {
             "container": "urn:li:container:bdf4342ea6899d162eae685bfe9074a7"
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,test-database.test_jsons_markers,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:bdf4342ea6899d162eae685bfe9074a7",
+                    "urn": "urn:li:container:bdf4342ea6899d162eae685bfe9074a7"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,test-database.test_parquet,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1622564093000,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "operationType": "CREATE",
+            "lastUpdatedTimestamp": 1622564093000
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -612,6 +880,12 @@
                         },
                         "name": "test_parquet",
                         "qualifiedName": "arn:aws:glue:us-west-2:795586375822:table/test-database/test_parquet",
+                        "created": {
+                            "time": 1622564093000
+                        },
+                        "lastModified": {
+                            "time": 1622564093000
+                        },
                         "tags": []
                     }
                 },
@@ -645,8 +919,7 @@
                                 },
                                 "nativeDataType": "int",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"int\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=int].quarter",
@@ -658,8 +931,7 @@
                                 },
                                 "nativeDataType": "int",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"int\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=int].month",
@@ -671,8 +943,7 @@
                                 },
                                 "nativeDataType": "int",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"int\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=int].dayofmonth",
@@ -684,8 +955,7 @@
                                 },
                                 "nativeDataType": "int",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"int\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=string].year",
@@ -697,8 +967,7 @@
                                 },
                                 "nativeDataType": "string",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             }
                         ]
                     }
@@ -737,6 +1006,11 @@
                 }
             ]
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -750,6 +1024,11 @@
                 "Table"
             ]
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -761,6 +1040,256 @@
         "json": {
             "container": "urn:li:container:bdf4342ea6899d162eae685bfe9074a7"
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,test-database.test_parquet,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:bdf4342ea6899d162eae685bfe9074a7",
+                    "urn": "urn:li:container:bdf4342ea6899d162eae685bfe9074a7"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,test-database.test_iceberg,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1622564093000,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "operationType": "CREATE",
+            "lastUpdatedTimestamp": 1622564093000
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:glue,test-database.test_iceberg,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {
+                            "previous_metadata_location": "s3://crawler-public-us-west-2/flight/iceberg/metadata/00006-1cbe9a83-a663-4494-a97d-925660cf7780.metadata.json",
+                            "target_table_region": "us-east-1",
+                            "metadata_location": "s3://crawler-public-us-west-2/flight/iceberg/metadata/00007-4041d9f9-51f7-4887-8801-26a5d003d3d5.metadata.json",
+                            "table_type": "ICEBERG",
+                            "Location": "s3://crawler-public-us-west-2/flight/iceberg/",
+                            "AdditionalLocations": "['s3://crawler-public-us-west-2/flight/iceberg/data']",
+                            "Compressed": "False",
+                            "NumberOfBuckets": "0",
+                            "SortColumns": "[]",
+                            "StoredAsSubDirectories": "False"
+                        },
+                        "name": "test_iceberg",
+                        "qualifiedName": "arn:aws:glue:us-west-2:795586375822:table/test-database/test_iceberg",
+                        "created": {
+                            "time": 1622564093000
+                        },
+                        "lastModified": {
+                            "time": 1622564093000
+                        },
+                        "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "test-database.test_iceberg",
+                        "platform": "urn:li:dataPlatform:glue",
+                        "version": 0,
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                                "tableSchema": ""
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "[version=2.0].[type=int].yr",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "int",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "[version=2.0].[type=int].quarter",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "int",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "[version=2.0].[type=int].month",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "int",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "[version=2.0].[type=int].dayofmonth",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "int",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            }
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:glue"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [
+                            {
+                                "owner": "urn:li:corpuser:owner",
+                                "type": "DATAOWNER"
+                            }
+                        ],
+                        "ownerTypes": {},
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        }
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:baz:bob"
+                            },
+                            {
+                                "tag": "urn:li:tag:foo:bar"
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,test-database.test_iceberg,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,test-database.test_iceberg,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:bdf4342ea6899d162eae685bfe9074a7"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,test-database.test_iceberg,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:bdf4342ea6899d162eae685bfe9074a7",
+                    "urn": "urn:li:container:bdf4342ea6899d162eae685bfe9074a7"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -783,6 +1312,29 @@
                 }
             ]
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(glue,test-job-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Job"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -805,6 +1357,29 @@
                 }
             ]
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(glue,test-job-2,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Job"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -838,6 +1413,11 @@
                 }
             ]
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -871,6 +1451,11 @@
                 }
             ]
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -904,6 +1489,11 @@
                 }
             ]
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -938,6 +1528,11 @@
                 }
             ]
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -969,6 +1564,11 @@
                 }
             ]
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1000,31 +1600,11 @@
                 }
             ]
         }
-    }
-},
-{
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,test-glue-jsons,PROD)",
-            "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.common.Status": {
-                        "removed": false
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-                        "customProperties": {
-                            "connection_type": "s3",
-                            "format": "json",
-                            "connection_options": "{'path': 's3://test-glue-jsons/', 'partitionKeys': []}",
-                            "transformation_ctx": "DataSink1"
-                        },
-                        "tags": []
-                    }
-                }
-            ]
-        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1060,6 +1640,11 @@
                 }
             ]
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1093,6 +1678,11 @@
                 }
             ]
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1126,6 +1716,11 @@
                 }
             ]
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1161,31 +1756,100 @@
                 }
             ]
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
     "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,test-glue-jsons,PROD)",
+        "com.linkedin.pegasus2avro.metadata.snapshot.DataFlowSnapshot": {
+            "urn": "urn:li:dataFlow:(glue,test-job-3,PROD)",
             "aspects": [
                 {
-                    "com.linkedin.pegasus2avro.common.Status": {
-                        "removed": false
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                    "com.linkedin.pegasus2avro.datajob.DataFlowInfo": {
                         "customProperties": {
-                            "connection_type": "s3",
-                            "format": "json",
-                            "connection_options": "{'path': 's3://test-glue-jsons/', 'partitionKeys': []}",
-                            "transformation_ctx": "DataSink0"
+                            "role": "arn:aws:iam::123412341234:role/service-role/AWSGlueServiceRole-glue-crawler",
+                            "created": "2021-06-10 16:58:32.469000",
+                            "modified": "2021-06-10 16:58:32.469000",
+                            "command": "s3://aws-glue-assets-123412341234-us-west-2/scripts/job-3.py"
                         },
-                        "tags": []
+                        "externalUrl": "https://us-west-2.console.aws.amazon.com/gluestudio/home?region=us-west-2#/editor/job/test-job-3/graph",
+                        "name": "test-job-3",
+                        "description": "The third test job"
                     }
                 }
             ]
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(glue,test-job-3,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Job"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-3,PROD),test-job-3)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "externalUrl": "https://us-west-2.console.aws.amazon.com/gluestudio/home?region=us-west-2#/editor/job/test-job-3/graph",
+            "name": "test-job-3",
+            "type": {
+                "string": "GLUE"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-3,PROD),test-job-3)",
+    "changeType": "UPSERT",
+    "aspectName": "dataTransformLogic",
+    "aspect": {
+        "json": {
+            "transforms": [
+                {
+                    "queryStatement": {
+                        "value": "\nimport sys\nfrom awsglue.utils import getResolvedOptions\nfrom pyspark.sql import SparkSession\nfrom awsglue.context import GlueContext\nfrom awsglue.job import Job\n\nargs = getResolvedOptions(sys.argv, [\"JOB_NAME\"])\nspark = (\n    SparkSession.builder\n    .config(\"spark.sql.catalogImplementation\", \"hive\")\n    .config(\"spark.hadoop.hive.metastore.client.factory.class\", \"com.amazonaws.glue.catalog.metastore.AWSGlueDataCatalogHiveClientFactory\")\n    .config(\"spark.sql.extensions\", \"org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions\")\n    .config(\"spark.sql.catalog.glue_catalog.catalog-impl\", \"org.apache.iceberg.aws.glue.GlueCatalog\")\n    .config(\"spark.sql.catalog.glue_catalog\", \"org.apache.iceberg.spark.SparkCatalog\")\n    .config(\"spark.sql.catalog.glue_catalog.warehouse\", warehouse)\n    .config(\"spark.sql.iceberg.handle-timestamp-without-timezone\", \"true\")\n    .getOrCreate()\n)\nglueContext = GlueContext(spark.sparkContext, sparkSession=spark)\njob = Job(glueContext)\njob.init(args[\"JOB_NAME\"], args)\ndf = glueContext.create_dynamic_frame.from_options(connection_type = \"postgresql\", connection_options = {\"url\": \"jdbc:postgresql://my-db-endpoint:5432/dbname\", \"password\": \"*****\"}, transformation_ctx = \"df\")\ndf.createOrReplaceTempView(\"myDataSource\")\nspark.sql(\"CREATE TABLE IF NOT EXISTS glue_catalog.warehouse.items_agg USING iceberg TBLPROPERTIES ('format-version'='2') AS (SELECT name, count(1) as num_items FROM myDataSource);\")\njob.commit()\n",
+                        "language": "SQL"
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1197,6 +1861,11 @@
         "json": {
             "removed": false
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1208,6 +1877,27 @@
         "json": {
             "removed": false
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(glue,test-job-3,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1219,6 +1909,11 @@
         "json": {
             "removed": false
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1230,6 +1925,11 @@
         "json": {
             "removed": false
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1241,6 +1941,11 @@
         "json": {
             "removed": false
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1252,6 +1957,11 @@
         "json": {
             "removed": false
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1263,6 +1973,11 @@
         "json": {
             "removed": false
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1274,6 +1989,11 @@
         "json": {
             "removed": false
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1285,6 +2005,11 @@
         "json": {
             "removed": false
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1296,6 +2021,11 @@
         "json": {
             "removed": false
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1307,6 +2037,11 @@
         "json": {
             "removed": false
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1318,6 +2053,27 @@
         "json": {
             "removed": false
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-3,PROD),test-job-3)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1329,6 +2085,11 @@
         "json": {
             "name": "baz:bob"
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1340,6 +2101,11 @@
         "json": {
             "name": "foo:bar"
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
     }
 }
 ]

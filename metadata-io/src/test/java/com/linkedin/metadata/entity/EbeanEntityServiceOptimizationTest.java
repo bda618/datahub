@@ -2,6 +2,9 @@ package com.linkedin.metadata.entity;
 
 import static com.linkedin.metadata.Constants.STATUS_ASPECT_NAME;
 import static com.linkedin.metadata.entity.EntityServiceTest.TEST_AUDIT_STAMP;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.testng.Assert.assertEquals;
 
@@ -24,14 +27,14 @@ import io.ebean.Database;
 import io.ebean.test.LoggedSql;
 import jakarta.annotation.Nonnull;
 import jakarta.annotation.Nullable;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-// single threaded to prevent sql logging collisions
-@Test(singleThreaded = true)
 public class EbeanEntityServiceOptimizationTest {
   /*
    Counts for ORM optimization calculations
@@ -55,41 +58,49 @@ public class EbeanEntityServiceOptimizationTest {
   // Retention lookup (disabled for test)
   // 1. dataHubRetentionConfig (if enabled add 1 for read)
   private static final int existingRetention = 0;
-  // Final default select existing
+  // Final default select existing (no retention)
   private static final int existingBaseCount = existingDefaultAspectsGeneration + existingRetention;
 
   private final OperationContext opContext =
       TestOperationContexts.systemContextNoSearchAuthorization();
 
   private EntityServiceImpl entityService;
+  private Database server;
 
   @BeforeMethod
   public void setupTest() {
-    Database server =
+    server =
         EbeanTestUtils.createTestServer(EbeanEntityServiceOptimizationTest.class.getSimpleName());
-    AspectDao aspectDao = new EbeanAspectDao(server, EbeanConfiguration.testDefault);
+
+    AspectDao aspectDao =
+        new EbeanAspectDao(server, EbeanConfiguration.testDefault, null, List.of(), null);
     PreProcessHooks preProcessHooks = new PreProcessHooks();
     preProcessHooks.setUiEnabled(true);
     entityService =
         new EntityServiceImpl(aspectDao, mock(EventProducer.class), false, preProcessHooks, true);
     entityService.setUpdateIndicesService(mock(UpdateIndicesService.class));
+    entityService.setRetentionService(null);
   }
 
   @Test
   public void testEmptyORMOptimization() {
     // empty batch
     assertSQL(
-        AspectsBatchImpl.builder().retrieverContext(opContext.getRetrieverContext()).build(),
+        AspectsBatchImpl.builder()
+            .retrieverContext(opContext.getRetrieverContext())
+            .build(opContext),
         0,
         0,
         0,
-        "empty");
+        "empty",
+        "");
   }
 
   @Test
   public void testUpsertOptimization() {
     Urn testUrn1 =
-        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:test,testUpsertOptimization,PROD)");
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:opt,testOptimization,PROD)");
+    final String mustInclude = "urn:li:dataPlatform:opt";
 
     // single insert (non-existing)
     assertSQL(
@@ -104,11 +115,12 @@ public class EbeanEntityServiceOptimizationTest {
                     .auditStamp(TEST_AUDIT_STAMP)
                     .build(opContext.getAspectRetriever()),
                 opContext.getRetrieverContext())
-            .build(),
+            .build(opContext),
         nonExistingBaseCount + 1,
         1,
         0,
-        "initial: single insert");
+        "initial: single insert",
+        mustInclude);
 
     // single update (existing from previous - no-op)
     // 1. nextVersion
@@ -125,11 +137,12 @@ public class EbeanEntityServiceOptimizationTest {
                     .auditStamp(TEST_AUDIT_STAMP)
                     .build(opContext.getAspectRetriever()),
                 opContext.getRetrieverContext())
-            .build(),
-        existingBaseCount + 2,
+            .build(opContext),
+        existingBaseCount + 1,
         0,
         1,
-        "existing: single no-op");
+        "existing: single no-op",
+        mustInclude);
 
     // multiple (existing from previous - multiple no-ops)
     assertSQL(
@@ -151,15 +164,16 @@ public class EbeanEntityServiceOptimizationTest {
                         .changeType(ChangeType.UPSERT)
                         .auditStamp(TEST_AUDIT_STAMP)
                         .build(opContext.getAspectRetriever())))
-            .build(),
-        existingBaseCount + 2,
+            .build(opContext),
+        existingBaseCount + 1,
         0,
         1,
-        "existing: multiple no-ops. expected no additional interactions vs single no-op");
+        "existing: multiple no-ops. expected no additional interactions vs single no-op",
+        mustInclude);
 
     // single update (existing from previous - with actual change)
-    // 1. nextVersion
-    // 2. current value
+    // With retentionService=null, maxVersionsToKeep=1 so no version-history row is inserted.
+    // 1. nextVersion, 2. current value (SELECTs); 0 INSERT, 1 UPDATE (version 0 only).
     assertSQL(
         AspectsBatchImpl.builder()
             .retrieverContext(opContext.getRetrieverContext())
@@ -172,15 +186,15 @@ public class EbeanEntityServiceOptimizationTest {
                     .auditStamp(TEST_AUDIT_STAMP)
                     .build(opContext.getAspectRetriever()),
                 opContext.getRetrieverContext())
-            .build(),
-        existingBaseCount + 2,
+            .build(opContext),
+        existingBaseCount + 1,
+        0,
         1,
-        1,
-        "existing: single change");
+        "existing: single change",
+        mustInclude);
 
     // multiple update (existing from previous - with 2 actual changes)
-    // 1. nextVersion
-    // 2. current value
+    // With retentionService=null, maxVersionsToKeep=1: no version-history INSERT, only UPDATE.
     assertSQL(
         AspectsBatchImpl.builder()
             .retrieverContext(opContext.getRetrieverContext())
@@ -200,11 +214,92 @@ public class EbeanEntityServiceOptimizationTest {
                         .changeType(ChangeType.UPSERT)
                         .auditStamp(TEST_AUDIT_STAMP)
                         .build(opContext.getAspectRetriever())))
-            .build(),
-        existingBaseCount + 2,
+            .build(opContext),
+        existingBaseCount + 1,
+        0,
+        1,
+        "existing: multiple change. expected no additional statements over single change",
+        mustInclude);
+  }
+
+  /**
+   * When retention returns maxVersionsToKeep &gt; 1, an update that changes the aspect inserts the
+   * previous version as history (1 INSERT) and updates version 0 (1 UPDATE). This test covers that
+   * path to retain coverage for the version-history write behavior.
+   */
+  @Test
+  @SuppressWarnings("unchecked")
+  public void testUpsertOptimizationWithVersionHistory() {
+    RetentionService<ChangeItemImpl> mockRetention =
+        (RetentionService<ChangeItemImpl>) mock(RetentionService.class);
+    doReturn(20).when(mockRetention).getMaxVersionsToKeepForWrite(any(), anyString(), anyString());
+    entityService.setRetentionService(mockRetention);
+
+    Urn testUrn1 =
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:opt,testOptimizationV2,PROD)");
+    final String mustInclude = "urn:li:dataPlatform:opt";
+
+    // initial insert (same as no-retention path)
+    assertSQL(
+        AspectsBatchImpl.builder()
+            .retrieverContext(opContext.getRetrieverContext())
+            .one(
+                ChangeItemImpl.builder()
+                    .urn(testUrn1)
+                    .aspectName(STATUS_ASPECT_NAME)
+                    .recordTemplate(new Status().setRemoved(false))
+                    .changeType(ChangeType.UPSERT)
+                    .auditStamp(TEST_AUDIT_STAMP)
+                    .build(opContext.getAspectRetriever()),
+                opContext.getRetrieverContext())
+            .build(opContext),
+        nonExistingBaseCount + 1,
+        1,
+        0,
+        "with retention: initial insert",
+        mustInclude);
+
+    // no-op update (same SELECT/INSERT/UPDATE counts as no-retention path; mock does not add DB
+    // reads)
+    assertSQL(
+        AspectsBatchImpl.builder()
+            .retrieverContext(opContext.getRetrieverContext())
+            .one(
+                ChangeItemImpl.builder()
+                    .urn(testUrn1)
+                    .aspectName(STATUS_ASPECT_NAME)
+                    .recordTemplate(new Status().setRemoved(false))
+                    .changeType(ChangeType.UPSERT)
+                    .auditStamp(TEST_AUDIT_STAMP)
+                    .build(opContext.getAspectRetriever()),
+                opContext.getRetrieverContext())
+            .build(opContext),
+        existingBaseCount + 1,
+        0,
+        1,
+        "with retention: existing no-op",
+        mustInclude);
+
+    // actual change: maxVersionsToKeep=20 so we insert previous version (1 INSERT) and update v0 (1
+    // UPDATE)
+    assertSQL(
+        AspectsBatchImpl.builder()
+            .retrieverContext(opContext.getRetrieverContext())
+            .one(
+                ChangeItemImpl.builder()
+                    .urn(testUrn1)
+                    .aspectName(STATUS_ASPECT_NAME)
+                    .recordTemplate(new Status().setRemoved(true))
+                    .changeType(ChangeType.UPSERT)
+                    .auditStamp(TEST_AUDIT_STAMP)
+                    .build(opContext.getAspectRetriever()),
+                opContext.getRetrieverContext())
+            .build(opContext),
+        existingBaseCount + 1,
         1,
         1,
-        "existing: multiple change. expected no additional statements over single change");
+        "with retention: existing single change (expect version-history INSERT + UPDATE)",
+        mustInclude);
   }
 
   private void assertSQL(
@@ -212,7 +307,8 @@ public class EbeanEntityServiceOptimizationTest {
       int expectedSelectCount,
       int expectedInsertCount,
       int expectedUpdateCount,
-      @Nullable String description) {
+      @Nullable String description,
+      @Nonnull String mustInclude) {
 
     // Clear any existing logged statements
     LoggedSql.stop();
@@ -222,11 +318,35 @@ public class EbeanEntityServiceOptimizationTest {
 
     try {
       entityService.ingestProposal(opContext, batch, false);
+      // First collect all SQL statements that start with "txn[]"
+      List<String> allSqlStatements = new ArrayList<>();
+      for (String sqlGroup : new ArrayList<>(LoggedSql.collect())) {
+        // Split by "txn[]" but preserve the prefix
+        String[] parts = sqlGroup.split("(?=txn\\[\\])");
+        for (String part : parts) {
+          if (part.startsWith("txn[]")) {
+            allSqlStatements.add(part);
+          }
+        }
+      }
+
+      // Then process them to fold comments into previous lines
+      List<String> txnLog = new ArrayList<>();
+      for (String sql : allSqlStatements) {
+        if (sql.startsWith("txn[]  -- ") && !txnLog.isEmpty()) {
+          // Append this comment to the previous statement
+          int lastIndex = txnLog.size() - 1;
+          String current = txnLog.get(lastIndex);
+          txnLog.set(lastIndex, current + "\n" + sql);
+        } else {
+          // Add as a new statement
+          txnLog.add(sql);
+        }
+      }
       // Get the captured SQL statements
       Map<String, List<String>> statementMap =
-          LoggedSql.stop().stream()
-              // only consider transaction statements
-              .filter(sql -> sql.startsWith("txn[]") && !sql.startsWith("txn[]  -- "))
+          txnLog.stream()
+              .filter(sql -> sql.contains(mustInclude))
               .collect(
                   Collectors.groupingBy(
                       sql -> {
@@ -245,29 +365,48 @@ public class EbeanEntityServiceOptimizationTest {
           statementMap.getOrDefault("UNKNOWN", List.of()).size(),
           0,
           String.format(
-              "(%s) Expected all SQL statements to be categorized: %s",
-              description, statementMap.get("UNKNOWN")));
+              "(%s) Expected all SQL statements to be categorized:\n%s",
+              description, formatUnknownStatements(statementMap.get("UNKNOWN"))));
       assertEquals(
           statementMap.getOrDefault("SELECT", List.of()).size(),
           expectedSelectCount,
           String.format(
-              "(%s) Expected SELECT SQL count mismatch: %s",
-              description, statementMap.get("SELECT")));
+              "(%s) Expected SELECT SQL count mismatch filtering for (%s):\n%s",
+              description, mustInclude, formatUnknownStatements(statementMap.get("SELECT"))));
       assertEquals(
           statementMap.getOrDefault("INSERT", List.of()).size(),
           expectedInsertCount,
           String.format(
-              "(%s) Expected INSERT SQL count mismatch: %s",
-              description, statementMap.get("INSERT")));
+              "(%s) Expected INSERT SQL count mismatch filtering for (%s):\n%s",
+              description, mustInclude, formatUnknownStatements(statementMap.get("INSERT"))));
       assertEquals(
           statementMap.getOrDefault("UPDATE", List.of()).size(),
           expectedUpdateCount,
           String.format(
-              "(%s), Expected UPDATE SQL count mismatch: %s",
-              description, statementMap.get("UPDATE")));
+              "(%s), Expected UPDATE SQL count mismatch filtering for (%s):\n%s",
+              description, mustInclude, formatUnknownStatements(statementMap.get("UPDATE"))));
     } finally {
       // Ensure logging is stopped even if assertions fail
       LoggedSql.stop();
     }
+  }
+
+  private static String formatUnknownStatements(List<String> statements) {
+    if (statements == null || statements.isEmpty()) {
+      return "  No unknown statements";
+    }
+
+    StringBuilder builder = new StringBuilder();
+    for (int i = 0; i < statements.size(); i++) {
+      builder.append("  ").append(i + 1).append(". ").append(statements.get(i)).append("\n");
+    }
+    return builder.toString();
+  }
+
+  @AfterMethod
+  public void cleanup() {
+    // Shutdown Database instance to prevent thread pool and connection leaks
+    // This includes the "gma.heartBeat" thread and connection pools
+    EbeanTestUtils.shutdownDatabase(server);
   }
 }

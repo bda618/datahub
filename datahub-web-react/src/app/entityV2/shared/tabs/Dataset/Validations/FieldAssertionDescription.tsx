@@ -1,15 +1,16 @@
-import React from 'react';
 import { Typography } from 'antd';
-import styled from 'styled-components';
 import { Maybe } from 'graphql/jsutils/Maybe';
-import { FieldAssertionInfo } from '../../../../../../types.generated';
+import React from 'react';
+import styled from 'styled-components';
+
 import {
     getFieldDescription,
     getFieldOperatorDescription,
     getFieldParametersDescription,
     getFieldTransformDescription,
-} from './fieldDescriptionUtils';
-import { REDESIGN_COLORS } from '../../../constants';
+} from '@app/entityV2/shared/tabs/Dataset/Validations/fieldDescriptionUtils';
+
+import { FieldAssertionInfo } from '@types';
 
 type Props = {
     assertionInfo: FieldAssertionInfo;
@@ -25,7 +26,7 @@ const StyledDescrptionContainer = styled.div`
 `;
 const StyledColumnTag = styled.div`
     align-items: center;
-    background-color: ${REDESIGN_COLORS.COLD_GREY_TEXT_BLUE_1};
+    background-color: ${(props) => props.theme.colors.bgSurface};
     width: fit-content;
     border-radius: 12px;
     height: 24px;

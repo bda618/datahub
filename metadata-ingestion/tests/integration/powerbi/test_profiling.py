@@ -1,10 +1,10 @@
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 from unittest import mock
 
-from freezegun import freeze_time
+import time_machine
 
 from datahub.ingestion.run.pipeline import Pipeline
-from tests.test_helpers import mce_helpers
+from datahub.testing import mce_helpers
 
 FROZEN_TIME = "2022-02-23 07:00:00"
 
@@ -20,18 +20,6 @@ def scan_init_response(request, context):
     }
 
     return w_id_vs_response[workspace_id]
-
-
-def admin_datasets_response(request, context):
-    return {
-        "value": [
-            {
-                "id": "05169CD2-E713-41E6-9600-1D8066D95445",
-                "name": "library-dataset",
-                "webUrl": "http://localhost/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/05169CD2-E713-41E6-9600-1D8066D95445",
-            }
-        ]
-    }
 
 
 def execute_queries_response(request, context):
@@ -103,13 +91,12 @@ def execute_queries_response(request, context):
         }
 
 
-def register_mock_admin_api(request_mock: Any, override_data: dict = {}) -> None:
+def register_mock_admin_api(
+    request_mock: Any, override_data: Optional[dict] = None
+) -> None:
+    if override_data is None:
+        override_data = {}
     api_vs_response = {
-        "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets": {
-            "method": "GET",
-            "status_code": 200,
-            "json": admin_datasets_response,
-        },
         "https://api.powerbi.com/v1.0/myorg/groups?%24skip=0&%24top=1000": {
             "method": "GET",
             "status_code": 200,
@@ -136,22 +123,6 @@ def register_mock_admin_api(request_mock: Any, override_data: dict = {}) -> None
             "method": "GET",
             "status_code": 200,
             "json": {"value": []},
-        },
-        "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/05169CD2-E713-41E6-9600-1D8066D95445/datasources": {
-            "method": "GET",
-            "status_code": 200,
-            "json": {
-                "value": [
-                    {
-                        "datasourceId": "DCE90B40-84D6-467A-9A5C-648E830E72D3",
-                        "datasourceType": "PostgreSql",
-                        "connectionDetails": {
-                            "database": "library_db",
-                            "server": "foo",
-                        },
-                    },
-                ]
-            },
         },
         "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/05169CD2-E713-41E6-9600-1D8066D95445/executeQueries": {
             "method": "POST",
@@ -186,7 +157,8 @@ def register_mock_admin_api(request_mock: Any, override_data: dict = {}) -> None
                             {
                                 "id": "05169CD2-E713-41E6-9600-1D8066D95445",
                                 "endorsementDetails": {"endorsement": "Promoted"},
-                                "name": "test_sf_pbi_test",
+                                "name": "library-dataset",
+                                "description": "Library Dataset",
                                 "tables": [
                                     {
                                         "name": "articles",
@@ -246,21 +218,11 @@ def register_mock_admin_api(request_mock: Any, override_data: dict = {}) -> None
             "status_code": 200,
             "json": scan_init_response,
         },
-        "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/05169CD2-E713-41E6-9600-1D8066D95445": {
-            "method": "GET",
-            "status_code": 200,
-            "json": {
-                "id": "05169CD2-E713-41E6-9600-1D8066D95445",
-                "name": "library-dataset",
-                "description": "Library Dataset",
-                "webUrl": "http://localhost/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/05169CD2-E713-41E6-9600-1D8066D95445",
-            },
-        },
     }
 
     api_vs_response.update(override_data)
 
-    for url in api_vs_response.keys():
+    for url in api_vs_response:
         request_mock.register_uri(
             api_vs_response[url]["method"],
             url,
@@ -286,6 +248,7 @@ def default_source_config():
         "tenant_id": "0B0C960B-FCDF-4D0F-8C45-2E03BB59DDEB",
         "workspace_id": "64ED5CAD-7C10-4684-8180-826122881108",
         "extract_lineage": True,
+        "extract_column_level_lineage": False,
         "extract_reports": False,
         "admin_apis_only": False,
         "extract_ownership": True,
@@ -297,10 +260,14 @@ def default_source_config():
             "enabled": True,
         },
         "profile_pattern": {"allow": [".*"]},
+        # Explicitly set to True to maintain backward compatibility with golden files
+        "ownership": {
+            "create_corp_user": True,
+        },
     }
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
 def test_profiling(mock_msal, pytestconfig, tmp_path, mock_time, requests_mock):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"

@@ -1,41 +1,45 @@
-import React from 'react';
-import styled from 'styled-components';
-import { Popover, Tooltip } from '@components';
-import { Divider, Modal, Typography, message } from 'antd';
-import moment from 'moment';
+import { Tooltip } from '@components';
+import { Divider, Typography, message } from 'antd';
 import { TooltipPlacement } from 'antd/es/tooltip';
-import DeprecatedIcon from '../../../../../images/deprecated-status.svg?react';
-import { useBatchUpdateDeprecationMutation } from '../../../../../graphql/mutations.generated';
-import { Deprecation, SubResourceType } from '../../../../../types.generated';
-import { EntityLink } from '../../../../homeV2/reference/sections/EntityLink';
-import { getV1FieldPathFromSchemaFieldUrn } from '../../../../lineageV2/lineageUtils';
-import { getLocaleTimezone, toLocalDateString } from '../../../../shared/time/timeUtils';
-import { REDESIGN_COLORS } from '../../constants';
-import MarkAsDeprecatedButton from './MarkAsDeprecatedButton';
+import React, { useState } from 'react';
+import styled from 'styled-components';
+
+import analytics, { EventType } from '@app/analytics';
+import MarkAsDeprecatedButton from '@app/entityV2/shared/components/styled/MarkAsDeprecatedButton';
+import CompactMarkdownViewer from '@app/entityV2/shared/tabs/Documentation/components/CompactMarkdownViewer';
+import { EntityLink } from '@app/homeV2/reference/sections/EntityLink';
+import { getV1FieldPathFromSchemaFieldUrn } from '@app/lineageV2/lineageUtils';
+import { toLocalDateString } from '@app/shared/time/timeUtils';
+import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
+import { StructuredPopover } from '@src/alchemy-components/components/StructuredPopover';
+import dayjs from '@utils/dayjs';
+
+import { useBatchUpdateDeprecationMutation } from '@graphql/mutations.generated';
+import { Deprecation, SubResourceType } from '@types';
+
+import DeprecatedIcon from '@images/deprecated-status.svg?react';
 
 const DeprecatedContainer = styled.div`
     display: flex;
     justify-content: center;
     gap: 4px;
     align-items: center;
-    color: ${REDESIGN_COLORS.DEPRECATION_RED};
+    color: ${(props) => props.theme.colors.textError};
 `;
 
 const DeprecatedTitle = styled(Typography.Text)`
     display: block;
-    font-size: 14px;
+    font-size: 16px;
     margin-bottom: 5px;
     font-weight: bold;
-    color: ${REDESIGN_COLORS.TEXT_HEADING};
+    color: ${(props) => props.theme.colors.text};
 `;
 
 const DeprecatedSubTitle = styled(Typography.Text)`
     display: block;
     margin-bottom: 5px;
-    color: ${REDESIGN_COLORS.TEXT_HEADING};
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    font-size: 12px;
+    color: ${(props) => props.theme.colors.text};
     max-width: 100%;
 `;
 
@@ -44,7 +48,8 @@ const LastEvaluatedAtLabel = styled.div`
     margin: 0;
     display: flex;
     align-items: center;
-    color: ${REDESIGN_COLORS.SUB_TEXT};
+    color: ${(props) => props.theme.colors.textTertiary};
+    font-size: 14px;
 `;
 
 const ReplacementContainer = styled.span`
@@ -63,21 +68,11 @@ const ThinDivider = styled(Divider)`
 const IconGroup = styled.div`
     padding-top: 10px;
     font-size: 12px;
-    color: ${REDESIGN_COLORS.TEXT_HEADING};
+    color: ${(props) => props.theme.colors.text};
 
     &:hover {
-        color: ${REDESIGN_COLORS.TITLE_PURPLE};
+        color: ${(props) => props.theme.styles['primary-color']};
         cursor: pointer;
-    }
-`;
-
-const StyledDeprecatedIcon = styled(DeprecatedIcon)`
-    color: inherit;
-    path {
-        fill: currentColor;
-    }
-    && {
-        fill: currentColor;
     }
 `;
 
@@ -105,7 +100,7 @@ export const DeprecationIcon = ({
     popoverPlacement = 'bottom',
 }: Props) => {
     const [batchUpdateDeprecationMutation] = useBatchUpdateDeprecationMutation();
-    const localeTimezone = getLocaleTimezone(); // Deprecation Decommission Timestamp
+    const [showUndeprecateModal, setShowUndeprecateModal] = useState(false);
 
     let decommissionTimeSeconds;
     if (deprecation.decommissionTime) {
@@ -118,12 +113,10 @@ export const DeprecationIcon = ({
     }
     const decommissionTimeLocal =
         (decommissionTimeSeconds &&
-            `Scheduled to be decommissioned on ${toLocalDateString(
-                decommissionTimeSeconds * 1000,
-            )} (${localeTimezone})`) ||
+            `Scheduled to be decommissioned on ${toLocalDateString(decommissionTimeSeconds * 1000)}`) ||
         undefined;
     const decommissionTimeGMT =
-        decommissionTimeSeconds && moment.unix(decommissionTimeSeconds).utc().format('dddd, DD/MMM/YYYY HH:mm:ss z');
+        decommissionTimeSeconds && dayjs.unix(decommissionTimeSeconds).utc().format('dddd, DD/MMM/YYYY HH:mm:ss z');
 
     const hasDetails = deprecation.note !== '' || deprecation.decommissionTime !== null;
     const isDividerNeeded = deprecation.note !== '' && deprecation.decommissionTime !== null;
@@ -141,7 +134,14 @@ export const DeprecationIcon = ({
                 if (!errors) {
                     message.success({ content: 'Marked assets as un-deprecated!', duration: 2 });
                     refetch?.();
+                    analytics.event({
+                        type: EventType.SetDeprecation,
+                        entityUrns: [urn],
+                        deprecated: false,
+                        resources: subResource ? [{ resourceUrn: urn, subResource, subResourceType }] : undefined,
+                    });
                 }
+                setShowUndeprecateModal(false);
             })
             .catch((e) => {
                 message.destroy();
@@ -156,15 +156,14 @@ export const DeprecationIcon = ({
     const entityTypeDisplayName = subResourceType === SubResourceType.DatasetField ? 'column' : 'asset';
 
     return (
-        <Popover
-            overlayStyle={{ maxWidth: 240 }}
+        <StructuredPopover
             zIndex={zIndexOverride || 999} // set to 999 to ensure it is below the 1000 mark of the entity popover if on the entity level
             placement={popoverPlacement}
-            content={
+            width={340}
+            title={
                 hasDetails ? (
                     <>
                         <DeprecatedTitle>This {entityTypeDisplayName} is deprecated</DeprecatedTitle>
-                        {isDividerNeeded && <ThinDivider />}
                         {deprecation.replacement && (
                             <DeprecatedSubTitle>
                                 {isReplacementSchemaField ? (
@@ -181,31 +180,19 @@ export const DeprecationIcon = ({
                                 )}
                             </DeprecatedSubTitle>
                         )}
-                        {deprecation?.note !== '' && <DeprecatedSubTitle>{deprecation.note}</DeprecatedSubTitle>}
+                        {deprecation?.note && (
+                            <DeprecatedSubTitle>
+                                <CompactMarkdownViewer content={deprecation.note} />
+                            </DeprecatedSubTitle>
+                        )}
                         {deprecation?.decommissionTime !== null && (
-                            <Typography.Text type="secondary">
-                                <Tooltip placement="right" title={decommissionTimeGMT}>
-                                    <LastEvaluatedAtLabel>{decommissionTimeLocal}</LastEvaluatedAtLabel>
-                                </Tooltip>
-                            </Typography.Text>
+                            <Tooltip placement="right" title={decommissionTimeGMT}>
+                                <LastEvaluatedAtLabel>{decommissionTimeLocal}</LastEvaluatedAtLabel>
+                            </Tooltip>
                         )}
                         {isDividerNeeded && showUndeprecate ? <ThinDivider /> : null}
                         {showUndeprecate && (
-                            <IconGroup
-                                onClick={() =>
-                                    Modal.confirm({
-                                        title: `Confirm Mark as un-deprecated`,
-                                        content: `Are you sure you want to mark this asset as un-deprecated?`,
-                                        onOk() {
-                                            batchUndeprecate();
-                                        },
-                                        onCancel() {},
-                                        okText: 'Yes',
-                                        maskClosable: true,
-                                        closable: true,
-                                    })
-                                }
-                            >
+                            <IconGroup onClick={() => setShowUndeprecateModal(true)}>
                                 <MarkAsDeprecatedButton internalText="Mark as un-deprecated" />
                             </IconGroup>
                         )}
@@ -216,9 +203,16 @@ export const DeprecationIcon = ({
             }
         >
             <DeprecatedContainer>
-                <StyledDeprecatedIcon />
+                <DeprecatedIcon />
                 {showText ? 'Deprecated' : null}
+                <ConfirmationModal
+                    isOpen={showUndeprecateModal}
+                    handleClose={() => setShowUndeprecateModal(false)}
+                    handleConfirm={batchUndeprecate}
+                    modalTitle="Confirm Mark as un-deprecated"
+                    modalText="Are you sure you want to mark these assets as un-deprecated?"
+                />
             </DeprecatedContainer>
-        </Popover>
+        </StructuredPopover>
     );
 };

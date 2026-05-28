@@ -6,11 +6,11 @@ from typing import Dict, Iterable, List, Optional, Tuple, Type, Union, ValuesVie
 import bson.timestamp
 import pymongo.collection
 from packaging import version
-from pydantic import PositiveInt, validator
+from pydantic import PositiveInt, field_validator
 from pydantic.fields import Field
 from pymongo.mongo_client import MongoClient
 
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, TransparentSecretStr
 from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
@@ -36,7 +36,10 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
+from datahub.ingestion.source.common.subtypes import (
+    DatasetContainerSubTypes,
+    SourceCapabilityModifier,
+)
 from datahub.ingestion.source.schema_inference.object import (
     SchemaDescription,
     construct_schema,
@@ -94,9 +97,15 @@ class MongoDBConfig(
         default="mongodb://localhost", description="MongoDB connection URI."
     )
     username: Optional[str] = Field(default=None, description="MongoDB username.")
-    password: Optional[str] = Field(default=None, description="MongoDB password.")
+    password: Optional[TransparentSecretStr] = Field(
+        default=None, description="MongoDB password."
+    )
     authMechanism: Optional[str] = Field(
-        default=None, description="MongoDB authentication mechanism."
+        default=None,
+        description="MongoDB authentication mechanism. Supported values: "
+        "DEFAULT, SCRAM-SHA-1, SCRAM-SHA-256, MONGODB-AWS, MONGODB-X509. "
+        "When using MONGODB-AWS, credentials are resolved via boto3. "
+        "See https://pymongo.readthedocs.io/en/stable/examples/authentication.html",
     )
     options: dict = Field(
         default={}, description="Additional options to pass to `pymongo.MongoClient()`."
@@ -132,10 +141,22 @@ class MongoDBConfig(
         default=AllowDenyPattern.allow_all(),
         description="regex patterns for collections to filter in ingestion.",
     )
+    excludeSystemCollections: bool = Field(
+        default=True,
+        description=(
+            "Whether to exclude MongoDB system collections (those starting with 'system.') "
+            "from ingestion. System collections such as system.profile and system.views are "
+            "internal MongoDB collections that do not contain user data. Ingesting them produces "
+            "noisy or incorrect metadata. Set to False only if you explicitly need to ingest "
+            "system collections and have granted the appropriate database roles (dbAdmin for "
+            "system.profile). Default: True."
+        ),
+    )
     # Custom Stateful Ingestion settings
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
 
-    @validator("maxDocumentSize")
+    @field_validator("maxDocumentSize", mode="after")
+    @classmethod
     def check_max_doc_size_filter_is_valid(cls, doc_size_filter_value):
         if doc_size_filter_value > 16793600:
             raise ValueError("maxDocumentSize must be a positive value <= 16793600.")
@@ -249,21 +270,23 @@ def construct_schema_pymongo(
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
+@capability(
+    SourceCapability.CONTAINERS,
+    "Enabled by default",
+    subtype_modifier=[
+        SourceCapabilityModifier.DATABASE,
+    ],
+)
 @dataclass
 class MongoDBSource(StatefulIngestionSourceBase):
     """
-    This plugin extracts the following:
+    Source that extracts databases and collections from MongoDB with inferred schemas.
 
-    - Databases and associated metadata
-    - Collections in each database and schemas for each collection (via schema inference)
-
-    By default, schema inference samples 1,000 documents from each collection. Setting `schemaSamplingSize: null` will scan the entire collection.
-    Moreover, setting `useRandomSampling: False` will sample the first documents found without random selection, which may be faster for large collections.
-
-    Note that `schemaSamplingSize` has no effect if `enableSchemaInference: False` is set.
-
-    Really large schemas will be further truncated to a maximum of 300 schema fields. This is configurable using the `maxSchemaSize` parameter.
-
+    Implementation notes:
+    - Uses PyMongo for MongoDB connections
+    - Schema inference samples documents to derive field types
+    - Supports multiple auth mechanisms (SCRAM, AWS IAM, X.509)
+    - Configurable sampling size, random sampling, and schema truncation
     """
 
     config: MongoDBConfig
@@ -280,7 +303,7 @@ class MongoDBSource(StatefulIngestionSourceBase):
         if self.config.username is not None:
             options["username"] = self.config.username
         if self.config.password is not None:
-            options["password"] = self.config.password
+            options["password"] = self.config.password.get_secret_value()
         if self.config.authMechanism is not None:
             options["authMechanism"] = self.config.authMechanism
         options = {
@@ -301,7 +324,7 @@ class MongoDBSource(StatefulIngestionSourceBase):
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "MongoDBSource":
-        config = MongoDBConfig.parse_obj(config_dict)
+        config = MongoDBConfig.model_validate(config_dict)
         return cls(ctx, config)
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
@@ -389,6 +412,16 @@ class MongoDBSource(StatefulIngestionSourceBase):
             # traverse collections in sorted order so output is consistent
             for collection_name in sorted(collection_names):
                 dataset_name = f"{database_name}.{collection_name}"
+
+                # Skip MongoDB internal system collections by default.
+                # system.profile requires dbAdmin (not just read/readWrite) and only exists
+                # when profiling is enabled. system.views contains view definitions, not data.
+                # Both produce garbage schema metadata if ingested naively.
+                if self.config.excludeSystemCollections and collection_name.startswith(
+                    "system."
+                ):
+                    self.report.report_dropped(dataset_name)
+                    continue
 
                 if not self.config.collection_pattern.allowed(dataset_name):
                     self.report.report_dropped(dataset_name)
